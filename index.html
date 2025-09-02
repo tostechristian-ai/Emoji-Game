@@ -2122,6 +2122,28 @@
             return now;
         }
         
+        function spawnMerchant() {
+    if (!merchant) {
+        // If no merchant exists, create a new one
+        const minDistance = 100; // Minimum distance from the player
+        let merchantX, merchantY, distance;
+        do {
+            merchantX = Math.random() * (gameCanvas.width * 2) - gameCanvas.width;
+            merchantY = Math.random() * (gameCanvas.height * 2) - gameCanvas.height;
+            distance = Math.hypot(player.x - merchantX, player.y - merchantY);
+        } while (distance < minDistance);
+
+        merchant = {
+            x: merchantX,
+            y: merchantY,
+            size: 60,
+            emoji: '🧙‍♂️',
+            spawnTime: Date.now()
+        };
+        console.log("Merchant spawned at:", merchant.x, merchant.y);
+    }
+}
+        
         function drawEmoji(emoji, x, y, size, camera) {
     if (!ctx) return;
     drawEmoji('🧙‍♂️', merchant.x, merchant.y, merchant.size, camera);
