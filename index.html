@@ -2124,6 +2124,7 @@
         
         function drawEmoji(emoji, x, y, size, camera) {
     if (!ctx) return;
+    drawEmoji('🧙‍♂️', merchant.x, merchant.y, merchant.size, camera);
     ctx.save();
     ctx.font = `${size}px serif`;
     ctx.textAlign = 'center';
@@ -4594,7 +4595,6 @@ async function tryLoadMusic(retries = 3) {
         // Check if the distance is less than the combined radii of the player and merchant
         if (distance < (player.size / 2) + (merchant.size / 2)) {
             showMerchantShop();
-            drawEmoji('🧙‍♂️', merchant.x, merchant.y, merchant.size, camera);
     
         }
     }
@@ -6448,6 +6448,8 @@ if (player2 && player2.active) {
 
         function savePlayerData() { try { localStorage.setItem('emojiSurvivorData', JSON.stringify(playerData)); } catch (e) { console.error("Failed to save player data.", e); } }
         function openUpgradeShop() { difficultyContainer.style.display = 'none'; upgradeShop.style.display = 'flex'; displayUpgrades(); }
+
+
 
         function displayUpgrades() {
             currencyDisplay.textContent = `Coins: ${playerData.currency} 🪙`;
