@@ -2670,7 +2670,7 @@
         
         let merchant = null;
         let lastMerchantSpawnTime = 0;
-        const MERCHANT_SPAWN_INTERVAL = 180000; // 3 minutes
+        const MERCHANT_SPAWN_INTERVAL = 10000; // 3 minutes
 
         // --- NEW FEATURES ---
         let bugSwarmActive = false;
@@ -4568,20 +4568,22 @@ async function tryLoadMusic(retries = 3) {
             lastFrameTime = now;
             checkAchievements();
             
-            if (!merchant && now - lastMerchantSpawnTime > MERCHANT_SPAWN_INTERVAL) {
-                spawnMerchant();
-                lastMerchantSpawnTime = now;
-            }
+            if (!merchant && Date.now() - lastMerchantSpawnTime >= MERCHANT_SPAWN_INTERVAL) {
+        spawnMerchant();
+    }
 
-            if (merchant) {
-                const dx = player.x - merchant.x;
-                const dy = player.y - merchant.y;
-                const distanceSq = dx * dx + dy * dy;
-                const combinedRadius = (player.size / 2) + (merchant.size / 2);
-                if (distanceSq < combinedRadius * combinedRadius) {
-                    showMerchantShop();
-                }
-            }
+    // Check for collision with the player
+    if (merchant) {
+        // Calculate the distance between the center of the player and the merchant
+        const dx = player.x - merchant.x;
+        const dy = player.y - merchant.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+
+        // Check if the distance is less than the combined radii of the player and merchant
+        if (distance < (player.size / 2) + (merchant.size / 2)) {
+            showMerchantShop();
+        }
+    }
 
             if (fireRateBoostActive && now > fireRateBoostEndTime) fireRateBoostActive = false;
             
