@@ -4571,6 +4571,7 @@ async function tryLoadMusic(retries = 3) {
         }
 
         function update() {
+            spawnMerchant(); // Add this line here
     if (gamePaused || gameOver || !gameActive) return;
 
     // *** OPTIMIZATION: Clear and repopulate the Quadtree each frame ***
