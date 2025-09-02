@@ -5295,12 +5295,7 @@ if (player2 && player2.active) {
     let p2isShooting = p2aimDx !== 0 || p2aimDy !== 0;
 
     const now = Date.now();
-    // Fire the weapon with the correct angle
-    if (p2isShooting && now - player2.lastFireTime > player2.fireInterval) {
-        const angle = Math.atan2(p2aimDy, p2aimDx);
-        createWeapon(player2, angle); // Pass the calculated angle to the createWeapon function
-        player2.lastFireTime = now;
-    }
+
 
 }
 
