@@ -4378,23 +4378,23 @@ async function tryLoadMusic(retries = 3) {
         // ================================================================================= //
 
         function spawnMerchant() {
-            if (merchant) return; // Don't spawn if one already exists
-            
-            let x, y;
-            const spawnOffset = 50;
-            // Spawn away from the player
-            const angle = Math.random() * 2 * Math.PI;
-            const distance = (WORLD_WIDTH / 4) + Math.random() * (WORLD_WIDTH / 4);
-            x = player.x + Math.cos(angle) * distance;
-            y = player.y + Math.sin(angle) * distance;
+    if (merchant) return; // Don't spawn if one already exists
 
-            // Clamp within world bounds
-            x = Math.max(spawnOffset, Math.min(WORLD_WIDTH - spawnOffset, x));
-            y = Math.max(spawnOffset, Math.min(WORLD_HEIGHT - spawnOffset, y));
-            
-            merchant = { x: x, y: y, size: 40 };
-            console.log("A merchant has appeared!");
-        }
+    let x, y;
+    const spawnOffset = 50;
+    // Spawn away from the player
+    const angle = Math.random() * 2 * Math.PI;
+    const distance = (WORLD_WIDTH / 4) + Math.random() * (WORLD_WIDTH / 4);
+    x = player.x + Math.cos(angle) * distance;
+    y = player.y + Math.sin(angle) * distance;
+
+    // Clamp within world bounds
+    x = Math.max(spawnOffset, Math.min(WORLD_WIDTH - spawnOffset, x));
+    y = Math.max(spawnOffset, Math.min(WORLD_HEIGHT - spawnOffset, y));
+
+    merchant = { x: x, y: y, size: 40 }; // CORRECT: Assigns to the 'merchant' variable
+    console.log("A merchant has appeared!");
+}
 
         function closeMerchantShop() {
             merchantShop.style.display = 'none';
@@ -4578,10 +4578,14 @@ async function tryLoadMusic(retries = 3) {
         const dx = player.x - merchant.x;
         const dy = player.y - merchant.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
+        
+        
 
         // Check if the distance is less than the combined radii of the player and merchant
         if (distance < (player.size / 2) + (merchant.size / 2)) {
             showMerchantShop();
+            drawEmoji('🧙‍♂️', merchant.x, merchant.y, merchant.size);
+    
         }
     }
 
