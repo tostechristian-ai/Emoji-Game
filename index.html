@@ -4534,8 +4534,10 @@ async function tryLoadMusic(retries = 3) {
         }
 
         function update() {
-            if (gamePaused || gameOver || !gameActive) return;
-            const now = Date.now();
+    if (gamePaused || gameOver || !gameActive) return;
+
+
+    const now = Date.now();
             const deltaTime = now - lastFrameTime;
             if (deltaTime > 0) {
                 const xpGainMultiplier = 1 + (playerData.upgrades.xpGain || 0) * PERMANENT_UPGRADES.xpGain.effect;
@@ -5308,88 +5310,112 @@ async function tryLoadMusic(retries = 3) {
             }
 
 
-            for (let i = enemies.length - 1; i >= 0; i--) {
-                const enemy = enemies[i];
-                if (!enemy.isHit) {
-                    for (const weapon of weaponPool) {
-                        if(!weapon.active) continue;
+            for (const weapon of weaponPool) {
+    if (!weapon.active) continue;
 
-                        const canGhostBeHit = enemy.emoji !== '👻' || (enemy.emoji === '👻' && enemy.isVisible);
+    // Define the weapon's bounding box to search the quadtree
+    const weaponBounds = {
+        x: weapon.x - weapon.size / 2,
+        y: weapon.y - weapon.size / 2,
+        width: weapon.size,
+        height: weapon.size
+    };
+    
+    // Ask the quadtree for a small list of only the objects near the weapon
+    const nearbyObjects = quadtree.retrieve(weaponBounds);
 
-                        if (canGhostBeHit && !weapon.hitEnemies.includes(enemy)) {
-                            const dx = weapon.x - enemy.x;
-                            const dy = weapon.y - enemy.y;
-                            const combinedRadius = (weapon.size / 2) + (enemy.size / 2);
+    // Now, only loop through this much smaller list of potential targets
+    for (const targetObject of nearbyObjects) {
+        const enemy = targetObject.ref; // Get the original enemy object using our reference
 
-                            if(dx*dx + dy*dy < combinedRadius*combinedRadius) {
-                                let damageToDeal = player.damageMultiplier;
-                                if (rocketLauncherActive) { damageToDeal *= 2; }
-                                if (cheats.one_hit_kill) damageToDeal = Infinity;
+        // Make sure the object is a valid, hittable enemy
+        if (!enemy || !enemy.health || enemy.isHit) {
+            continue;
+        }
 
-                                enemy.health -= damageToDeal;
-                                createBloodSplatter(enemy.x, enemy.y);
-                                weapon.hitEnemies.push(enemy);
+        const canGhostBeHit = enemy.emoji !== '👻' || (enemy.emoji === '👻' && enemy.isVisible);
 
-                                if (explosiveBulletsActive) {
-                                    const explosionId = Math.random();
-                                    explosions.push({
-                                        x: weapon.x, y: weapon.y, radius: enemy.size * 2,
-                                        startTime: now, duration: 300
-                                    });
-                                    const explosionRadiusSq = (enemy.size * 2)**2;
-                                    enemies.forEach(otherEnemy => {
-                                        if (otherEnemy !== enemy && !otherEnemy.isHit) {
-                                            const distSq = (otherEnemy.x - weapon.x)**2 + (otherEnemy.y - weapon.y)**2;
-                                            if (distSq < explosionRadiusSq + (otherEnemy.size / 2)**2) {
-                                                otherEnemy.health -= player.damageMultiplier;
-                                                if(cheats.instaKill) otherEnemy.health = 0;
-                                                createBloodSplatter(otherEnemy.x, otherEnemy.y);
-                                                if (otherEnemy.health <= 0) { handleEnemyDeath(otherEnemy, explosionId); }
-                                            }
-                                        }
-                                    });
-                                }
+        if (canGhostBeHit && !weapon.hitEnemies.includes(enemy)) {
+            const dx = weapon.x - enemy.x;
+            const dy = weapon.y - enemy.y;
+            const combinedRadius = (weapon.size / 2) + (enemy.size / 2);
 
-                                if (player.knockbackStrength > 0 && !enemy.isBoss) {
-                                    const knockbackDistance = 50 * player.knockbackStrength;
-                                    const normDx = weapon.dx / weapon.speed;
-                                    const normDy = weapon.dy / weapon.speed;
-                                    enemy.x += normDx * knockbackDistance;
-                                    enemy.y += normDy * knockbackDistance;
-                                }
-                                if (iceProjectileActive) { 
-                                    enemy.isFrozen = true; 
-                                    enemy.freezeEndTime = now + 250;
-                                    playerStats.totalEnemiesFrozen++;
-                                }
-                                if (flamingBulletsActive) {
-                                    enemy.isIgnited = true;
-                                    enemy.ignitionEndTime = now + 6000;
-                                    enemy.lastIgnitionDamageTime = now;
-                                }
-                                if (enemy.health <= 0) { handleEnemyDeath(enemy); }
-                                weapon.hitsLeft--;
-                                if (weapon.hitsLeft > 0 && ricochetActive && !rocketLauncherActive) {
-                                    let newTarget = null; let minDistanceSq = Infinity;
-                                    enemies.forEach(otherEnemy => {
-                                        if (!weapon.hitEnemies.includes(otherEnemy) && !otherEnemy.isHit) {
-                                            const distSq = (weapon.x - otherEnemy.x)**2 + (weapon.y - otherEnemy.y)**2;
-                                            if (distSq < minDistanceSq) { minDistanceSq = distSq; newTarget = otherEnemy; }
-                                        }
-                                    });
-                                    if (newTarget) {
-                                        if (explosiveBulletsActive) { explosions.push({ x: weapon.x, y: weapon.y, radius: enemy.size * 2, startTime: now, duration: 300 }); }
-                                        const angle = Math.atan2(newTarget.y - weapon.y, newTarget.x - weapon.x);
-                                        weapon.angle = angle;
-                                        weapon.dx = Math.cos(angle) * weapon.speed;
-                                        weapon.dy = Math.sin(angle) * weapon.speed;
-                                    } else { weapon.active = false; }
-                                } else { weapon.active = false; }
+            // This is the same distance check as before
+            if (dx * dx + dy * dy < combinedRadius * combinedRadius) {
+                
+                // --- ALL YOUR ORIGINAL COLLISION LOGIC IS COPIED HERE ---
+                let damageToDeal = player.damageMultiplier;
+                if (rocketLauncherActive) { damageToDeal *= 2; }
+                if (cheats.one_hit_kill) damageToDeal = Infinity;
+
+                enemy.health -= damageToDeal;
+                createBloodSplatter(enemy.x, enemy.y);
+                weapon.hitEnemies.push(enemy);
+
+                if (explosiveBulletsActive) {
+                    const explosionId = Math.random();
+                    explosions.push({
+                        x: weapon.x, y: weapon.y, radius: enemy.size * 2,
+                        startTime: Date.now(), duration: 300
+                    });
+                    // This part can also be optimized later, but let's leave it for now
+                    enemies.forEach(otherEnemy => { 
+                        if (otherEnemy !== enemy && !otherEnemy.isHit) {
+                            const distSq = (otherEnemy.x - weapon.x)**2 + (otherEnemy.y - weapon.y)**2;
+                            if (distSq < (enemy.size * 2)**2 + (otherEnemy.size / 2)**2) {
+                                otherEnemy.health -= player.damageMultiplier;
+                                if(cheats.instaKill) otherEnemy.health = 0;
+                                createBloodSplatter(otherEnemy.x, otherEnemy.y);
+                                if (otherEnemy.health <= 0) { handleEnemyDeath(otherEnemy, explosionId); }
                             }
                         }
-                    }
+                    });
+                }
+
+                if (player.knockbackStrength > 0 && !enemy.isBoss) {
+                    const knockbackDistance = 50 * player.knockbackStrength;
+                    const normDx = weapon.dx / weapon.speed;
+                    const normDy = weapon.dy / weapon.speed;
+                    enemy.x += normDx * knockbackDistance;
+                    enemy.y += normDy * knockbackDistance;
+                }
+                if (iceProjectileActive) { 
+                    enemy.isFrozen = true; 
+                    enemy.freezeEndTime = Date.now() + 250;
+                    playerStats.totalEnemiesFrozen++;
+                }
+                if (flamingBulletsActive) {
+                    enemy.isIgnited = true;
+                    enemy.ignitionEndTime = Date.now() + 6000;
+                    enemy.lastIgnitionDamageTime = Date.now();
+                }
+                if (enemy.health <= 0) { handleEnemyDeath(enemy); }
+                weapon.hitsLeft--;
+                if (weapon.hitsLeft > 0 && ricochetActive && !rocketLauncherActive) {
+                    let newTarget = null; let minDistanceSq = Infinity;
+                    enemies.forEach(otherEnemy => {
+                        if (!weapon.hitEnemies.includes(otherEnemy) && !otherEnemy.isHit) {
+                            const distSq = (weapon.x - otherEnemy.x)**2 + (weapon.y - otherEnemy.y)**2;
+                            if (distSq < minDistanceSq) { minDistanceSq = distSq; newTarget = otherEnemy; }
+                        }
+                    });
+                    if (newTarget) {
+                        if (explosiveBulletsActive) { explosions.push({ x: weapon.x, y: weapon.y, radius: enemy.size * 2, startTime: Date.now(), duration: 300 }); }
+                        const angle = Math.atan2(newTarget.y - weapon.y, newTarget.x - weapon.x);
+                        weapon.angle = angle;
+                        weapon.dx = Math.cos(angle) * weapon.speed;
+                        weapon.dy = Math.sin(angle) * weapon.speed;
+                    } else { weapon.active = false; }
+                } else { weapon.active = false; }
+
+                // Break from the inner loop if the weapon is gone
+                if (!weapon.active) {
+                    break;
                 }
             }
+        }
+    }
+}
             if (bombEmitterActive && now - lastBombEmitMs >= BOMB_INTERVAL_MS) {
                 bombs.push({ x: player.x, y: player.y, size: BOMB_SIZE, spawnTime: now });
                 lastBombEmitMs = now;
