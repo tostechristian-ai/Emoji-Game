@@ -3487,74 +3487,85 @@ document.body.addEventListener('touchstart', (e) => {
 
         // OPTIMIZATION: Rewritten createWeapon to use the object pool
         function createWeapon(shooter = player, customAngle = null) {
-    let weapon = weaponPool.find(w => !w.active);
-    if (!weapon) return;
-    
-    // Set the starting position to the shooter's location
-    weapon.x = shooter.x;
-    weapon.y = shooter.y;
-    weapon.speed = shooter.projectileSpeedMultiplier;
-    weapon.shooter = shooter;
-    weapon.emoji = shooter.gunEmoji;
-    
-    // Determine the angle based on who is shooting
-    let angle = 0;
-    if (customAngle !== null) {
-        angle = customAngle;
-    } else if (shooter === player) {
-        // Player 1 aiming logic
-        const aimMagnitude = Math.hypot(aimDx, aimDy);
-        if (autoAimActive) {
-            let closestEnemy = null;
-            let minDistanceSq = Infinity;
-            enemies.forEach(enemy => {
-                if (!enemy.isHit) {
-                    const distSq = (shooter.x - enemy.x)**2 + (shooter.y - enemy.y)**2;
-                    if (distSq < minDistanceSq) {
-                        minDistanceSq = distSq;
-                        closestEnemy = enemy;
+            let weaponAngle;
+            if (customAngle !== null) {
+                weaponAngle = customAngle;
+            } else if (autoAimActive && enemies.length > 0) {
+                 let closestEnemy = null; let minDistance = Infinity;
+                enemies.forEach(enemy => {
+                    const distSq = (shooter.x - enemy.x) ** 2 + (shooter.y - enemy.y) ** 2;
+                    if (distSq < minDistance) { minDistance = distSq; closestEnemy = enemy; }
+                });
+                if (closestEnemy) { weaponAngle = Math.atan2(closestEnemy.y - shooter.y, closestEnemy.x - shooter.x); } 
+                else { weaponAngle = shooter.rotationAngle; }
+            }
+            else if (aimDx !== 0 || aimDy !== 0) { weaponAngle = Math.atan2(aimDy, aimDx); } 
+            else {
+                let closestEnemy = null; let minDistance = Infinity;
+                enemies.forEach(enemy => {
+                    const distSq = (shooter.x - enemy.x) ** 2 + (shooter.y - enemy.y) ** 2;
+                    if (distSq < minDistance) { minDistance = distSq; closestEnemy = enemy; }
+                });
+                if (closestEnemy) { weaponAngle = Math.atan2(closestEnemy.y - shooter.y, closestEnemy.x - shooter.x); } 
+                else { weaponAngle = shooter.rotationAngle; }
+            }
+            
+            const fireWeaponFromPool = (angle) => {
+                for(const weapon of weaponPool) {
+                    if(!weapon.active) {
+                        // Found a dead weapon, reuse it!
+                        weapon.x = shooter.x;
+                        weapon.y = shooter.y;
+                        weapon.size = shotgunBlastActive ? 30 * player.projectileSizeMultiplier : 38 * player.projectileSizeMultiplier * (rocketLauncherActive ? 2 : 1);
+                        weapon.speed = 5.04 * player.projectileSpeedMultiplier;
+                        weapon.angle = angle;
+                        weapon.dx = Math.cos(angle) * weapon.speed;
+                        weapon.dy = Math.sin(angle) * weapon.speed;
+                        weapon.lifetime = Date.now() + 2000;
+                        weapon.hitsLeft = rocketLauncherActive ? 3 : (ricochetActive ? 2 : 1);
+                        weapon.hitEnemies.length = 0; // Clear the hit list
+                        weapon.active = true;
+                        return; // Exit after finding one
                     }
                 }
-            });
-            if (closestEnemy && minDistanceSq < (250 * 250)) {
-                 angle = Math.atan2(closestEnemy.y - shooter.y, closestEnemy.x - shooter.x);
-            } else {
-                angle = Math.atan2(aimDy, aimDx);
+            };
+
+            let angles = [weaponAngle];
+            if (shotgunBlastActive && shooter === player) {
+                angles = [];
+                const projectileCount = 8; const spreadAngle = Math.PI / 8;
+                for (let i = 0; i < projectileCount; i++) {
+                    const angleOffset = (Math.random() - 0.5) * spreadAngle;
+                    angles.push(weaponAngle + angleOffset);
+                }
+            } else if (vShapeProjectileLevel > 0 && shooter === player) {
+                const projectilesToEmit = vShapeProjectileLevel + 1;
+                angles = [];
+                const totalSpreadAngle = V_SHAPE_INCREMENT_ANGLE * (projectilesToEmit - 1);
+                const halfTotalSpread = totalSpreadAngle / 2;
+                for (let i = 0; i < projectilesToEmit; i++) {
+                    angles.push(weaponAngle - halfTotalSpread + i * V_SHAPE_INCREMENT_ANGLE);
+                }
             }
-        } else if (aimMagnitude > 0) {
-            angle = Math.atan2(aimDy, aimDx);
-        } else {
-            angle = player.gunAngle;
+            
+            angles.forEach(angle => fireWeaponFromPool(angle));
+            if(dualGunActive && shooter === player) { angles.forEach(angle => fireWeaponFromPool(angle + Math.PI)); }
+
+            if (shooter === player) {
+                const elementsToShake = [gameContainer, gameStats, pauseButton];
+                elementsToShake.forEach(el => {
+                    if (el) {
+                        el.classList.remove('ui-shake-active');
+                        void el.offsetWidth;
+                        el.classList.add('ui-shake-active');
+                        el.addEventListener('animationend', () => { el.classList.remove('ui-shake-active'); }, { once: true });
+                    }
+                });
+                 vibrate(10);
+            }
+           
+            playSound('playerShoot');
         }
-    } else {
-        // For any other shooter (e.g., dog companion)
-        angle = Math.atan2(shooter.dy, shooter.dx);
-    }
-    
-    weapon.dx = Math.cos(angle) * weapon.speed;
-    weapon.dy = Math.sin(angle) * weapon.speed;
-    weapon.lifetime = Date.now() + 2000;
-    weapon.hitsLeft = 1;
-    weapon.hitEnemies.length = 0;
-    weapon.active = true;
-    
-    if (shooter === player) {
-        // ... (Player 1 specific effects) ...
-        const elementsToShake = [gameContainer, gameStats, pauseButton];
-        elementsToShake.forEach(el => {
-            if (el) {
-                el.classList.remove('ui-shake-active');
-                void el.offsetWidth;
-                el.classList.add('ui-shake-active');
-                el.addEventListener('animationend', () => {
-                    el.classList.remove('ui-shake-active');
-                }, { once: true });
-            }
-        });
-        vibrate(10);
-    }
-    playSound('playerShoot');
-}
 
         function createPlayer2Weapon() {
             if (!player2 || !player2.active) return;
@@ -5269,26 +5280,16 @@ if (!cheats.no_gun_mode && (aimDx !== 0 || aimDy !== 0) && (now - lastWeaponFire
 // --- YOUR NEW CODE FOR PLAYER 2 GOES DIRECTLY BELOW THIS LINE ---
 
 // Firing logic for Player 2
- if (player2 && player2.active) {
-        // Determine the aiming direction based on numpad keys
-        let p2aimDx = 0;
-        let p2aimDy = 0;
-        if (keys['8']) p2aimDy -= 1;
-        if (keys['2']) p2aimDy += 1;
-        if (keys['4']) p2aimDx -= 1;
-        if (keys['6']) p2aimDx += 1;
-
-        // Check if any aiming key is pressed
-        let p2isShooting = p2aimDx !== 0 || p2aimDy !== 0;
-
+if (player2 && player2.active) {
+    let p2WantsToFire = keys['Numpad0'] || keys['NumpadEnter'];
+    if (p2WantsToFire) {
         const now = Date.now();
-        // Fire the weapon with the correct angle
-        if (p2isShooting && now - player2.lastFireTime > player2.fireInterval) {
-            const angle = Math.atan2(p2aimDy, p2aimDx);
-            createWeapon(player2, angle); // Pass the calculated angle to the createWeapon function
+        if (now - player2.lastFireTime > weaponFireInterval) {
+            createWeapon(player2);
             player2.lastFireTime = now;
         }
     }
+}
 
 
             for(const weapon of weaponPool) {
