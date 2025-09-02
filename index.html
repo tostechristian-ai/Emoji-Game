@@ -2108,7 +2108,11 @@
 
     <script>
         // A safe way to get a unique Tone.js time
-        function getSafeToneTime() {
+        
+        let p2aimDx = 0;
+    let p2aimDy = 0;
+    
+    function getSafeToneTime() {
             let now = Tone.now();
             let lastTime = getSafeToneTime.lastTime || 0;
             if (now <= lastTime) {
@@ -5282,8 +5286,6 @@ if (!cheats.no_gun_mode && (aimDx !== 0 || aimDy !== 0) && (now - lastWeaponFire
 // Firing logic for Player 2
 if (player2 && player2.active) {
     // Determine the aiming direction based on numpad keys
-    let p2aimDx = 0;
-    let p2aimDy = 0;
     if (keys['8']) p2aimDy -= 1;
     if (keys['2']) p2aimDy += 1;
     if (keys['4']) p2aimDx -= 1;
