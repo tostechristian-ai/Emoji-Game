@@ -4776,7 +4776,13 @@ async function tryLoadMusic(retries = 3) {
                 if (keys['2']) { player2.gunAngle = Math.PI / 2; p2isShooting = true; } // Numpad 2 is down
                 if (keys['4']) { player2.gunAngle = Math.PI; p2isShooting = true; }
                 if (keys['6']) { player2.gunAngle = 0; p2isShooting = true; }
-                if (p2isShooting && now - player2.lastFireTime > player2.fireInterval) { createPlayer2Weapon(); player2.lastFireTime = now; }
+                if (p2isShooting && now - player2.lastFireTime > player2.fireInterval) {
+    const angle = player2.gunAngle;
+    const dx = Math.cos(angle);
+    const dy = Math.sin(angle);
+    createWeapon(player2, dx, dy);
+    player2.lastFireTime = now;
+}
             }
 
             // --- NEW POWERUP LOGIC ---
