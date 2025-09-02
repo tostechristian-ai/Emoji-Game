@@ -5256,15 +5256,29 @@ async function tryLoadMusic(retries = 3) {
                 }
             }
             let currentFireInterval = weaponFireInterval;
-            if(fireRateBoostActive) currentFireInterval /= 2;
-            if(cheats.fastShooting) currentFireInterval /= 5;
-            if(cheats.double_game_speed) currentFireInterval /= 2;
-            currentFireInterval = Math.max(50, currentFireInterval);
+if(fireRateBoostActive) currentFireInterval /= 2;
+if(cheats.fastShooting) currentFireInterval /= 5;
+if(cheats.double_game_speed) currentFireInterval /= 2;
+currentFireInterval = Math.max(50, currentFireInterval);
+if (!cheats.no_gun_mode && (aimDx !== 0 || aimDy !== 0) && (now - lastWeaponFireTime > currentFireInterval)) {
+    createWeapon();
+    lastWeaponFireTime = now;
+}
 
-            if (!cheats.no_gun_mode && (aimDx !== 0 || aimDy !== 0) && (now - lastWeaponFireTime > currentFireInterval)) {
-                createWeapon();
-                lastWeaponFireTime = now;
-            }
+// --- YOUR NEW CODE FOR PLAYER 2 GOES DIRECTLY BELOW THIS LINE ---
+
+// Firing logic for Player 2
+if (player2 && player2.active) {
+    let p2WantsToFire = keys['Numpad0'] || keys['NumpadEnter'];
+    if (p2WantsToFire) {
+        const now = Date.now();
+        if (now - player2.lastFireTime > weaponFireInterval) {
+            createWeapon(player2);
+            player2.lastFireTime = now;
+        }
+    }
+}
+
 
             for(const weapon of weaponPool) {
                 if(!weapon.active) continue;
