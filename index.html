@@ -2121,6 +2121,16 @@
             getSafeToneTime.lastTime = now;
             return now;
         }
+        
+        function drawEmoji(emoji, x, y, size) {
+            if (!ctx) return;
+            ctx.save();
+            ctx.font = `${size}px serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(emoji, x - camera.x, y - camera.y);
+            ctx.restore();
+        }
 
         // ================================================================================= //
         // ======================= OPTIMIZATION: QUADTREE IMPLEMENTATION =================== //
