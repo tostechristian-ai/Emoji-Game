@@ -4787,12 +4787,10 @@ async function tryLoadMusic(retries = 3) {
                 
                 // Fire the weapon with the correct angle
                 if (p2isShooting && now - player2.lastFireTime > player2.fireInterval) {
-                    const angle = player2.gunAngle;
-                    const dx = Math.cos(angle);
-                    const dy = Math.sin(angle);
-                    createWeapon(player2, dx, dy);
-                    player2.lastFireTime = now;
-                }
+    const angle = player2.gunAngle;
+    createWeapon(player2, angle); // This is the correct line.
+    player2.lastFireTime = now;
+}
             }
 
             // --- NEW POWERUP LOGIC ---
