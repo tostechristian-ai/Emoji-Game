@@ -4771,18 +4771,18 @@ async function tryLoadMusic(retries = 3) {
                 if (p2VelY > 0) player2.facing = 'down'; else if (p2VelY < 0) player2.facing = 'up';
                 player2.x = Math.max(player2.size / 2, Math.min(WORLD_WIDTH - player2.size / 2, player2.x));
                 player2.y = Math.max(player2.size / 2, Math.min(WORLD_HEIGHT - player2.size / 2, player2.y));
-                let p2isShooting = false;
+                 let p2isShooting = false;
                 if (keys['8']) { player2.gunAngle = -Math.PI / 2; p2isShooting = true; }
-                if (keys['2']) { player2.gunAngle = Math.PI / 2; p2isShooting = true; } // Numpad 2 is down
+                if (keys['5']) { player2.gunAngle = Math.PI / 2; p2isShooting = true; } // Numpad 5 is down
                 if (keys['4']) { player2.gunAngle = Math.PI; p2isShooting = true; }
                 if (keys['6']) { player2.gunAngle = 0; p2isShooting = true; }
                 if (p2isShooting && now - player2.lastFireTime > player2.fireInterval) {
-    const angle = player2.gunAngle;
-    const dx = Math.cos(angle);
-    const dy = Math.sin(angle);
-    createWeapon(player2, dx, dy);
-    player2.lastFireTime = now;
-}
+                    const angle = player2.gunAngle;
+                    const dx = Math.cos(angle);
+                    const dy = Math.sin(angle);
+                    createWeapon(player2, dx, dy);
+                    player2.lastFireTime = now;
+                }
             }
 
             // --- NEW POWERUP LOGIC ---
