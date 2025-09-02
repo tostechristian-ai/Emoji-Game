@@ -4564,22 +4564,6 @@ async function tryLoadMusic(retries = 3) {
             lastFrameTime = now;
             checkAchievements();
             
-            // *** OPTIMIZATION: Clear and repopulate the Quadtree each frame
-            quadtree.clear();
-            const allGameObjects = [...enemies, ...destructibles, player];
-            if (player2 && player2.active) allGameObjects.push(player2);
-            if (doppelganger) allGameObjects.push(doppelganger);
-            for(const obj of allGameObjects) {
-                quadtree.insert({
-                    x: obj.x - obj.size / 2,
-                    y: obj.y - obj.size / 2,
-                    width: obj.size,
-                    height: obj.size,
-                    ref: obj // Keep a reference to the original object
-                });
-            }
-
-
             if (!merchant && now - lastMerchantSpawnTime > MERCHANT_SPAWN_INTERVAL) {
                 spawnMerchant();
                 lastMerchantSpawnTime = now;
