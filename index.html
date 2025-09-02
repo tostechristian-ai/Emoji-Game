@@ -5281,14 +5281,25 @@ if (!cheats.no_gun_mode && (aimDx !== 0 || aimDy !== 0) && (now - lastWeaponFire
 
 // Firing logic for Player 2
 if (player2 && player2.active) {
-    let p2WantsToFire = keys['Numpad0'] || keys['NumpadEnter'];
-    if (p2WantsToFire) {
-        const now = Date.now();
-        if (now - player2.lastFireTime > weaponFireInterval) {
-            createWeapon(player2);
-            player2.lastFireTime = now;
-        }
+    // Determine the aiming direction based on numpad keys
+    let p2aimDx = 0;
+    let p2aimDy = 0;
+    if (keys['8']) p2aimDy -= 1;
+    if (keys['2']) p2aimDy += 1;
+    if (keys['4']) p2aimDx -= 1;
+    if (keys['6']) p2aimDx += 1;
+
+    // Check if any aiming key is pressed
+    let p2isShooting = p2aimDx !== 0 || p2aimDy !== 0;
+
+    const now = Date.now();
+    // Fire the weapon with the correct angle
+    if (p2isShooting && now - player2.lastFireTime > player2.fireInterval) {
+        const angle = Math.atan2(p2aimDy, p2aimDx);
+        createWeapon(player2, angle); // Pass the calculated angle to the createWeapon function
+        player2.lastFireTime = now;
     }
+
 }
 
 
