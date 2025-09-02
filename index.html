@@ -5813,7 +5813,9 @@ if (player2 && player2.active) {
                     currentHitShakeY = (Math.random() - 0.5) * 2 * shakeIntensity;
                 } else isPlayerHitShaking = false;
             }
-            
+            if (merchant) {
+        drawEmoji('🧙‍♂️', merchant.x, merchant.y, merchant.size);
+    }
             let finalCameraOffsetX = cameraOffsetX - currentHitShakeX;
             let finalCameraOffsetY = cameraOffsetY - currentHitShakeY;
             ctx.clearRect(0, 0, canvas.width, canvas.height);
