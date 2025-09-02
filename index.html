@@ -2122,15 +2122,15 @@
             return now;
         }
         
-        function drawEmoji(emoji, x, y, size) {
-            if (!ctx) return;
-            ctx.save();
-            ctx.font = `${size}px serif`;
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(emoji, x - camera.x, y - camera.y);
-            ctx.restore();
-        }
+        function drawEmoji(emoji, x, y, size, camera) {
+    if (!ctx) return;
+    ctx.save();
+    ctx.font = `${size}px serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(emoji, x - camera.x, y - camera.y);
+    ctx.restore();
+}
 
         // ================================================================================= //
         // ======================= OPTIMIZATION: QUADTREE IMPLEMENTATION =================== //
@@ -4594,7 +4594,7 @@ async function tryLoadMusic(retries = 3) {
         // Check if the distance is less than the combined radii of the player and merchant
         if (distance < (player.size / 2) + (merchant.size / 2)) {
             showMerchantShop();
-            drawEmoji('🧙‍♂️', merchant.x, merchant.y, merchant.size);
+            drawEmoji('🧙‍♂️', merchant.x, merchant.y, merchant.size, camera);
     
         }
     }
@@ -5823,9 +5823,7 @@ if (player2 && player2.active) {
                     currentHitShakeY = (Math.random() - 0.5) * 2 * shakeIntensity;
                 } else isPlayerHitShaking = false;
             }
-            if (merchant) {
-        drawEmoji('🧙‍♂️', merchant.x, merchant.y, merchant.size);
-    }
+
             let finalCameraOffsetX = cameraOffsetX - currentHitShakeX;
             let finalCameraOffsetY = cameraOffsetY - currentHitShakeY;
             ctx.clearRect(0, 0, canvas.width, canvas.height);
