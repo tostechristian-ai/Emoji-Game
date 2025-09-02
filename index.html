@@ -2560,8 +2560,7 @@
         };
 
         let player2 = null;
-        let player2AimDx = 0;
-        let player2AimDy = 0;
+        
         let doppelganger = null;
         let doppelgangerActive = false;
         let lastDoppelgangerSpawnTime = 0;
@@ -3044,40 +3043,51 @@ function handleGamepadInput() {
 
         const keys = {};
         window.addEventListener('keydown', (e) => {
-    // Other keydown logic...
+            if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') {
+                if(gameActive && !gameOver) { togglePause(); }
+                return;
+            }
+             if (e.key === 'o') {
+                triggerDash(player2);
 
-    // Numpad controls for Player 2 aiming
-    switch (e.key) {
-        case '8': // Numpad 8 (Up)
-            player2AimDy = -1;
-            break;
-        case '4': // Numpad 4 (Left)
-            player2AimDx = -1;
-            break;
-        case '6': // Numpad 6 (Right)
-            player2AimDx = 1;
-            break;
-        case '5': // Numpad 5 (Down)
-            player2AimDy = 1;
-            break;
-    }
-});
+            }
+            if (keys['-'] && keys['=']) { // Secret coin cheat
+                playerData.currency += 5000;
+                savePlayerData();
+                floatingTexts.push({ text: "+5000 Coins!", x: player.x, y: player.y - player.size, startTime: Date.now(), duration: 2000, color: '#FFD700' });
+            }
+            if (e.key === 'Insert' && gameActive && !gameOver && !gamePaused) {
+                if (player.lives > 1 && (!player2 || !player2.active)) {
+                    player.lives--;
+                    updateUIStats();
+                    player2 = {
+                        active: true, x: player.x, y: player.y, size: 35, speed: 1.4,
+                        facing: 'down', stepPhase: 0, gunAngle: -Math.PI / 2,
+                        lastFireTime: 0, fireInterval: 400,
+                        isDashing: false, dashEndTime: 0, lastDashTime: 0, dashCooldown: 6000,
+                        spinStartTime: null, // For spin animation
+                        spinDirection: 0, // For spin animation
+                    };
+                    floatingTexts.push({
+                        text: "Player 2 has joined!", x: player.x, y: player.y - player.size,
+                        startTime: Date.now(), duration: 2000, color: '#FFFF00'
+                    });
+                }
+            }
+            keys[e.key] = true;
+            if (e.key === 'ArrowUp') aimDy = -1;
+            else if (e.key === 'ArrowDown') aimDy = 1;
+            else if (e.key === 'ArrowLeft') aimDx = -1;
+            else if (e.key === 'ArrowRight') aimDx = 1;
+        });
 
-window.addEventListener('keyup', (e) => {
-    // Other keyup logic...
-
-    // Numpad controls for Player 2 aiming
-    switch (e.key) {
-        case '8': // Numpad 8 (Up)
-        case '5': // Numpad 5 (Down)
-            player2AimDy = 0;
-            break;
-        case '4': // Numpad 4 (Left)
-        case '6': // Numpad 6 (Right)
-            player2AimDx = 0;
-            break;
-    }
-});
+        window.addEventListener('keyup', (e) => {
+            keys[e.key] = false;
+            if (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+                if (keys['ArrowDown']) { aimDy = 1; } else if (keys['ArrowUp']) { aimDy = -1; } else { aimDy = 0; }
+                if (keys['ArrowRight']) { aimDx = 1; } else if (keys['ArrowLeft']) { aimDx = -1; } else { aimDx = 0; }
+            }
+        });
 
         window.addEventListener('mousemove', (e) => {
             if (gamePaused || gameOver || !gameActive) return;
@@ -3558,47 +3568,16 @@ document.body.addEventListener('touchstart', (e) => {
         }
 
         function createPlayer2Weapon() {
-    if (!player2 || !player2.active) return;
-    
-    // Calculate aiming angle for Player 2 using numpad input
-    if (player2AimDx !== 0 || player2AimDy !== 0) {
-        player2.gunAngle = Math.atan2(player2AimDy, player2AimDx);
-    } else {
-        // Fallback or default aim if no numpad key is pressed
-        // For example, default to aiming at the closest enemy or a fixed direction
-        let closestEnemy = null;
-        let minDistance = Infinity;
-        enemies.forEach(enemy => {
-            const distSq = (player2.x - enemy.x) ** 2 + (player2.y - enemy.y) ** 2;
-            if (distSq < minDistance) {
-                minDistance = distSq;
-                closestEnemy = enemy;
-            }
-        });
-        if (closestEnemy) {
-            player2.gunAngle = Math.atan2(closestEnemy.y - player2.y, closestEnemy.x - player2.x);
-        } else {
-            // Default to a specific angle if no enemies are found
-            player2.gunAngle = 0;
+            if (!player2 || !player2.active) return;
+            fireWeaponFromPool({
+                x: player2.x, y: player2.y,
+                size: 38, speed: 5.04,
+                angle: player2.gunAngle,
+                dx: Math.cos(player2.gunAngle) * 5.04, dy: Math.sin(player2.gunAngle) * 5.04,
+                lifetime: Date.now() + 2000, hitsLeft: 1, hitEnemies: []
+            });
+            playSound('playerShoot');
         }
-    }
-    
-    // The rest of the function remains the same
-    fireWeaponFromPool({
-        x: player2.x,
-        y: player2.y,
-        size: 38,
-        speed: 5.04,
-        angle: player2.gunAngle,
-        dx: Math.cos(player2.gunAngle) * 5.04,
-        dy: Math.sin(player2.gunAngle) * 5.04,
-        lifetime: Date.now() + 2000,
-        hitsLeft: 1,
-        hitEnemies: []
-    });
-    
-    playSound('playerShoot');
-}
 
         function createBloodSplatter(x, y) {
             const particleCount = 6;
