@@ -5880,7 +5880,7 @@ if (player2 && player2.active) {
                 ctx.arc(area.x, area.y, area.radius, 0, Math.PI * 2);
                 ctx.fill();
                 ctx.globalAlpha = alpha * 0.7;
-                const flameCount = 5;
+                const flameCount = 2;
                 for (let i = 0; i < flameCount; i++) {
                     const angle = (i / flameCount) * Math.PI * 2 + (now / 500);
                     const dist = Math.random() * area.radius * 0.8;
