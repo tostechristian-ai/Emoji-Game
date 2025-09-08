@@ -42,10 +42,10 @@
             box-shadow: 0 0 20px #FFD700;
         }
 
-        .upgrade-card.selected {
-        border: 4px solid #FFD700; /* Gold to show selection */
-        box-shadow: 0 0 20px #FFD700;
-        transform: scale(1.05);
+        .upgrade-card.selected, .merchant-card.selected {
+            border: 4px solid #FFD700; /* Gold to show selection */
+            box-shadow: 0 0 20px #FFD700;
+            transform: scale(1.05);
         }
         .character-tile .char-emoji {
             font-size: 48px;
@@ -598,7 +598,7 @@
             background-size: contain;
             background-repeat: no-repeat;
             background-position: center;
-            transition: transform 0.2s;
+            transition: transform 0.2s, box-shadow 0.2s;
             box-sizing: border-box;
             
             /* Reliable Text Hiding */
@@ -608,11 +608,14 @@
             overflow: hidden;
         }
 
-        /* Hover effect for all buttons */
+        /* Hover and Gamepad Selection effect for all buttons */
         .difficulty-buttons button:hover,
         .bottom-menu-buttons button:hover,
-        #mobile-bottom-buttons button:hover {
+        #mobile-bottom-buttons button:hover,
+        .difficulty-buttons button.selected,
+        .bottom-menu-buttons button.selected {
             transform: scale(1.05);
+            box-shadow: 0 0 20px #FFD700, inset 0 0 15px rgba(255, 255, 0, 0.5);
         }
 
         /* --- Assigning the specific PNG to each button --- */
@@ -1411,15 +1414,19 @@
             background-color: #4a411c; /* Dark gold background */
             border-radius: 10px;
             padding: 20px;
-            width: clamp(150px, 40vw, 200px);
+            width: 150px;
+            aspect-ratio: 1 / 1;
             box-shadow: 0 0 15px rgba(255, 215, 0, 0.4);
             cursor: pointer;
             transition: transform 0.2s ease-in-out, background-color 0.2s, box-shadow 0.2s;
             display: flex;
             flex-direction: column;
             align-items: center;
+            justify-content: center;
             border: 2px solid #FFD700;
+            box-sizing: border-box;
         }
+
 
         .merchant-card:hover {
             transform: translateY(-8px);
@@ -2102,8 +2109,6 @@
             <p id="achievement-banner-desc"></p>
         </div>
     </div>
-    
-
 
     <script>
         // A safe way to get a unique Tone.js time
@@ -2300,6 +2305,7 @@
         const spritePaths = {
             gun: 'sprites/gun.png',
             bullet: 'sprites/bullet.png',
+            bone: 'sprites/bone.png',
             circle: 'sprites/circle.png',
             pickupBox: 'sprites/pickupbox.png',
             slime: 'sprites/slime.png',
@@ -2443,7 +2449,7 @@
         const upgradeOptionsContainer = document.getElementById('upgradeOptionsContainer');
         const levelUpBoxImage = document.getElementById('levelUpBox');
         
-        const merchantShop = document.getElementById('merchantShop');
+        const merchantShopUI = document.getElementById('merchantShop');
         const merchantOptionsContainer = document.getElementById('merchantOptionsContainer');
         const leaveMerchantButton = document.getElementById('leaveMerchantButton');
 
@@ -2457,7 +2463,8 @@
 
         const difficultyContainer = document.getElementById('difficultyContainer');
         const difficultyScreen = document.getElementById('difficultyScreen');
-        const difficultyButtons = document.querySelectorAll('.difficulty-buttons button:not(#howToPlayButton):not(#desktopUpgradesButton):not(#characterSelectButton)');
+        const difficultyButtonsContainer = document.querySelector('.difficulty-buttons');
+        const bottomMenuButtonsContainer = document.querySelector('.bottom-menu-buttons');
         const howToPlayButton = document.getElementById('howToPlayButton');
         const gameGuideModal = document.getElementById('gameGuideModal');
         const backToDifficultyButton = document.getElementById('backToDifficultyButton');
@@ -2518,6 +2525,8 @@
         let currentBackgroundIndex = 0;
         let selectedMapIndex = -1;
         let equippedCharacterID = 'cowboy';
+        let currentMenu = 'difficulty'; // New state for gamepad menu navigation
+        let selectedMainMenuIndex = 0;
 
 
         const joystickRadius = 51;
@@ -2749,6 +2758,7 @@
         const MAGNET_STRENGTH = 0.5;
 
         let gamePaused = false;
+        let isMenuOpen = false; // NEW variable to track if any menu is open
         let gameOver = false;
         let gameActive = false;
         let gameStartTime = 0;
@@ -2836,244 +2846,158 @@
         let lastWeaponFireTime = 0;
         let weaponFireInterval = 400;
 
-// ====== GAMEPAD INPUT ======
-let gamepadIndex = null;
-const GAMEPAD_DEADZONE = 0.2;
+        // ====== GAMEPAD INPUT & MENU NAVIGATION ======
+        let gamepadIndex = null;
+        const GAMEPAD_DEADZONE = 0.2;
+        let isGamepadMenuMode = true; // Start in menu mode
+        let selectedMenuIndex = 0;
+        let menuItems = [];
+        let lastGamepadUpdate = 0;
+        const GAMEPAD_INPUT_DELAY = 150; // milliseconds
+        
+        function applyDeadzone(v, dz = GAMEPAD_DEADZONE) {
+          return Math.abs(v) < dz ? 0 : v;
+        }
+        
+        window.addEventListener("gamepadconnected", (e) => {
+          console.log("Gamepad connected:", e.gamepad.id);
+          gamepadIndex = e.gamepad.index;
+          isGamepadMenuMode = true;
+          updateMenuSelection();
+        });
+        window.addEventListener("gamepaddisconnected", (e) => {
+          if (gamepadIndex === e.gamepad.index) {
+              gamepadIndex = null;
+              isGamepadMenuMode = false;
+          }
+        });
 
-function applyDeadzone(v, dz = GAMEPAD_DEADZONE) {
-  return Math.abs(v) < dz ? 0 : v;
-}
-
-window.addEventListener("gamepadconnected", (e) => {
-  console.log("Gamepad connected:", e.gamepad.id);
-  gamepadIndex = e.gamepad.index;
-});
-window.addEventListener("gamepaddisconnected", (e) => {
-  if (gamepadIndex === e.gamepad.index) gamepadIndex = null;
-});
-
-// Call each frame
-function handleGamepadInput() {
-    if (gamepadIndex == null) return;
-    const gp = navigator.getGamepads?.()[gamepadIndex];
-    if (!gp) return;
-
-    // --- NEW UPGRADE MENU GAMEPAD LOGIC ---
-    // Place this before all other gamepad logic
-    if (isGamepadUpgradeMode) {
-        const now = Date.now();
-        if (now - lastGamepadUpdate > GAMEPAD_INPUT_DELAY) {
-            let moved = false;
-            const prevIndex = selectedUpgradeIndex;
-            const numOptions = document.querySelectorAll('.upgrade-card').length;
-            
-            // Check for horizontal movement (D-pad left/right or left stick)
-            if (gp.buttons[15].pressed || gp.axes[0] > 0.5) {
-                selectedUpgradeIndex = (selectedUpgradeIndex + 1) % numOptions;
-                moved = true;
-            } 
-            else if (gp.buttons[14].pressed || gp.axes[0] < -0.5) {
-                selectedUpgradeIndex = (selectedUpgradeIndex - 1 + numOptions) % numOptions;
-                moved = true;
-            }
-            
-            // Check for vertical movement (D-pad up/down)
-            const cardsPerRow = 3; 
-            if (gp.buttons[12].pressed) {
-                selectedUpgradeIndex = Math.max(0, selectedUpgradeIndex - cardsPerRow);
-                moved = true;
-            } else if (gp.buttons[13].pressed) {
-                selectedUpgradeIndex = Math.min(numOptions - 1, selectedUpgradeIndex + cardsPerRow);
-                moved = true;
-            }
-
-            if (moved && prevIndex !== selectedUpgradeIndex) {
-                const prevCard = document.querySelectorAll('.upgrade-card')[prevIndex];
-                if (prevCard) {
-                    prevCard.classList.remove('selected');
+        function updateMenuSelection() {
+            menuItems.forEach((item, index) => {
+                if (index === selectedMenuIndex) {
+                    item.classList.add('selected');
+                } else {
+                    item.classList.remove('selected');
                 }
-                const newCard = document.querySelectorAll('.upgrade-card')[selectedUpgradeIndex];
-                if (newCard) {
-                    newCard.classList.add('selected');
+            });
+        }
+        
+        function handleGamepadInput() {
+            if (gamepadIndex == null) return;
+            const gp = navigator.getGamepads?.()[gamepadIndex];
+            if (!gp) return;
+        
+            const now = Date.now();
+            const pressed = (i) => !!gp.buttons?.[i]?.pressed;
+            const stickMoved = (axis, threshold) => Math.abs(gp.axes[axis]) > threshold;
+        
+            // --- MENU NAVIGATION LOGIC (Upgrade, Merchant, Main Menu) ---
+            if (isGamepadMenuMode && now - lastGamepadUpdate > GAMEPAD_INPUT_DELAY) {
+                let moved = false;
+                const prevIndex = selectedMenuIndex;
+        
+                // Vertical Movement (D-pad or Left Stick)
+                if (pressed(12) || stickMoved(1, 0.5) && gp.axes[1] < 0) { // Up
+                    selectedMenuIndex = Math.max(0, selectedMenuIndex - 1);
+                    moved = true;
+                } else if (pressed(13) || stickMoved(1, 0.5) && gp.axes[1] > 0) { // Down
+                    selectedMenuIndex = Math.min(menuItems.length - 1, selectedMenuIndex + 1);
+                    moved = true;
+                }
+        
+                // Horizontal Movement (D-pad or Left Stick) for grid-like menus
+                if (pressed(14) || stickMoved(0, 0.5) && gp.axes[0] < 0) { // Left
+                     if (currentMenu === 'upgrade' || currentMenu === 'merchant') {
+                        selectedMenuIndex = Math.max(0, selectedMenuIndex - 1);
+                     } else { // Main menu logic
+                        if (selectedMenuIndex > 2 && selectedMenuIndex < 5) selectedMenuIndex = 0; // From bottom row to top row
+                        else selectedMenuIndex = Math.max(0, selectedMenuIndex - 1);
+                     }
+                    moved = true;
+                } else if (pressed(15) || stickMoved(0, 0.5) && gp.axes[0] > 0) { // Right
+                    if (currentMenu === 'upgrade' || currentMenu === 'merchant') {
+                       selectedMenuIndex = Math.min(menuItems.length - 1, selectedMenuIndex + 1);
+                    } else { // Main menu logic
+                       if (selectedMenuIndex < 3) selectedMenuIndex = Math.min(2, selectedMenuIndex + 1);
+                       else selectedMenuIndex = Math.min(menuItems.length - 1, selectedMenuIndex + 1);
+                    }
+                    moved = true;
+                }
+        
+                if (moved && prevIndex !== selectedMenuIndex) {
                     playUISound('uiClick');
                     vibrate(10);
-                }
-                lastGamepadUpdate = now;
-            }
-            
-            // Check for confirmation button (e.g., A/X button)
-            if (gp.buttons[0].pressed) {
-                const selectedCard = document.querySelectorAll('.upgrade-card')[selectedUpgradeIndex];
-                if (selectedCard) {
-                    selectedCard.querySelector('button').click();
-                    isGamepadUpgradeMode = false;
+                    updateMenuSelection();
                     lastGamepadUpdate = now;
-                    return;
                 }
-            }
-        }
-    }
-
-    // --- EXISTING GAMEPAD MOVEMENT LOGIC ---
-    let lx = applyDeadzone(gp.axes[0] || 0);
-    let ly = applyDeadzone(gp.axes[1] || 0);
-    const lmag = Math.hypot(lx, ly);
-    if (lmag > 0) {
-        joystickDirX = lx / lmag;
-        joystickDirY = ly / lmag;
-    } else {
-        joystickDirX = 0;
-        joystickDirY = 0;
-    }
-// ===== PLAYER 2 GAMEPAD INPUT =====
-        const gp2 = navigator.getGamepads?.()[1]; // Get the second gamepad (index 1)
-        if (player2 && player2.active && gp2) {
-            // Movement from Left Stick
-            let lx2 = applyDeadzone(gp2.axes[0] || 0);
-            let ly2 = applyDeadzone(gp2.axes[1] || 0);
-            const lmag2 = Math.hypot(lx2, ly2);
-            if (lmag2 > 0) {
-                player2.dx = lx2 / lmag2;
-                player2.dy = ly2 / lmag2;
-            } else {
-                player2.dx = 0;
-                player2.dy = 0;
-            }
-
-            // Dodge/Dash from Right Trigger
-            const pressed2 = (i) => !!gp2.buttons?.[i]?.pressed;
-            if (pressed2(7) && !player2._rTriggerLatch) {
-                player2._rTriggerLatch = true;
-                triggerDash(player2);
-            } else if (!pressed2(7)) {
-                player2._rTriggerLatch = false;
-            }
-        }
-    
-    let rx = applyDeadzone(gp.axes[2] || 0);
-    let ry = applyDeadzone(gp.axes[3] || 0);
-    const rmag = Math.hypot(rx, ry);
-    if (rmag > 0) {
-        aimDx = rx / rmag;
-        aimDy = ry / rmag;
-    } else {
-        aimDx = 0;
-        aimDy = 0;
-    }
-
-    const pressed = (i) => !!gp.buttons?.[i]?.pressed;
-    if (pressed(7) && !gp._rTriggerLatch) {
-    gp._rTriggerLatch = true;
-    triggerDash(player);
-} else if (!pressed(7)) gp._rTriggerLatch = false;
-    
-    if ((pressed(9) || pressed(1)) && !gp._pauseLatch) {
-        gp._pauseLatch = true;
-        if (gameActive && !gameOver) togglePause();
-    } else if (!pressed(9) && !pressed(1)) gp._pauseLatch = false;
-}
-
-let isGamepadUpgradeMode = false;
-let selectedUpgradeIndex = 0;
-let lastGamepadUpdate = 0;
-const GAMEPAD_INPUT_DELAY = 200; // milliseconds
-
-function handleGamepadInput() {
-    if (gamepadIndex == null) return;
-    const gp = navigator.getGamepads?.()[gamepadIndex];
-    if (!gp) return;
-
-    // --- NEW UPGRADE MENU GAMEPAD LOGIC ---
-    if (isGamepadUpgradeMode) {
-        const now = Date.now();
-        if (now - lastGamepadUpdate > GAMEPAD_INPUT_DELAY) {
-            let moved = false;
-            const prevIndex = selectedUpgradeIndex;
-            const numOptions = document.querySelectorAll('.upgrade-card').length;
-            
-            // D-pad Right or Left Stick Right
-            if (gp.buttons[15].pressed || gp.axes[0] > 0.5) {
-                selectedUpgradeIndex = (selectedUpgradeIndex + 1) % numOptions;
-                moved = true;
-            } 
-            // D-pad Left or Left Stick Left
-            else if (gp.buttons[14].pressed || gp.axes[0] < -0.5) {
-                selectedUpgradeIndex = (selectedUpgradeIndex - 1 + numOptions) % numOptions;
-                moved = true;
-            }
-            
-            // D-pad Up/Down (for wrapping)
-            const cardsPerRow = 3; 
-            if (gp.buttons[12].pressed) {
-                selectedUpgradeIndex = Math.max(0, selectedUpgradeIndex - cardsPerRow);
-                moved = true;
-            } else if (gp.buttons[13].pressed) {
-                selectedUpgradeIndex = Math.min(numOptions - 1, selectedUpgradeIndex + cardsPerRow);
-                moved = true;
-            }
-
-            if (moved && prevIndex !== selectedUpgradeIndex) {
-                const prevCard = document.querySelectorAll('.upgrade-card')[prevIndex];
-                if (prevCard) {
-                    prevCard.classList.remove('selected');
-                }
-                const newCard = document.querySelectorAll('.upgrade-card')[selectedUpgradeIndex];
-                if (newCard) {
-                    newCard.classList.add('selected');
-                    playUISound('uiClick');
-                    vibrate(10);
-                }
-                lastGamepadUpdate = now;
-            }
-            
-            // Check for confirmation button (e.g., A/X button)
-            if (gp.buttons[0].pressed) {
-                const selectedCard = document.querySelectorAll('.upgrade-card')[selectedUpgradeIndex];
-                if (selectedCard) {
-                    selectedCard.querySelector('button').click();
-                    isGamepadUpgradeMode = false;
+        
+                // Confirmation Button (A/X)
+                if (pressed(0) && !gp._confirmLatch) {
+                    gp._confirmLatch = true;
+                    if (menuItems[selectedMenuIndex]) {
+                        menuItems[selectedMenuIndex].click();
+                        // Special handling for menus that close
+                        if (currentMenu === 'upgrade' || currentMenu === 'merchant') {
+                            isGamepadMenuMode = false; 
+                        }
+                    }
                     lastGamepadUpdate = now;
-                    return;
+                } else if (!pressed(0)) {
+                    gp._confirmLatch = false;
+                }
+        
+                 // Back Button (B/Circle) for Merchant
+                if (pressed(1) && !gp._backLatch && currentMenu === 'merchant') {
+                    gp._backLatch = true;
+                    leaveMerchantButton.click();
+                    isGamepadMenuMode = false;
+                    lastGamepadUpdate = now;
+                } else if (!pressed(1)) {
+                    gp._backLatch = false;
+                }
+        
+            }
+        
+            // --- IN-GAME ACTION LOGIC ---
+            if (!isGamepadMenuMode) {
+                let lx = applyDeadzone(gp.axes[0] || 0);
+                let ly = applyDeadzone(gp.axes[1] || 0);
+                const lmag = Math.hypot(lx, ly);
+                if (lmag > 0) {
+                    joystickDirX = lx / lmag;
+                    joystickDirY = ly / lmag;
+                } else {
+                    joystickDirX = 0;
+                    joystickDirY = 0;
+                }
+        
+                let rx = applyDeadzone(gp.axes[2] || 0);
+                let ry = applyDeadzone(gp.axes[3] || 0);
+                const rmag = Math.hypot(rx, ry);
+                if (rmag > 0) {
+                    aimDx = rx / rmag;
+                    aimDy = ry / rmag;
+                } else {
+                    aimDx = 0;
+                    aimDy = 0;
+                }
+        
+                if (pressed(7) && !gp._rTriggerLatch) {
+                    gp._rTriggerLatch = true;
+                    triggerDash(player);
+                } else if (!pressed(7)) {
+                    gp._rTriggerLatch = false;
+                }
+        
+                if ((pressed(9) || pressed(1)) && !gp._pauseLatch) {
+                    gp._pauseLatch = true;
+                    if (gameActive && !gameOver) togglePause();
+                } else if (!pressed(9) && !pressed(1)) {
+                    gp._pauseLatch = false;
                 }
             }
         }
-    }
-    
-    // --- EXISTING GAMEPAD MOVEMENT LOGIC ---
-    let lx = applyDeadzone(gp.axes[0] || 0);
-    let ly = applyDeadzone(gp.axes[1] || 0);
-    const lmag = Math.hypot(lx, ly);
-    if (lmag > 0) {
-        joystickDirX = lx / lmag;
-        joystickDirY = ly / lmag;
-    } else {
-        joystickDirX = 0;
-        joystickDirY = 0;
-    }
-
-    let rx = applyDeadzone(gp.axes[2] || 0);
-    let ry = applyDeadzone(gp.axes[3] || 0);
-    const rmag = Math.hypot(rx, ry);
-    if (rmag > 0) {
-        aimDx = rx / rmag;
-        aimDy = ry / rmag;
-    } else {
-        aimDx = 0;
-        aimDy = 0;
-    }
-
-    const pressed = (i) => !!gp.buttons?.[i]?.pressed;
-    if (pressed(7) && !gp._rTriggerLatch) {
-    gp._rTriggerLatch = true;
-    triggerDash(player);
-} else if (!pressed(7)) gp._rTriggerLatch = false;
-    
-    if ((pressed(9) || pressed(1)) && !gp._pauseLatch) {
-        gp._pauseLatch = true;
-        if (gameActive && !gameOver) togglePause();
-    } else if (!pressed(9) && !pressed(1)) gp._pauseLatch = false;
-}
-
+        
         let joystickDirX = 0; let joystickDirY = 0;
         let aimDx = 0; let aimDy = 0;
         let lastMoveStickTapTime = 0;
@@ -3137,7 +3061,7 @@ function handleGamepadInput() {
         });
 
         window.addEventListener('mousemove', (e) => {
-            if (gamePaused || gameOver || !gameActive) return;
+            if (gamePaused || gameOver || !gameActive || isMenuOpen) return;
             const rect = canvas.getBoundingClientRect();
             mouseX = e.clientX - rect.left;
             mouseY = e.clientY - rect.top;
@@ -3150,11 +3074,10 @@ function handleGamepadInput() {
         canvas.addEventListener('mouseenter', () => { if (gameActive && !document.body.classList.contains('is-mobile')) { isMouseInCanvas = true; } });
         canvas.addEventListener('mouseleave', () => { if (gameActive) { isMouseInCanvas = false; } });
         canvas.addEventListener('mousedown', (e) => {
-    // e.button === 0 corresponds to the left mouse button
-    if (e.button === 0 && gameActive && !gamePaused && !gameOver) {
-        triggerDash(player);
-    }
-});
+            if (e.button === 0 && gameActive && !gamePaused && !gameOver && !isMenuOpen) {
+                triggerDash(player);
+            }
+        });
         
         function vibrate(duration) { if (isMobileDevice && navigator.vibrate) { navigator.vibrate(duration); } }
         function playSound(name) { if (gameActive && !gamePaused && audioPlayers[name]) { audioPlayers[name].start(getSafeToneTime()); } }
@@ -3205,7 +3128,7 @@ function handleGamepadInput() {
 
 document.body.addEventListener('touchstart', (e) => {
     if (gameGuideModal.style.display === 'flex' || achievementsModal.style.display === 'flex' || cheatsModal.style.display === 'flex') return;
-    if (!gameActive || gamePaused || gameOver) return;
+    if (!gameActive || gamePaused || gameOver || isMenuOpen) return;
     e.preventDefault();
     for (let i = 0; i < e.changedTouches.length; i++) {
         const touch = e.changedTouches[i];
@@ -3262,7 +3185,7 @@ document.body.addEventListener('touchstart', (e) => {
 
         document.body.addEventListener('touchmove', (e) => {
             if (gameGuideModal.style.display === 'flex' || achievementsModal.style.display === 'flex' || cheatsModal.style.display === 'flex') return;
-            if (!gameActive || gamePaused || gameOver) return;
+            if (!gameActive || gamePaused || gameOver || isMenuOpen) return;
             e.preventDefault();
             for (let i = 0; i < e.changedTouches.length; i++) {
                 const touch = e.changedTouches[i];
@@ -3283,7 +3206,7 @@ document.body.addEventListener('touchstart', (e) => {
 
         document.body.addEventListener('touchend', (e) => {
             if (gameGuideModal.style.display === 'flex' || achievementsModal.style.display === 'flex' || cheatsModal.style.display === 'flex') return;
-            if (!gameActive || gamePaused || gameOver) return;
+            if (!gameActive || gamePaused || gameOver || isMenuOpen) return;
             for (let i = 0; i < e.changedTouches.length; i++) {
                 const touch = e.changedTouches[i];
                 const touchInfo = activeTouches[touch.identifier];
@@ -3297,7 +3220,7 @@ document.body.addEventListener('touchstart', (e) => {
 
         document.body.addEventListener('touchcancel', (e) => {
             if (gameGuideModal.style.display === 'flex' || achievementsModal.style.display === 'flex' || cheatsModal.style.display === 'flex') return;
-            if (!gameActive || gamePaused || gameOver) return;
+            if (!gameActive || gamePaused || gameOver || isMenuOpen) return;
             for (let i = 0; i < e.changedTouches.length; i++) {
                 const touch = e.changedTouches[i];
                 const touchInfo = activeTouches[touch.identifier];
@@ -3313,7 +3236,7 @@ document.body.addEventListener('touchstart', (e) => {
 
         document.body.addEventListener('mousedown', (e) => {
             if (gameGuideModal.style.display === 'flex' || achievementsModal.style.display === 'flex' || cheatsModal.style.display === 'flex') return;
-            if (!gameActive || gamePaused || gameOver) return;
+            if (!gameActive || gamePaused || gameOver || isMenuOpen) return;
             const moveRect = movementStickBase.getBoundingClientRect();
             const fireRect = firestickBase.getBoundingClientRect();
             if (e.clientX > moveRect.left && e.clientX < moveRect.right && e.clientY > moveRect.top && e.clientY < moveRect.bottom) {
@@ -3332,7 +3255,7 @@ document.body.addEventListener('touchstart', (e) => {
 
         window.addEventListener('mousemove', (e) => {
             if (gameGuideModal.style.display === 'flex' || achievementsModal.style.display === 'flex' || cheatsModal.style.display === 'flex') return;
-            if (!gameActive || gamePaused || gameOver) return;
+            if (!gameActive || gamePaused || gameOver || isMenuOpen) return;
             if (mouseActiveStick) {
                 if (mouseActiveStick === 'movement') {
                     const { dx, dy } = getJoystickInput(e.clientX, e.clientY, movementStickBase, movementStickCap);
@@ -3348,7 +3271,7 @@ document.body.addEventListener('touchstart', (e) => {
 
         window.addEventListener('mouseup', (e) => {
             if (gameGuideModal.style.display === 'flex' || achievementsModal.style.display === 'flex' || cheatsModal.style.display === 'flex') return;
-            if (!gameActive || gamePaused || gameOver) return;
+            if (!gameActive || gamePaused || gameOver || isMenuOpen) return;
             if (mouseActiveStick === 'movement') { if (movementStickCap) movementStickCap.style.transform = 'translate(0, 0)'; joystickDirX = 0; joystickDirY = 0; } 
             else if (mouseActiveStick === 'fire') { if (firestickCap) firestickCap.style.transform = 'translate(0, 0)'; aimDx = 0; aimDy = 0; }
             mouseActiveStick = null;
@@ -3369,18 +3292,16 @@ document.body.addEventListener('touchstart', (e) => {
                 description: 'The original survivor. Balanced and reliable.',
                 perk: 'Standard bullets and dash.',
                 unlockCondition: { type: 'start' },
-                shootLogic: null, // Null means use default
-                dodgeLogic: null, // Null means use default
+                shootLogic: 'default',
             },
             skull: {
                 id: 'skull',
                 name: 'The Skeleton',
                 emoji: '💀',
                 description: 'A bony warrior who uses its own body as a weapon.',
-                perk: 'Shoots bones. Dodge fires a nova of bones.',
+                perk: 'Shoots spinning bones.',
                 unlockCondition: { type: 'achievement', id: 'slayer' },
-                shootLogic: null, // We'll handle this with a cheat check for now
-                dodgeLogic: null, 
+                shootLogic: 'bone', 
             }
         };
 
@@ -3582,6 +3503,8 @@ document.body.addEventListener('touchstart', (e) => {
                         weapon.hitsLeft = rocketLauncherActive ? 3 : (ricochetActive ? 2 : 1);
                         weapon.hitEnemies.length = 0; // Clear the hit list
                         weapon.active = true;
+                        weapon.type = CHARACTERS[equippedCharacterID].shootLogic; // Set projectile type
+                        weapon.rotation = 0; // For spinning bone
                         return; // Exit after finding one
                     }
                 }
@@ -3658,7 +3581,7 @@ document.body.addEventListener('touchstart', (e) => {
         }
 
         function levelUp() {
-            gamePaused = true;
+            isMenuOpen = true; // Block game unpausing
             player.level++;
             checkAchievements();
             player.xp -= player.xpToNextLevel;
@@ -3673,7 +3596,7 @@ document.body.addEventListener('touchstart', (e) => {
         }
 
         function showUpgradeMenu() {
-            if (upgradeOptionsContainer) upgradeOptionsContainer.innerHTML = '';
+            upgradeOptionsContainer.innerHTML = '';
             let availableUpgrades = [...UPGRADE_OPTIONS];
             let selectedChoices = [];
             let choiceCount = cheats.hardcoreMode ? 2 : 3;
@@ -3694,32 +3617,24 @@ document.body.addEventListener('touchstart', (e) => {
                     <p>${upgrade.desc}</p>
                     <button>Choose</button>
                 `;
-                upgradeCard.querySelector('button').onclick = () => { applyUpgrade(upgrade); vibrate(10); };
-                upgradeCard.addEventListener('click', () => {
-             // De-select all cards first
-             document.querySelectorAll('.upgrade-card').forEach(card => card.classList.remove('selected'));
-             // Select the clicked card
-             upgradeCard.classList.add('selected');
-             // Set the selected index to the clicked card's index
-             selectedUpgradeIndex = index;
-             // Vibrate and play sound
-             vibrate(10);
-             playUISound('uiClick');
-        });
+                const button = upgradeCard.querySelector('button');
+                button.onclick = () => { applyUpgrade(upgrade); vibrate(10); };
+                 // Make the whole card clickable, not just the button
+                upgradeCard.addEventListener('click', () => button.click());
                 upgradeCard.addEventListener('mouseover', () => playUISound('uiClick'));
                 if (upgradeOptionsContainer) upgradeOptionsContainer.appendChild(upgradeCard);
             });
             if (upgradeMenu) {
                 levelUpBoxImage.classList.add('animate');
                 levelUpBoxImage.style.display = 'block';
-                isGamepadUpgradeMode = true;
-selectedUpgradeIndex = 0; // Start with the first card selected
-// Apply the 'selected' class to the first card
-const firstCard = upgradeOptionsContainer.querySelector('.upgrade-card');
-if (firstCard) {
-    firstCard.classList.add('selected');
-}
                 upgradeMenu.style.display = 'flex';
+                
+                // Gamepad setup for this menu
+                currentMenu = 'upgrade';
+                menuItems = Array.from(upgradeOptionsContainer.querySelectorAll('.upgrade-card'));
+                selectedMenuIndex = 0;
+                isGamepadMenuMode = true;
+                updateMenuSelection();
             }
         }
 
@@ -3741,8 +3656,9 @@ if (firstCard) {
                 levelUpBoxImage.style.display = 'none';
                 upgradeMenu.style.display = 'none';
             }
+            isMenuOpen = false; // Allow game to be unpaused
             gamePaused = false;
-            isGamepadUpgradeMode = false;
+            isGamepadMenuMode = false;
             joystickDirX = 0; joystickDirY = 0; aimDx = 0; aimDy = 0;
             if (movementStickCap) movementStickCap.style.transform = 'translate(0, 0)';
             if (firestickCap) firestickCap.style.transform = 'translate(0, 0)';
@@ -3794,7 +3710,7 @@ if (firstCard) {
             if(oldScore !== newScore.toString()){ currentScoreSpan.textContent = newScore; }
             
             if (appleCounterSpan) appleCounterSpan.textContent = player.appleCount;
-            if (coinCounterSpan) coinCounterSpan.textContent = enemiesDefeatedCount;
+            if (coinCounterSpan) coinCounterSpan.textContent = player.coins;
             if (xpBar) xpBar.style.width = `${(player.xp / player.xpToNextLevel) * 100}%`;
         }
 
@@ -3872,7 +3788,7 @@ if (firstCard) {
             playSound('gameOver');
             vibrate([100, 30, 100]);
             playerStats.totalDeaths++;
-            gameOver = true; gamePaused = true; gameActive = false;
+            gameOver = true; gamePaused = true; gameActive = false; isMenuOpen = false;
             stopBGM();
             cameraZoom = 1.0;
             if (canvas) canvas.style.cursor = 'default';
@@ -3887,7 +3803,7 @@ if (firstCard) {
             if (finalScoreSpan) finalScoreSpan.textContent = Math.floor(score);
             if (finalTimeSpan) finalTimeSpan.textContent = `${totalTimeSeconds}s`;
             
-            const coins = enemiesDefeatedCount;
+            const coins = player.coins;
             if (coinsEarnedSpan) coinsEarnedSpan.textContent = coins;
             playerData.currency += coins;
             savePlayerData();
@@ -4005,7 +3921,8 @@ async function tryLoadMusic(retries = 3) {
             }
             isMouseInCanvas = false;
             
-            gameActive = true; gameOver = false; gamePaused = false;
+            gameActive = true; gameOver = false; gamePaused = false; isMenuOpen = false;
+            isGamepadMenuMode = false; // Switch to game mode
             
             let basePlayerSpeed = 1.4;
             applyPermanentUpgrades();
@@ -4019,7 +3936,7 @@ async function tryLoadMusic(retries = 3) {
                 speed: basePlayerSpeed * difficultyMultiplier, lives: player.maxLives, orbitAngle: 0, 
                 boxPickupsCollectedCount: 0, bgmFastModeActive: false, swordActive: false, 
                 lastSwordSwingTime: 0, currentSwordSwing: null, isSlowedByMosquitoPuddle: false, 
-                facing: 'down', appleCount: 0,
+                facing: 'down', appleCount: 0, coins: 0,
                 isDashing: false, dashEndTime: 0, lastDashTime: 0 - (playerData.hasReducedDashCooldown ? 3000: 6000), 
                 dashCooldown: playerData.hasReducedDashCooldown ? 3000: 6000,
                 isInvincible: false,
@@ -4047,7 +3964,7 @@ async function tryLoadMusic(retries = 3) {
             
             dog = { x: player.x, y: player.y, size: 25, state: 'returning', target: null, lastHomingShotTime: 0 };
             player2 = null;
-            merchant = null; // Ensure no merchant at start
+            merchants.length = 0; // Ensure no merchants at start
 
             temporalWardActive = false; isTimeStopped = false; timeStopEndTime = 0;
             resetRunStats();
@@ -4114,8 +4031,19 @@ async function tryLoadMusic(retries = 3) {
             if (difficultyContainer) difficultyContainer.style.display = 'block';
             if (canvas) canvas.style.cursor = 'default';
             isMouseInCanvas = false; cameraZoom = 1.0;
+
+            // Gamepad setup for main menu
+            currentMenu = 'difficulty';
+            menuItems = [
+                ...difficultyButtonsContainer.querySelectorAll('button'),
+                ...bottomMenuButtonsContainer.querySelectorAll('button')
+            ];
+            selectedMenuIndex = 0;
+            isGamepadMenuMode = true;
+            updateMenuSelection();
         }
         function togglePause() {
+            if (isMenuOpen) return; // Prevent pausing/unpausing if a menu like level up is open
             vibrate(20);
             gamePaused = !gamePaused;
             if (gamePaused) { pauseOverlay.style.display = 'flex'; Tone.Transport.pause(); } 
@@ -4433,29 +4361,31 @@ async function tryLoadMusic(retries = 3) {
 
 
         function closeMerchantShop() {
-    merchantShop.style.display = 'none';
-    gamePaused = false;
-    // The merchant is now removed upon collision, not when closing the shop.
-}
+            merchantShopUI.style.display = 'none';
+            isMenuOpen = false;
+            gamePaused = false;
+            isGamepadMenuMode = false;
+        }
 
         function showMerchantShop() {
             gamePaused = true;
+            isMenuOpen = true;
             merchantOptionsContainer.innerHTML = ''; // Clear previous options
             playUISound('levelUp');
 
             const options = [];
             
-            // Option 1: Trade 3 apples for XP
-            const canAffordXp = player.appleCount >= 3;
+            // Option 1: Trade 5 apples for 1 full level up of XP
+            const xpCost = 5;
             options.push({
-                type: 'xp_for_apples',
-                name: "Gain Experience",
-                desc: "A hearty meal to fuel your journey.",
+                type: 'buy_level',
+                name: "Buy Level Up",
+                desc: "Trade apples for instant power.",
                 icon: '📈',
-                cost: 3,
+                cost: xpCost,
                 currency: 'apples',
-                xpAmount: player.xpToNextLevel, // Give a full level up's worth
-                enabled: canAffordXp
+                xpAmount: player.xpToNextLevel,
+                enabled: player.appleCount >= xpCost
             });
 
             // Options 2 & 3: Buy a random powerup with coins
@@ -4501,40 +4431,55 @@ async function tryLoadMusic(retries = 3) {
                     card.style.opacity = '0.5';
                     card.style.cursor = 'not-allowed';
                 } else {
-                    card.onclick = () => purchaseFromMerchant(option);
+                    card.addEventListener('click', () => purchaseFromMerchant(option));
                     card.addEventListener('mouseover', () => playUISound('uiClick'));
                 }
                 merchantOptionsContainer.appendChild(card);
             });
 
-            merchantShop.style.display = 'flex';
+            merchantShopUI.style.display = 'flex';
+            // Gamepad setup
+            currentMenu = 'merchant';
+            menuItems = Array.from(merchantOptionsContainer.querySelectorAll('.merchant-card'));
+            menuItems.push(leaveMerchantButton); // Add leave button to navigation
+            selectedMenuIndex = 0;
+            isGamepadMenuMode = true;
+            updateMenuSelection();
         }
 
         function purchaseFromMerchant(option) {
             playUISound('levelUpSelect');
             vibrate(20);
 
-            if (option.type === 'xp_for_apples') {
+            if (option.type === 'buy_xp') {
                 player.appleCount -= option.cost;
                 player.xp += option.xpAmount;
                 floatingTexts.push({ text: `+${option.xpAmount} XP!`, x: player.x, y: player.y - player.size, startTime: Date.now(), duration: 1500, color: '#00c6ff' });
-                if (player.xp >= player.xpToNextLevel) {
-                    // Delay closing the shop slightly to see the level up screen
+                 if (player.xp >= player.xpToNextLevel) {
+                    merchantShopUI.style.display = 'none';
+                    isMenuOpen = false;
                     setTimeout(() => levelUp(), 200);
+                } else {
+                    closeMerchantShop();
                 }
             } else if (option.type === 'buy_powerup') {
                 player.coins -= option.cost;
-                activatePowerup(option.powerupId);
-                floatingTexts.push({ text: `${option.name}!`, x: player.x, y: player.y - player.size, startTime: Date.now(), duration: 1500 });
-            }
-
-            if (option.type !== 'xp_for_apples' || player.xp < player.xpToNextLevel) {
-                closeMerchantShop();
+                const availablePowerups = [];
+                 if (!magneticProjectileActive) availablePowerups.push({id:'magnetic_projectile', name: 'Magnetic Shots'});
+                if (!explosiveBulletsActive) availablePowerups.push({id: 'explosive_bullets', name: 'Explosive Bullets'});
+                if (!ricochetActive) availablePowerups.push({id:'ricochet', name: 'Ricochet Shots'});
+                // ... add all other powerups
+                if (availablePowerups.length > 0) {
+                    const randomPowerup = availablePowerups[Math.floor(Math.random() * availablePowerups.length)];
+                    activatePowerup(randomPowerup.id);
+                    floatingTexts.push({ text: `${randomPowerup.name}!`, x: player.x, y: player.y - player.size, startTime: Date.now(), duration: 1500 });
+                }
+                 closeMerchantShop();
             }
         }
 
-        // Helper function to consolidate powerup activation logic
         function activatePowerup(id) {
+            runStats.powerupsPickedUp.add(id);
             if (id === 'doppelganger') {
                 doppelgangerActive = true; runStats.lastDoppelgangerStartTime = Date.now();
                 doppelganger = {
@@ -4604,23 +4549,22 @@ async function tryLoadMusic(retries = 3) {
             checkAchievements();
             
             if (Date.now() - lastMerchantSpawnTime >= MERCHANT_SPAWN_INTERVAL) {
-    spawnMerchant(player.x + 200, player.y); 
-    lastMerchantSpawnTime = Date.now(); // Reset the timer right after spawning
-}
+                spawnNewMerchant();
+                lastMerchantSpawnTime = Date.now();
+            }
 
-// Loop through all active merchants to check for collision.
-for (let i = merchants.length - 1; i >= 0; i--) {
-    const currentMerchant = merchants[i];
-    const dx = player.x - currentMerchant.x;
-    const dy = player.y - currentMerchant.y;
-    const distance = Math.sqrt(dx * dx + dy * dy);
+            for (let i = merchants.length - 1; i >= 0; i--) {
+                const currentMerchant = merchants[i];
+                const dx = player.x - currentMerchant.x;
+                const dy = player.y - currentMerchant.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
 
-    if (distance < (player.size / 2) + (currentMerchant.size / 2)) {
-        showMerchantShop();      // Open the shop
-        merchants.splice(i, 1); // Remove THIS merchant from the array
-        break;                   // Stop checking for this frame
-    }
-}
+                if (distance < (player.size / 2) + (currentMerchant.size / 2)) {
+                    showMerchantShop();
+                    merchants.splice(i, 1);
+                    break;
+                }
+            }
 
             if (fireRateBoostActive && now > fireRateBoostEndTime) fireRateBoostActive = false;
             
@@ -4641,10 +4585,10 @@ for (let i = merchants.length - 1; i >= 0; i--) {
 
 
             let moveX = 0; let moveY = 0; let isMoving = false;
-            if (keys['ArrowUp'] || keys['w']) moveY -= 1;
-            if (keys['ArrowDown'] || keys['s']) moveY += 1;
-            if (keys['ArrowLeft'] || keys['a']) moveX -= 1;
-            if (keys['ArrowRight'] || keys['d']) moveX += 1;
+            if (keys['w']) moveY -= 1;
+            if (keys['s']) moveY += 1;
+            if (keys['a']) moveX -= 1;
+            if (keys['d']) moveX += 1;
 
             if (moveX === 0 && moveY === 0) { moveX = joystickDirX; moveY = joystickDirY; }
 
@@ -4655,16 +4599,12 @@ for (let i = merchants.length - 1; i >= 0; i--) {
                 moveY /= moveMagnitude;
             }
 
-            const spinDuration = 500; // Spin completes in 0.5 seconds
+            const spinDuration = 500;
             if (player.isDashing && player.spinStartTime) {
                 if (now < player.spinStartTime + spinDuration) {
-                    if (moveX > 0) {
-                        player.spinDirection = 1; // clockwise
-                    } else if (moveX < 0) {
-                        player.spinDirection = -1; // counter-clockwise
-                    } else if (player.spinDirection === 0) {
-                        player.spinDirection = 1; // Default to clockwise if no horizontal movement
-                    }
+                    if (moveX > 0) player.spinDirection = 1;
+                    else if (moveX < 0) player.spinDirection = -1;
+                    else if (player.spinDirection === 0) player.spinDirection = 1;
                 } else {
                     player.spinStartTime = null;
                     player.spinDirection = 0;
@@ -4673,8 +4613,7 @@ for (let i = merchants.length - 1; i >= 0; i--) {
 
             if (isMoving && !player.isDashing) { player.stepPhase += player.speed * 0.1; }
             
-            let currentPlayerSpeed = player.speed;
-            if (cheats.double_game_speed) currentPlayerSpeed *= 2;
+            let currentPlayerSpeed = player.speed * (cheats.double_game_speed ? 2 : 1);
 
 
             if(player.isDashing) {
@@ -4683,8 +4622,7 @@ for (let i = merchants.length - 1; i >= 0; i--) {
                     player.isDashing = false;
                     player.isInvincible = false;
                 } else {
-                    if (hasDashInvincibility) player.isInvincible = true;
-                    // Spawn dash trail
+                    if (hasDashInvincibility || cheats.infinite_dash) player.isInvincible = true;
                     if (Math.random() > 0.5) {
                         smokeParticles.push({
                             x: player.x, y: player.y + player.size / 4,
@@ -4697,26 +4635,17 @@ for (let i = merchants.length - 1; i >= 0; i--) {
             }
 
             player.isSlowedByMosquitoPuddle = false;
-            for (const puddle of mosquitoPuddles) {
+            for (const puddle of [...mosquitoPuddles, ...snailPuddles]) {
                 const dx = player.x - puddle.x;
                 const dy = player.y - puddle.y;
                 if (dx*dx + dy*dy < ((player.size / 2) + (puddle.size / 2))**2) {
-                    currentPlayerSpeed *= MOSQUITO_PUDDLE_SLOW_FACTOR;
+                    currentPlayerSpeed *= PLAYER_PUDDLE_SLOW_FACTOR;
                     player.isSlowedByMosquitoPuddle = true;
                     break;
                 }
             }
 
-            for (const puddle of snailPuddles) {
-                const dx = player.x - puddle.x;
-                const dy = player.y - puddle.y;
-                if (dx*dx + dy*dy < ((player.size / 2) + (puddle.size / 2))**2) {
-                    currentPlayerSpeed *= PLAYER_PUDDLE_SLOW_FACTOR; 
-                    break;
-                }
-            }
-
-            if (isMoving) {
+            if (isMoving && !cheats.ghost_mode) {
                 let nextX = player.x + moveX * currentPlayerSpeed;
                 let nextY = player.y + moveY * currentPlayerSpeed;
                 let collision = false;
@@ -4729,6 +4658,9 @@ for (let i = merchants.length - 1; i >= 0; i--) {
                     }
                 }
                 if (!collision) { player.x = nextX; player.y = nextY; }
+            } else if (isMoving && cheats.ghost_mode) {
+                 player.x += moveX * currentPlayerSpeed;
+                 player.y += moveY * currentPlayerSpeed;
             }
             
             const PUSH_BACK_STRENGTH = 2.5;
@@ -4786,13 +4718,9 @@ for (let i = merchants.length - 1; i >= 0; i--) {
 
                 if(player2.isDashing && player2.spinStartTime) {
                     if (now < player2.spinStartTime + spinDuration) {
-                        if (p2VelX > 0) {
-                            player2.spinDirection = 1; // clockwise
-                        } else if (p2VelX < 0) {
-                            player2.spinDirection = -1; // counter-clockwise
-                        } else if (player2.spinDirection === 0) {
-                            player2.spinDirection = 1; // Default
-                        }
+                        if (p2VelX > 0) player2.spinDirection = 1;
+                        else if (p2VelX < 0) player2.spinDirection = -1;
+                        else if (player2.spinDirection === 0) player2.spinDirection = 1;
                     } else {
                         player2.spinStartTime = null;
                         player2.spinDirection = 0;
@@ -4810,23 +4738,17 @@ for (let i = merchants.length - 1; i >= 0; i--) {
                 player2.x = Math.max(player2.size / 2, Math.min(WORLD_WIDTH - player2.size / 2, player2.x));
                 player2.y = Math.max(player2.size / 2, Math.min(WORLD_HEIGHT - player2.size / 2, player2.y));
                 let p2isShooting = false;
-                // Numpad 8 is up
                 if (keys['8']) { player2.gunAngle = -Math.PI / 2; p2isShooting = true; }
-                // Numpad 5 is down
                 if (keys['5']) { player2.gunAngle = Math.PI / 2; p2isShooting = true; }
-                // Numpad 4 is left
                 if (keys['4']) { player2.gunAngle = Math.PI; p2isShooting = true; }
-                // Numpad 6 is right
                 if (keys['6']) { player2.gunAngle = 0; p2isShooting = true; }
                 
-                // Fire the weapon with the correct angle
                 if (p2isShooting && now - player2.lastFireTime > player2.fireInterval) {
-    const angle = player2.gunAngle;
-    createWeapon(player2, angle); // This is the correct line.
-    player2.lastFireTime = now;
-}
+                    createWeapon(player2, player2.gunAngle);
+                    player2.lastFireTime = now;
+                }
             }
-
+            
             // --- NEW POWERUP LOGIC ---
             if (bugSwarmActive && !isTimeStopped && now - lastBugSwarmSpawnTime > BUG_SWARM_INTERVAL) {
                 for (let i = 0; i < BUG_SWARM_COUNT; i++) {
@@ -4869,7 +4791,6 @@ for (let i = merchants.length - 1; i >= 0; i--) {
                     if (targetEnemy && !targetEnemy.isHit) {
                         lightningStrikes.push({ x: targetEnemy.x, y: targetEnemy.y, startTime: now, duration: 500 });
                         targetEnemy.health -= LIGHTNING_STRIKE_DAMAGE;
-                        playerStats.totalEnemiesHitByLightning++;
                         createBloodSplatter(targetEnemy.x, targetEnemy.y);
                         if (targetEnemy.health <= 0) { handleEnemyDeath(targetEnemy); }
                         lastLightningStrikeTime = now;
@@ -4878,7 +4799,7 @@ for (let i = merchants.length - 1; i >= 0; i--) {
             }
 
 
-            let enemySpawnCap = cheats.noSpawnCap ? Infinity : 100;
+            let enemySpawnCap = 100;
             let currentEnemySpawnInterval = enemySpawnInterval / Math.pow(1.3, player.boxPickupsCollectedCount) * (1 - 0.01 * (player.level - 1));
             currentEnemySpawnInterval = Math.max(80, currentEnemySpawnInterval);
             if (player.level > 0 && player.level % BOSS_SPAWN_INTERVAL_LEVELS === 0 && player.level !== lastBossLevelSpawned) {
@@ -4918,21 +4839,10 @@ for (let i = merchants.length - 1; i >= 0; i--) {
                 
                 let angleToTarget = Math.atan2(target.y - enemy.y, target.x - enemy.x);
 
-                let effectiveEnemySpeed = enemy.speed;
-                if(cheats.fastEnemies) effectiveEnemySpeed *= 1.5;
-                if(cheats.slowEnemies) effectiveEnemySpeed *= 0.5;
+                let effectiveEnemySpeed = enemy.speed * (cheats.double_game_speed ? 2 : 1);
 
                 enemy.isSlowedByPuddle = false;
-                for (const puddle of playerPuddles) {
-                    const dx = enemy.x - puddle.x;
-                    const dy = enemy.y - puddle.y;
-                    if (dx*dx + dy*dy < ((enemy.size / 2) + (puddle.size / 2))**2) {
-                        effectiveEnemySpeed *= PLAYER_PUDDLE_SLOW_FACTOR;
-                        enemy.isSlowedByPuddle = true;
-                        break;
-                    }
-                }
-                 for (const puddle of snailPuddles) {
+                 for (const puddle of [...playerPuddles, ...snailPuddles]) {
                     const dx = enemy.x - puddle.x;
                     const dy = enemy.y - puddle.y;
                     if (dx*dx + dy*dy < ((enemy.size / 2) + (puddle.size / 2))**2) {
