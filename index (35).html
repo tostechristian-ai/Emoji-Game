@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Emoji Survivor</title>
+
+  <!-- Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+
+  <!-- External CSS -->
+  <link rel="stylesheet" href="style.css">
+
+  <!-- Tone.js library -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.min.js"></script>
+</head>
+<body>
+  <!-- Start Screen -->
+  <div id="startScreen">
+    <button id="startButton">Tap to Start</button>
+  </div>
+
+  <!-- Loading Screen -->
+  <div id="loadingScreen">
+    <p id="loadingText">Loading Assets...</p>
+  </div>
+
+  <!-- Splash Screen -->
+  <div id="splashScreen">
+    <img id="splashLogo" src="sprites/toastygames.png" alt="Toasty Games Logo">
+  </div>
+
+  <!-- Difficulty Select -->
+  <div id="difficultyContainer">
+    <div id="difficultyScreen">
+      <h1 id="mainTitle">Emoji Survivor</h1>
+      <div id="highScoresContainer">
+        <h3>HIGH SCORES</h3>
+        <p>Easy: Lvl <span id="easyHighLevel">1</span> Score: <span id="easyHighScore">0</span></p>
+        <p>Medi: Lvl <span id="mediumHighLevel">1</span> Score: <span id="mediumHighScore">0</span></p>
+        <p>Hard: Lvl <span id="hardHighLevel">1</span> Score: <span id="hardHighScore">0</span></p>
+      </div>
+      <div class="emoji-container left-emoji">
+        <span class="spinning-emoji">🤠</span>
+      </div>
+      <div class="difficulty-buttons">
+        <button class="easy" data-difficulty="easy">Easy</button>
+        <button class="medium" data-difficulty="medium">Medium</button>
+        <button class="hard" data-difficulty="hard">Hard</button>
+        <button id="characterSelectButton" class="characters">Characters</button>
+        <button id="howToPlayButton">How to Play</button>
+      </div>
+      <div class="emoji-container right-emoji">
+        <span class="spinning-emoji">🤠</span>
+      </div>
+      <div class="bottom-menu-buttons">
+        <button id="desktopAchievementsButton" class="achievements">Trophies</button>
+        <button id="desktopResetButton">Reset</button>
+        <button id="desktopUpgradesButton" class="upgrades">Upgrades</button>
+      </div>
+      <div id="mobile-bottom-buttons">
+        <button id="mobileMenuTrophiesButton" class="achievements">Trophies</button>
+        <button id="mobileMenuUpgradesButton" class="upgrades">Upgrades</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Map Select -->
+  <div id="mapSelectContainer">
+    <div id="mapSelectScreen">
+      <h1>Select a Map</h1>
+      <div id="mapTilesContainer"></div>
+      <button id="backToDifficultySelectButton">Back</button>
+    </div>
+  </div>
+
+  <!-- Character Select -->
+  <div id="characterSelectContainer">
+    <div id="characterSelectScreen">
+      <h1>Choose Character</h1>
+      <div id="characterTilesContainer"></div>
+      <button id="backToMenuFromCharsButton">Back</button>
+    </div>
+  </div>
+
+  <!-- Upgrade Shop -->
+  <div id="upgradeShop">
+    <h2>Permanent Upgrades</h2>
+    <p id="currencyDisplay">Coins: 0 💰</p>
+    <div id="permanentUpgradesContainer"></div>
+
+    <h3>Unlockable Pickups</h3>
+    <div id="unlockablePickupsContainer"></div>
+
+    <button id="backToMenuButton" class="difficulty-buttons">Back</button>
+  </div>
+
+  <!-- Achievements -->
+  <div id="achievementsModal">
+    <div class="content-wrapper">
+      <h2>🏆 Achievements</h2>
+      <div id="achievementsContainer"></div>
+      <button id="cheatsMenuButton" style="background-color: #ff00ff; margin-top: 10px;">Cheats Menu</button>
+      <button id="backToMenuFromAchievements">Back</button>
+    </div>
+  </div>
+
+  <!-- Cheats -->
+  <div id="cheatsModal">
+    <div class="content-wrapper">
+      <h2>👾 Cheats Menu</h2>
+      <p style="font-size: 12px; color: #aaa; margin-bottom: 20px;">Unlock achievements to enable cheats!</p>
+      <div id="cheatsContainer"></div>
+      <button id="backToAchievementsButton">Back to Achievements</button>
+    </div>
+  </div>
+
+  <!-- Game Guide -->
+  <div id="gameGuideModal">
+    <div class="content-wrapper">
+      <h2>📜 Game Guide</h2>
+      <div class="guide-columns">
+        <!-- controls, pickups, obstacles etc go here -->
+      </div>
+      <button id="backToDifficultyButton">Back to Difficulty Select</button>
+    </div>
+  </div>
+
+  <!-- Game Container -->
+  <div id="gameContainer">
+    <canvas id="gameCanvas"></canvas>
+    <div id="pauseButton">⏸️</div>
+    <div id="pauseOverlay">
+      <h2>Paused</h2>
+      <div class="pause-controls">
+        <label for="musicVolume">Music Volume</label>
+        <input type="range" id="musicVolume" min="-40" max="0" value="-10" step="1">
+        <label for="effectsVolume">Effects Volume</label>
+        <input type="range" id="effectsVolume" min="-40" max="0" value="0" step="1">
+        <div class="toggle-switch-container">
+          <label for="zoomToggle">Zoom</label>
+          <label class="switch">
+            <input type="checkbox" id="zoomToggle">
+            <span class="slider round"></span>
+          </label>
+        </div>
+        <div class="pause-button-group">
+          <button id="resumeButton">Resume</button>
+          <button id="pauseRestartButton">Restart</button>
+        </div>
+      </div>
+    </div>
+    <div id="gameStartOverlay">
+      <h2 id="gameStartText"></h2>
+      <p id="gameStartDifficulty"></p>
+    </div>
+  </div>
+
+  <!-- Game Stats -->
+  <div id="gameStats">
+    <p>Level: <span id="currentLevel">1</span></p>
+    <p>Score: <span id="currentScore">0</span></p>
+    <div id="xpBarContainer">
+      <div id="xpBar"></div>
+    </div>
+    <p>XP: <span id="currentXp">0</span>/<span id="requiredXp">10</span></p>
+    <p>Lives: <span id="playerLivesIcon">❤️❤️❤️</span></p>
+    <p>Apples: <span id="appleCounter">0</span>/5 🍎</p>
+    <p>Coins: <span id="coinCounter">0</span> 💰</p>
+    <div id="powerupIcons"></div>
+    <div id="upgradeStats"></div>
+  </div>
+
+  <!-- Mobile Reset -->
+  <button id="mobileResetButton" style="background-color: #808080;">Reset Game</button>
+
+  <!-- Joysticks -->
+  <div id="movement-stick-base" class="thumbstick-base">
+    <div id="movement-stick-cap" class="thumbstick-cap"></div>
+  </div>
+  <div id="fire-stick-base" class="thumbstick-base">
+    <div id="fire-stick-cap" class="thumbstick-cap"></div>
+  </div>
+
+  <!-- Upgrade Menu -->
+  <div id="upgradeMenu">
+    <img id="levelUpBox" src="" style="display: none; margin-bottom: 10px;" alt="Level Up!">
+    <h2>Level Up!</h2>
+    <div class="upgrade-options-container" id="upgradeOptionsContainer"></div>
+  </div>
+
+  <!-- Merchant -->
+  <div id="merchantShop">
+    <h2>Wandering Merchant 🧙‍♂️</h2>
+    <div class="merchant-options-container" id="merchantOptionsContainer"></div>
+    <button id="leaveMerchantButton">Leave</button>
+  </div>
+
+  <!-- Game Over -->
+  <div id="gameOverlay">
+    <h2>GAME OVER!</h2>
+    <p>Total Score: <span id="finalScore">0</span></p>
+    <p>Coins Earned: <span id="coinsEarned">0</span> 🪙</p>
+    <p>Time Played: <span id="finalTime">0s</span></p>
+    <div id="loadingStory" style="display: none;">Generating your legend...</div>
+    <div id="storytellerOutput"></div>
+    <button id="restartButton">Restart Game</button>
+  </div>
+
+  <!-- Achievement Banner -->
+  <div id="achievement-banner">
+    <div id="achievement-banner-icon" class="achievement-icon"></div>
+    <div class="achievement-details">
+      <h4 id="achievement-banner-name"></h4>
+      <p id="achievement-banner-desc"></p>
+    </div>
+  </div>
+
+  <!-- External JS -->
+  <script src="script.js"></script>
+</body>
+</html>
