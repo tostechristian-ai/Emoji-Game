@@ -731,10 +731,6 @@
 // ====== GAMEPAD INPUT ======
 let gamepadIndex = null;
 const GAMEPAD_DEADZONE = 0.2;
-let isGamepadUpgradeMode = false;
-let selectedUpgradeIndex = 0;
-let lastGamepadUpdate = 0;
-const GAMEPAD_INPUT_DELAY = 200; // milliseconds
 
 function applyDeadzone(v, dz = GAMEPAD_DEADZONE) {
   return Math.abs(v) < dz ? 0 : v;
@@ -748,13 +744,138 @@ window.addEventListener("gamepaddisconnected", (e) => {
   if (gamepadIndex === e.gamepad.index) gamepadIndex = null;
 });
 
-// MERGED & CLEANED: This is the single, authoritative function for all gamepad input.
+// Call each frame
 function handleGamepadInput() {
     if (gamepadIndex == null) return;
     const gp = navigator.getGamepads?.()[gamepadIndex];
     if (!gp) return;
 
-    // --- UPGRADE MENU GAMEPAD LOGIC ---
+    // --- NEW UPGRADE MENU GAMEPAD LOGIC ---
+    // Place this before all other gamepad logic
+    if (isGamepadUpgradeMode) {
+        const now = Date.now();
+        if (now - lastGamepadUpdate > GAMEPAD_INPUT_DELAY) {
+            let moved = false;
+            const prevIndex = selectedUpgradeIndex;
+            const numOptions = document.querySelectorAll('.upgrade-card').length;
+            
+            // Check for horizontal movement (D-pad left/right or left stick)
+            if (gp.buttons[15].pressed || gp.axes[0] > 0.5) {
+                selectedUpgradeIndex = (selectedUpgradeIndex + 1) % numOptions;
+                moved = true;
+            } 
+            else if (gp.buttons[14].pressed || gp.axes[0] < -0.5) {
+                selectedUpgradeIndex = (selectedUpgradeIndex - 1 + numOptions) % numOptions;
+                moved = true;
+            }
+            
+            // Check for vertical movement (D-pad up/down)
+            const cardsPerRow = 3; 
+            if (gp.buttons[12].pressed) {
+                selectedUpgradeIndex = Math.max(0, selectedUpgradeIndex - cardsPerRow);
+                moved = true;
+            } else if (gp.buttons[13].pressed) {
+                selectedUpgradeIndex = Math.min(numOptions - 1, selectedUpgradeIndex + cardsPerRow);
+                moved = true;
+            }
+
+            if (moved && prevIndex !== selectedUpgradeIndex) {
+                const prevCard = document.querySelectorAll('.upgrade-card')[prevIndex];
+                if (prevCard) {
+                    prevCard.classList.remove('selected');
+                }
+                const newCard = document.querySelectorAll('.upgrade-card')[selectedUpgradeIndex];
+                if (newCard) {
+                    newCard.classList.add('selected');
+                    playUISound('uiClick');
+                    vibrate(10);
+                }
+                lastGamepadUpdate = now;
+            }
+            
+            // Check for confirmation button (e.g., A/X button)
+            if (gp.buttons[0].pressed) {
+                const selectedCard = document.querySelectorAll('.upgrade-card')[selectedUpgradeIndex];
+                if (selectedCard) {
+                    selectedCard.querySelector('button').click();
+                    isGamepadUpgradeMode = false;
+                    lastGamepadUpdate = now;
+                    return;
+                }
+            }
+        }
+    }
+
+    // --- EXISTING GAMEPAD MOVEMENT LOGIC ---
+    let lx = applyDeadzone(gp.axes[0] || 0);
+    let ly = applyDeadzone(gp.axes[1] || 0);
+    const lmag = Math.hypot(lx, ly);
+    if (lmag > 0) {
+        joystickDirX = lx / lmag;
+        joystickDirY = ly / lmag;
+    } else {
+        joystickDirX = 0;
+        joystickDirY = 0;
+    }
+// ===== PLAYER 2 GAMEPAD INPUT =====
+        const gp2 = navigator.getGamepads?.()[1]; // Get the second gamepad (index 1)
+        if (player2 && player2.active && gp2) {
+            // Movement from Left Stick
+            let lx2 = applyDeadzone(gp2.axes[0] || 0);
+            let ly2 = applyDeadzone(gp2.axes[1] || 0);
+            const lmag2 = Math.hypot(lx2, ly2);
+            if (lmag2 > 0) {
+                player2.dx = lx2 / lmag2;
+                player2.dy = ly2 / lmag2;
+            } else {
+                player2.dx = 0;
+                player2.dy = 0;
+            }
+
+            // Dodge/Dash from Right Trigger
+            const pressed2 = (i) => !!gp2.buttons?.[i]?.pressed;
+            if (pressed2(7) && !player2._rTriggerLatch) {
+                player2._rTriggerLatch = true;
+                triggerDash(player2);
+            } else if (!pressed2(7)) {
+                player2._rTriggerLatch = false;
+            }
+        }
+    
+    let rx = applyDeadzone(gp.axes[2] || 0);
+    let ry = applyDeadzone(gp.axes[3] || 0);
+    const rmag = Math.hypot(rx, ry);
+    if (rmag > 0) {
+        aimDx = rx / rmag;
+        aimDy = ry / rmag;
+    } else {
+        aimDx = 0;
+        aimDy = 0;
+    }
+
+    const pressed = (i) => !!gp.buttons?.[i]?.pressed;
+    if (pressed(7) && !gp._rTriggerLatch) {
+    gp._rTriggerLatch = true;
+    triggerDash(player);
+} else if (!pressed(7)) gp._rTriggerLatch = false;
+    
+    if ((pressed(9) || pressed(1)) && !gp._pauseLatch) {
+        gp._pauseLatch = true;
+        if (gameActive && !gameOver) togglePause();
+    } else if (!pressed(9) && !pressed(1)) gp._pauseLatch = false;
+}
+
+let isGamepadUpgradeMode = false;
+let selectedUpgradeIndex = 0;
+let lastGamepadUpdate = 0;
+const GAMEPAD_INPUT_DELAY = 200; // milliseconds
+
+function handleGamepadInput() {
+    if (gamepadIndex == null) return;
+    const gp = navigator.getGamepads?.()[gamepadIndex];
+    if (!gp) return;
+
+    // --- NEW UPGRADE MENU GAMEPAD LOGIC ---
     if (isGamepadUpgradeMode) {
         const now = Date.now();
         if (now - lastGamepadUpdate > GAMEPAD_INPUT_DELAY) {
@@ -804,15 +925,13 @@ function handleGamepadInput() {
                     selectedCard.querySelector('button').click();
                     isGamepadUpgradeMode = false;
                     lastGamepadUpdate = now;
-                    return; // Exit early since we're in a menu
+                    return;
                 }
             }
         }
-        // Don't process game input while in the upgrade menu
-        return; 
     }
     
-    // --- PLAYER 1 GAMEPAD MOVEMENT & AIMING LOGIC ---
+    // --- EXISTING GAMEPAD MOVEMENT LOGIC ---
     let lx = applyDeadzone(gp.axes[0] || 0);
     let ly = applyDeadzone(gp.axes[1] || 0);
     const lmag = Math.hypot(lx, ly);
@@ -835,46 +954,16 @@ function handleGamepadInput() {
         aimDy = 0;
     }
 
-    // --- PLAYER 1 & 2 BUTTONS (DASH, PAUSE) ---
     const pressed = (i) => !!gp.buttons?.[i]?.pressed;
     if (pressed(7) && !gp._rTriggerLatch) {
-        gp._rTriggerLatch = true;
-        triggerDash(player);
-    } else if (!pressed(7)) {
-        gp._rTriggerLatch = false;
-    }
+    gp._rTriggerLatch = true;
+    triggerDash(player);
+} else if (!pressed(7)) gp._rTriggerLatch = false;
     
     if ((pressed(9) || pressed(1)) && !gp._pauseLatch) {
         gp._pauseLatch = true;
         if (gameActive && !gameOver) togglePause();
-    } else if (!pressed(9) && !pressed(1)) {
-        gp._pauseLatch = false;
-    }
-
-    // --- PLAYER 2 GAMEPAD LOGIC (Requires a second connected gamepad) ---
-    const gp2 = navigator.getGamepads?.()[1];
-    if (player2 && player2.active && gp2) {
-        // P2 Movement from Left Stick
-        let lx2 = applyDeadzone(gp2.axes[0] || 0);
-        let ly2 = applyDeadzone(gp2.axes[1] || 0);
-        const lmag2 = Math.hypot(lx2, ly2);
-        if (lmag2 > 0) {
-            player2.dx = lx2 / lmag2;
-            player2.dy = ly2 / lmag2;
-        } else {
-            player2.dx = 0;
-            player2.dy = 0;
-        }
-
-        // P2 Dodge/Dash from Right Trigger
-        const pressed2 = (i) => !!gp2.buttons?.[i]?.pressed;
-        if (pressed2(7) && !player2._rTriggerLatch) {
-            player2._rTriggerLatch = true;
-            triggerDash(player2);
-        } else if (!pressed2(7)) {
-            player2._rTriggerLatch = false;
-        }
-    }
+    } else if (!pressed(9) && !pressed(1)) gp._pauseLatch = false;
 }
 
         let joystickDirX = 0; let joystickDirY = 0;
@@ -1316,6 +1405,14 @@ document.body.addEventListener('touchstart', (e) => {
             if (x === -1 || y === -1) { x = Math.random() * WORLD_WIDTH; y = Math.random() * WORLD_HEIGHT; }
             pickupItems.push({ x, y, size, type, xpValue, glimmerStartTime: Date.now() + Math.random() * 2000 });
         }
+        
+        function spawnMerchant(x, y) {
+    merchants.push({
+        x: x,
+        y: y,
+        size: 40 // wizard size on screen
+    });
+}
 
         function createAppleItem(x, y) {
             appleItems.push({ x, y, size: APPLE_ITEM_SIZE, type: 'apple', spawnTime: Date.now(), lifetime: APPLE_LIFETIME, glimmerStartTime: Date.now() + Math.random() * 2000 });
@@ -1416,6 +1513,18 @@ document.body.addEventListener('touchstart', (e) => {
                  vibrate(10);
             }
            
+            playSound('playerShoot');
+        }
+
+        function createPlayer2Weapon() {
+            if (!player2 || !player2.active) return;
+            fireWeaponFromPool({
+                x: player2.x, y: player2.y,
+                size: 38, speed: 5.04,
+                angle: player2.gunAngle,
+                dx: Math.cos(player2.gunAngle) * 5.04, dy: Math.sin(player2.gunAngle) * 5.04,
+                lifetime: Date.now() + 2000, hitsLeft: 1, hitEnemies: []
+            });
             playSound('playerShoot');
         }
 
@@ -1830,8 +1939,7 @@ async function tryLoadMusic(retries = 3) {
             
             dog = { x: player.x, y: player.y, size: 25, state: 'returning', target: null, lastHomingShotTime: 0 };
             player2 = null;
-            merchants = []; // Reset merchants array
-            lastMerchantSpawnTime = 0; // Reset merchant spawn timer
+            merchant = null; // Ensure no merchant at start
 
             temporalWardActive = false; isTimeStopped = false; timeStopEndTime = 0;
             resetRunStats();
@@ -1899,7 +2007,7 @@ async function tryLoadMusic(retries = 3) {
             if (canvas) canvas.style.cursor = 'default';
             isMouseInCanvas = false; cameraZoom = 1.0;
         }
-function togglePause() {
+        function togglePause() {
             vibrate(20);
             gamePaused = !gamePaused;
             if (gamePaused) { pauseOverlay.style.display = 'flex'; Tone.Transport.pause(); } 
@@ -2674,15 +2782,447 @@ for (let i = merchants.length - 1; i >= 0; i--) {
                 lastEnemySpawnTime = now;
             }
             
-            let currentFireInterval = weaponFireInterval;
-            if(fireRateBoostActive) currentFireInterval /= 2;
-            if(cheats.fastShooting) currentFireInterval /= 5;
-            if(cheats.double_game_speed) currentFireInterval /= 2;
-            currentFireInterval = Math.max(50, currentFireInterval);
-            if (!cheats.no_gun_mode && (aimDx !== 0 || aimDy !== 0) && (now - lastWeaponFireTime > currentFireInterval)) {
-                createWeapon();
-                lastWeaponFireTime = now;
+            const enemyMovements = new Map();
+            enemies.forEach((enemy) => {
+                if (isTimeStopped) return;
+                if (enemy.isIgnited) {
+                    if (now > enemy.ignitionEndTime) { enemy.isIgnited = false; } 
+                    else if (now - enemy.lastIgnitionDamageTime > 3000) {
+                        enemy.health -= 1;
+                        createBloodSplatter(enemy.x, enemy.y);
+                        if (enemy.health <= 0) { handleEnemyDeath(enemy); }
+                        enemy.lastIgnitionDamageTime = now;
+                    }
+                }
+
+                let moveX = 0; let moveY = 0;
+                let target = player;
+                let minTargetDistSq = (player.x - enemy.x)**2 + (player.y - enemy.y)**2;
+
+                if (player2 && player2.active) {
+                    const distToPlayer2Sq = (player2.x - enemy.x)**2 + (player2.y - enemy.y)**2;
+                    if (distToPlayer2Sq < minTargetDistSq) { target = player2; minTargetDistSq = distToPlayer2Sq; }
+                }
+                if (doppelganger) {
+                    const distToDoppelgangerSq = (doppelganger.x - enemy.x)**2 + (doppelganger.y - enemy.y)**2;
+                    if(distToDoppelgangerSq < minTargetDistSq) { target = doppelganger; minTargetDistSq = distToDoppelgangerSq; }
+                }
+                
+                let angleToTarget = Math.atan2(target.y - enemy.y, target.x - enemy.x);
+
+                let effectiveEnemySpeed = enemy.speed;
+                if(cheats.fastEnemies) effectiveEnemySpeed *= 1.5;
+                if(cheats.slowEnemies) effectiveEnemySpeed *= 0.5;
+
+                enemy.isSlowedByPuddle = false;
+                for (const puddle of playerPuddles) {
+                    const dx = enemy.x - puddle.x;
+                    const dy = enemy.y - puddle.y;
+                    if (dx*dx + dy*dy < ((enemy.size / 2) + (puddle.size / 2))**2) {
+                        effectiveEnemySpeed *= PLAYER_PUDDLE_SLOW_FACTOR;
+                        enemy.isSlowedByPuddle = true;
+                        break;
+                    }
+                }
+                 for (const puddle of snailPuddles) {
+                    const dx = enemy.x - puddle.x;
+                    const dy = enemy.y - puddle.y;
+                    if (dx*dx + dy*dy < ((enemy.size / 2) + (puddle.size / 2))**2) {
+                        effectiveEnemySpeed *= PLAYER_PUDDLE_SLOW_FACTOR;
+                        enemy.isSlowedByPuddle = true;
+                        break;
+                    }
+                }
+                if (enemy.isFrozen && now < enemy.freezeEndTime) {
+                    enemyMovements.set(enemy, {moveX: 0, moveY: 0});
+                    return;
+                } else if (enemy.isFrozen && now >= enemy.freezeEndTime) enemy.isFrozen = false;
+                
+                const enemyBehaviorType = enemy.isBoss ? ENEMY_CONFIGS[enemy.mimics].type : ENEMY_CONFIGS[enemy.emoji].type;
+                switch (enemyBehaviorType) {
+                    case 'bat':
+                        enemy.pauseTimer++;
+                        if (enemy.isPaused) { if (enemy.pauseTimer >= enemy.pauseDuration) { enemy.isPaused = false; enemy.pauseTimer = 0; } }
+                        else { moveX += Math.cos(angleToTarget) * effectiveEnemySpeed; moveY += Math.sin(angleToTarget) * effectiveEnemySpeed; if (enemy.pauseTimer >= enemy.moveDuration) { enemy.isPaused = true; enemy.pauseTimer = 0; } }
+                        break;
+                    case 'devil': 
+                        if (now - enemy.lastAxisSwapTime > 500) {
+                            enemy.moveAxis = enemy.moveAxis === 'x' ? 'y' : 'x';
+                            enemy.lastAxisSwapTime = now;
+                        }
+                        if (enemy.moveAxis === 'x') { moveX += Math.sign(target.x - enemy.x) * effectiveEnemySpeed; } 
+                        else { moveY += Math.sign(target.y - enemy.y) * effectiveEnemySpeed; }
+                        break;
+                    case 'demon':
+                        if (now - enemy.lastStateChangeTime >= 2000) { enemy.moveState = (enemy.moveState === 'following') ? 'random' : 'following'; enemy.lastStateChangeTime = now; if (enemy.moveState === 'random') { const randomAngle = Math.random() * Math.PI * 2; enemy.randomDx = Math.cos(randomAngle); enemy.randomDy = Math.sin(randomAngle); } }
+                        if (enemy.moveState === 'following') { moveX += Math.cos(angleToTarget) * effectiveEnemySpeed; moveY += Math.sin(angleToTarget) * effectiveEnemySpeed; }
+                        else { moveX += enemy.randomDx * effectiveEnemySpeed; moveY += enemy.randomDy * effectiveEnemySpeed; }
+                        break;
+                    case 'ghost':
+                        if (now - enemy.lastPhaseChange > enemy.phaseDuration) {
+                            enemy.isVisible = !enemy.isVisible;
+                            enemy.lastPhaseChange = now;
+                        }
+                        enemy.bobOffset = Math.sin(now / 200) * 4;
+                        if(enemy.isVisible) {
+                           moveX += Math.cos(angleToTarget) * effectiveEnemySpeed;
+                           moveY += Math.sin(angleToTarget) * effectiveEnemySpeed;
+                        }
+                        break;
+                    case 'eye':
+                        const distanceToTarget = Math.sqrt(minTargetDistSq);
+                        if (distanceToTarget < EYE_SAFE_DISTANCE) { moveX -= Math.cos(angleToTarget) * effectiveEnemySpeed; moveY -= Math.sin(angleToTarget) * effectiveEnemySpeed; }
+                        else if (distanceToTarget > EYE_TOO_FAR_DISTANCE) { moveX += Math.cos(angleToTarget) * effectiveEnemySpeed; moveY += Math.sin(angleToTarget) * effectiveEnemySpeed; }
+                        else { if (now - enemy.lastEyeProjectileTime > EYE_PROJECTILE_INTERVAL) { eyeProjectiles.push({ x: enemy.x, y: enemy.y, size: EYE_PROJECTILE_SIZE, emoji: EYE_PROJECTILE_EMOJI, speed: EYE_PROJECTILE_SPEED, dx: Math.cos(angleToTarget) * EYE_PROJECTILE_SPEED, dy: Math.sin(angleToTarget) * EYE_PROJECTILE_SPEED, lifetime: now + EYE_PROJECTILE_LIFETIME }); enemy.lastEyeProjectileTime = now; playSound('playerShoot'); } }
+                        break;
+                    case 'vampire':
+                        let dodgeVectorX = 0, dodgeVectorY = 0;
+                        for (const weapon of weaponPool) {
+                            if(weapon.active) {
+                                const distSq = (enemy.x - weapon.x)**2 + (enemy.y - weapon.y)**2;
+                                if (distSq < VAMPIRE_DODGE_DETECTION_RADIUS * VAMPIRE_DODGE_DETECTION_RADIUS) {
+                                    if ((weapon.dx * (enemy.x - weapon.x)) + (weapon.dy * (enemy.y - weapon.y)) > 0) {
+                                        const perpDx = -weapon.dy, perpDy = weapon.dx;
+                                        const normalizeFactor = Math.sqrt(perpDx * perpDx + perpDy * perpDy);
+                                        if (normalizeFactor > 0) { dodgeVectorX += (perpDx / normalizeFactor); dodgeVectorY += (perpDy / normalizeFactor); }
+                                    }
+                                }
+                            }
+                        }
+                        const dodgeMagnitude = Math.sqrt(dodgeVectorX * dodgeVectorX + dodgeVectorY * dodgeVectorY);
+                        if (dodgeMagnitude > 0) { dodgeVectorX = (dodgeVectorX / dodgeMagnitude) * VAMPIRE_DODGE_STRENGTH; dodgeVectorY = (dodgeVectorY / dodgeMagnitude) * VAMPIRE_DODGE_STRENGTH; }
+                        moveX += (Math.cos(angleToTarget) * effectiveEnemySpeed) + dodgeVectorX;
+                        moveY += (Math.sin(angleToTarget) * effectiveEnemySpeed) + dodgeVectorY;
+                        break;
+                    case 'mosquito':
+                        if (!enemy.currentMosquitoDirection || (now - enemy.lastDirectionUpdateTime > MOSQUITO_DIRECTION_UPDATE_INTERVAL)) { enemy.lastDirectionUpdateTime = now; enemy.currentMosquitoDirection = { dx: Math.cos(angleToTarget), dy: Math.sin(angleToTarget) }; }
+                        moveX += enemy.currentMosquitoDirection.dx * effectiveEnemySpeed;
+                        moveY += enemy.currentMosquitoDirection.dy * effectiveEnemySpeed;
+                        if (now - enemy.lastPuddleSpawnTime > MOSQUITO_PUDDLE_SPAWN_INTERVAL) { mosquitoPuddles.push({ x: enemy.x, y: enemy.y, size: MOSQUITO_PUDDLE_SIZE, spawnTime: now, lifetime: MOSQUITO_PUDDLE_LIFETIME }); enemy.lastPuddleSpawnTime = now; }
+                        break;
+                    case 'snail':
+                        moveX += Math.cos(enemy.directionAngle) * effectiveEnemySpeed;
+                        moveY += Math.sin(enemy.directionAngle) * effectiveEnemySpeed;
+                        if (enemy.x < 0 || enemy.x > WORLD_WIDTH || enemy.y < 0 || enemy.y > WORLD_HEIGHT) {
+                           enemy.directionAngle = Math.random() * 2 * Math.PI; // Change direction when off-screen
+                        }
+                        if (now - enemy.lastPuddleSpawnTime > PLAYER_PUDDLE_SPAWN_INTERVAL * 2) { // Slower than player
+                            snailPuddles.push({ x: enemy.x, y: enemy.y, size: PLAYER_PUDDLE_SIZE, spawnTime: now, lifetime: PLAYER_PUDDLE_LIFETIME * 2 });
+                            enemy.lastPuddleSpawnTime = now;
+                        }
+                        break;
+                    default:
+                        moveX += Math.cos(angleToTarget) * effectiveEnemySpeed;
+                        moveY += Math.sin(angleToTarget) * effectiveEnemySpeed;
+                        break;
+                }
+                enemyMovements.set(enemy, {moveX, moveY});
+            });
+            
+            const separationForce = 1.5;
+            const finalMovements = new Map();
+            enemies.forEach(e1 => {
+                let totalMove = enemyMovements.get(e1);
+                if (!totalMove) return;
+
+                // This section for pushing away from obstacles (like brick walls) remains.
+                let repulsionX = 0; let repulsionY = 0;
+                destructibles.forEach(obs => {
+                    const dx = e1.x - obs.x;
+                    const dy = e1.y - obs.y;
+                    const distSq = dx*dx + dy*dy;
+                    const repulsionRadius = obs.size/2 + e1.size/2 + 5;
+                    if (distSq < repulsionRadius*repulsionRadius) {
+                        const dist = Math.sqrt(distSq);
+                        const pushForce = (1 - (dist / repulsionRadius)) * 2;
+                        if(dist > 0.1) {
+                            repulsionX += (dx / dist) * pushForce;
+                            repulsionY += (dy / dist) * pushForce;
+                        }
+                    }
+                });
+
+                // The calculation for finalX and finalY no longer includes the separation force.
+                finalMovements.set(e1, {
+                    finalX: totalMove.moveX + repulsionX,
+                    finalY: totalMove.moveY + repulsionY
+                });
+            });
+            
+            enemies.forEach(enemy => {
+                const finalMove = finalMovements.get(enemy);
+                if (finalMove) {
+                    let nextX = enemy.x + finalMove.finalX;
+                    let nextY = enemy.y + finalMove.finalY;
+                    let collision = false;
+                    for (const obs of destructibles) {
+                        const dx = nextX - obs.x;
+                        const dy = nextY - obs.y;
+                        if (dx*dx + dy*dy < ((enemy.size / 2) + (obs.size / 2))**2) {
+                            collision = true;
+                            break;
+                        }
+                    }
+                    if (!collision) { enemy.x = nextX; enemy.y = nextY; }
+                }
+
+                const canGhostDamage = enemy.emoji !== '👻' || (enemy.emoji === '👻' && enemy.isVisible);
+                const combinedRadius = (player.size / 2) + (enemy.size / 2) - 5.6;
+                const dx_player = player.x - enemy.x;
+                const dy_player = player.y - enemy.y;
+
+                if (canGhostDamage && !player.isInvincible && !cheats.god_mode && (dx_player*dx_player + dy_player*dy_player) < combinedRadius*combinedRadius) {
+                    player.lives--;
+                    runStats.lastDamageTime = now;
+                    createBloodSplatter(player.x, player.y); createBloodPuddle(player.x, player.y, player.size);
+                    vibrate(50); playSound('playerScream');
+                    isPlayerHitShaking = true; playerHitShakeStartTime = now;
+                    if (vengeanceNovaActive) { vengeanceNovas.push({ x: player.x, y: player.y, startTime: now, duration: 500, maxRadius: player.size * 3 }); }
+                    if (temporalWardActive) { isTimeStopped = true; timeStopEndTime = now + 2000; playSound('levelUpSelect'); }
+                    if (player.lives <= 0) { endGame(); }
+                    handleEnemyDeath(enemy);
+                }
+                if (canGhostDamage && player2 && player2.active) {
+                    const combinedRadiusP2 = (player2.size / 2) + (enemy.size / 2);
+                    const dx_p2 = player2.x - enemy.x;
+                    const dy_p2 = player2.y - enemy.y;
+                    if((dx_p2*dx_p2 + dy_p2*dy_p2) < combinedRadiusP2*combinedRadiusP2) {
+                        player2.active = false; playSound('playerScream');
+                        createBloodSplatter(player2.x, player2.y); createBloodPuddle(player2.x, player2.y, player2.size);
+                        handleEnemyDeath(enemy);
+                    }
+                }
+                if (canGhostDamage && doppelganger) {
+                    const combinedRadiusDop = (doppelganger.size / 2) + (enemy.size / 2);
+                    const dx_dop = doppelganger.x - enemy.x;
+                    const dy_dop = doppelganger.y - enemy.y;
+                    if((dx_dop*dx_dop + dy_dop*dy_dop) < combinedRadiusDop*combinedRadiusDop) {
+                        createBloodSplatter(doppelganger.x, doppelganger.y); createBloodPuddle(doppelganger.x, doppelganger.y, doppelganger.size);
+                        doppelganger = null; doppelgangerActive = false;
+                        runStats.lastDoppelgangerStartTime = 0;
+                        updatePowerupIconsUI(); handleEnemyDeath(enemy);
+                    }
+                }
+            });
+            
+            if (doppelganger) {
+                if (now > doppelganger.endTime) {
+                    doppelganger = null; doppelgangerActive = false;
+                    runStats.lastDoppelgangerStartTime = 0;
+                    updatePowerupIconsUI();
+                } else {
+                    let closestEnemy = null; let minDistanceSq = Infinity;
+                    enemies.forEach(enemy => {
+                        if (!enemy.isHit) {
+                            const distSq = (doppelganger.x - enemy.x)**2 + (doppelganger.y - enemy.y)**2;
+                            if (distSq < minDistanceSq) { minDistanceSq = distSq; closestEnemy = enemy; }
+                        }
+                    });
+                    if (closestEnemy) {
+                        doppelganger.rotationAngle = Math.atan2(closestEnemy.y - doppelganger.y, closestEnemy.x - doppelganger.x);
+                        if (now - doppelganger.lastFireTime > DOPPELGANGER_FIRE_INTERVAL) {
+                            createWeapon(doppelganger, doppelganger.rotationAngle);
+                            doppelganger.lastFireTime = now;
+                        }
+                    }
+                }
             }
+
+            if (dogCompanionActive && !isTimeStopped) {
+                const DOG_SPEED = baseEnemySpeed * SKULL_SPEED_MULTIPLIER;
+                if (dog.state === 'returning') {
+                    const dx = player.x - dog.x;
+                    const dy = player.y - dog.y;
+                    if (dx*dx + dy*dy < (player.size/2)**2) { dog.state = 'seeking'; dog.target = null; } 
+                    else {
+                        const angleToPlayer = Math.atan2(player.y - dog.y, player.x - dog.x);
+                        dog.x += Math.cos(angleToPlayer) * DOG_SPEED;
+                        dog.y += Math.sin(angleToPlayer) * DOG_SPEED;
+                    }
+                } else if (dog.state === 'seeking') {
+                    if (dog.target && dog.target.isHit) { dog.target = null; }
+                    if (!dog.target) {
+                        let closestEnemy = null; let minDistanceSq = Infinity;
+                        enemies.forEach(enemy => {
+                            if (!enemy.isHit && !enemy.isBoss) {
+                                const distSq = (dog.x - enemy.x)**2 + (dog.y - enemy.y)**2;
+                                if (distSq < minDistanceSq) { minDistanceSq = distSq; closestEnemy = enemy; }
+                            }
+                        });
+                        dog.target = closestEnemy;
+                    }
+                    if (dog.target) {
+                        const dx = dog.target.x - dog.x;
+                        const dy = dog.target.y - dog.y;
+                        const combinedRadius = (dog.size / 2) + (dog.target.size / 2);
+                        if (dx*dx + dy*dy < combinedRadius*combinedRadius) {
+                            handleEnemyDeath(dog.target);
+                            dog.target = null;
+                            dog.state = 'returning';
+                        } else {
+                            const angleToTarget = Math.atan2(dy, dx);
+                            dog.x += Math.cos(angleToTarget) * DOG_SPEED;
+                            dog.y += Math.sin(angleToTarget) * DOG_SPEED;
+                        }
+                    } else { dog.state = 'returning'; }
+                }
+                if (magneticProjectileActive && dog.target && now - dog.lastHomingShotTime > DOG_HOMING_SHOT_INTERVAL) {
+                    const angleToTarget = Math.atan2(dog.target.y - dog.y, dog.target.x - dog.x);
+                    const shot = {
+                        x: dog.x, y: dog.y, size: 15, speed: 5.04,
+                        dx: Math.cos(angleToTarget) * 5.04, dy: Math.sin(angleToTarget) * 5.04,
+                        angle: angleToTarget, isHit: false, lifetime: now + 2000, isHoming: true
+                    };
+                    dogHomingShots.push(shot); dog.lastHomingShotTime = now; playSound('playerShoot');
+                }
+            }
+
+            for (let i = pickupItems.length - 1; i >= 0; i--) {
+                const item = pickupItems[i];
+                const dx = player.x - item.x;
+                const dy = player.y - item.y;
+                const distanceSq = dx*dx + dy*dy;
+                
+                if (distanceSq < player.magnetRadius*player.magnetRadius) {
+                    const angle = Math.atan2(dy, dx);
+                    item.x += Math.cos(angle) * MAGNET_STRENGTH;
+                    item.y += Math.sin(angle) * MAGNET_STRENGTH;
+                }
+                
+                let collected = distanceSq < ((player.size / 2) + (item.size / 2))**2;
+                if (!collected && player2 && player2.active) {
+                    const dx2 = player2.x - item.x;
+                    const dy2 = player2.y - item.y;
+                    collected = (dx2*dx2 + dy2*dy2) < ((player2.size / 2) + (item.size / 2))**2;
+                }
+
+                if (collected) {
+                    if (item.type === 'box') {
+                        vibrate(20);
+                        player.boxPickupsCollectedCount++;
+                        playerStats.totalBoxesOpened++;
+                        const powerUpChoices = [];
+                        let powerupName = ""; 
+                        if (vShapeProjectileLevel < 4 && !shotgunBlastActive) powerUpChoices.push(ALWAYS_AVAILABLE_PICKUPS.v_shape_projectile);
+                        if (!magneticProjectileActive) powerUpChoices.push(ALWAYS_AVAILABLE_PICKUPS.magnetic_projectile);
+                        if (!iceProjectileActive) powerUpChoices.push(ALWAYS_AVAILABLE_PICKUPS.ice_projectile);
+                        if (!ricochetActive) powerUpChoices.push(ALWAYS_AVAILABLE_PICKUPS.ricochet);
+                        if (!explosiveBulletsActive) powerUpChoices.push(ALWAYS_AVAILABLE_PICKUPS.explosive_bullets);
+                        if (!puddleTrailActive) powerUpChoices.push(ALWAYS_AVAILABLE_PICKUPS.puddle_trail);
+                        if (!player.swordActive) powerUpChoices.push(ALWAYS_AVAILABLE_PICKUPS.sword);
+                        if (!laserPointerActive) powerUpChoices.push(ALWAYS_AVAILABLE_PICKUPS.laser_pointer);
+                        if (!autoAimActive) powerUpChoices.push(ALWAYS_AVAILABLE_PICKUPS.auto_aim);
+                        if (!dualGunActive) powerUpChoices.push(ALWAYS_AVAILABLE_PICKUPS.dual_gun);
+                        if (!bombEmitterActive) powerUpChoices.push(ALWAYS_AVAILABLE_PICKUPS.bomb);
+                        if (!orbitingPowerUpActive) powerUpChoices.push(ALWAYS_AVAILABLE_PICKUPS.orbiter);
+                        if (!lightningProjectileActive) powerUpChoices.push(ALWAYS_AVAILABLE_PICKUPS.lightning_projectile);
+                        if (!bugSwarmActive) powerUpChoices.push({id: 'bug_swarm', name: 'Bug Swarm'});
+                        if (!lightningStrikeActive) powerUpChoices.push({id: 'lightning_strike', name: 'Lightning Strike'});
+                        if (!hasDashInvincibility) powerUpChoices.push({id: 'dash_invincibility', name: 'Dash Invincibility'});
+                        if (!playerData.hasReducedDashCooldown) powerUpChoices.push({id: 'dash_cooldown', name: 'Dash Cooldown'});
+
+                        const unlocked = playerData.unlockedPickups;
+                        if (unlocked.doppelganger && !doppelgangerActive) powerUpChoices.push({id: 'doppelganger', name: 'Doppelganger'});
+                        if (unlocked.temporal_ward && !temporalWardActive) powerUpChoices.push({id: 'temporal_ward', name: 'Temporal Ward'});
+                        if (unlocked.circle && !damagingCircleActive) powerUpChoices.push({id:'circle', name: 'Damaging Circle'});
+                        if (unlocked.vengeance_nova && !vengeanceNovaActive) powerUpChoices.push({id: 'vengeance_nova', name: 'Vengeance Nova'});
+                        if (unlocked.dog_companion && !dogCompanionActive) powerUpChoices.push({id: 'dog_companion', name: 'Dog Companion'});
+                        if (unlocked.anti_gravity && !antiGravityActive) powerUpChoices.push({id: 'anti_gravity', name: 'Anti-Gravity'});
+                        if (unlocked.rocket_launcher && !rocketLauncherActive && !shotgunBlastActive) powerUpChoices.push({id: 'rocket_launcher', name: 'Heavy Shells'});
+                        if (unlocked.black_hole && !blackHoleActive) powerUpChoices.push({id: 'black_hole', name: 'Black Hole'});
+                        if (unlocked.flaming_bullets && !flamingBulletsActive) powerUpChoices.push({id: 'flaming_bullets', name: 'Flaming Bullets'});
+                        if (unlocked.night_owl && !nightOwlActive) powerUpChoices.push({id: 'night_owl', name: 'Night Owl'});
+                        if (unlocked.whirlwind_axe && !whirlwindAxeActive) powerUpChoices.push({id: 'whirlwind_axe', name: 'Whirlwind Axe'});
+
+                        if (powerUpChoices.length > 0) {
+                            const randomChoice = powerUpChoices[Math.floor(Math.random() * powerUpChoices.length)];
+                            powerupName = randomChoice.name; 
+                            activatePowerup(randomChoice.id);
+                            
+                            playSound('boxPickup');
+                            floatingTexts.push({ text: powerupName + "!", x: player.x, y: player.y - player.size, startTime: now, duration: 1500 });
+                            updatePowerupIconsUI(); 
+                        }
+                        pickupItems.splice(i, 1);
+                        continue;
+                    }
+                    player.xp += item.xpValue * (cheats.xp_boost ? 2 : 1);
+                    runStats.xpCollectedThisRun += item.xpValue;
+                    score += item.xpValue * 7;
+                    vibrate(10);
+                    pickupItems.splice(i, 1);
+                    playSound('xpPickup');
+                    if (player.xp >= player.xpToNextLevel) levelUp();
+                }
+            }
+            for (let i = appleItems.length - 1; i >= 0; i--) {
+                const apple = appleItems[i];
+                if (now - apple.spawnTime > apple.lifetime) { appleItems.splice(i, 1); continue; }
+                const dx = player.x - apple.x;
+                const dy = player.y - apple.y;
+                const distanceSq = dx*dx + dy*dy;
+
+                if (distanceSq < player.magnetRadius*player.magnetRadius) {
+                    const angle = Math.atan2(dy, dx);
+                    apple.x += Math.cos(angle) * MAGNET_STRENGTH; 
+                    apple.y += Math.sin(angle) * MAGNET_STRENGTH; 
+                }
+
+                let collected = distanceSq < ((player.size / 2) + (apple.size / 2))**2;
+                if (!collected && player2 && player2.active) {
+                    const dx2 = player2.x - apple.x;
+                    const dy2 = player2.y - apple.y;
+                    collected = (dx2*dx2 + dy2*dy2) < ((player2.size / 2) + (apple.size / 2))**2;
+                }
+                
+                if (collected) {
+                    vibrate(20);
+                    player.appleCount++;
+                    runStats.applesEatenThisRun++;
+                    playerStats.totalApplesEaten++;
+                    if (player.appleCount >= 5) {
+                        player.maxLives++;
+                        player.appleCount = 0;
+                        vibrate(50);
+                        playSound('levelUpSelect');
+                        floatingTexts.push({ text: "Max Life +1!", x: player.x, y: player.y - player.size, startTime: now, duration: 1500 });
+                    }
+                    player.lives = player.maxLives;
+                    fireRateBoostActive = true;
+                    fireRateBoostEndTime = now + FIRE_RATE_BOOST_DURATION;
+                    playSound('xpPickup');
+                    updateUIStats();
+                    appleItems.splice(i, 1);
+                }
+            }
+            let currentFireInterval = weaponFireInterval;
+if(fireRateBoostActive) currentFireInterval /= 2;
+if(cheats.fastShooting) currentFireInterval /= 5;
+if(cheats.double_game_speed) currentFireInterval /= 2;
+currentFireInterval = Math.max(50, currentFireInterval);
+if (!cheats.no_gun_mode && (aimDx !== 0 || aimDy !== 0) && (now - lastWeaponFireTime > currentFireInterval)) {
+    createWeapon();
+    lastWeaponFireTime = now;
+}
+
+// --- YOUR NEW CODE FOR PLAYER 2 GOES DIRECTLY BELOW THIS LINE ---
+
+// Firing logic for Player 2
+if (player2 && player2.active) {
+    // Determine the aiming direction based on numpad keys
+    if (keys['8']) p2aimDy -= 1;
+    if (keys['2']) p2aimDy += 1;
+    if (keys['4']) p2aimDx -= 1;
+    if (keys['6']) p2aimDx += 1;
+
+    // Check if any aiming key is pressed
+    let p2isShooting = p2aimDx !== 0 || p2aimDy !== 0;
+
+    const now = Date.now();
+
+
+}
+
 
             for(const weapon of weaponPool) {
                 if(!weapon.active) continue;
@@ -3180,7 +3720,8 @@ for (let i = merchants.length - 1; i >= 0; i--) {
             owlProjectiles = owlProjectiles.filter(p => !p.isHit);
             lightningStrikes = lightningStrikes.filter(ls => now - ls.startTime < ls.duration);
         }
-function draw() {
+
+        function draw() {
             if (!gameActive) return;
             const now = Date.now();
             let currentHitShakeX = 0, currentHitShakeY = 0;
@@ -3355,16 +3896,16 @@ function draw() {
             });
             
             smokeParticles.forEach(p => {
-				ctx.save();
-				// This is the correct way to apply the particle's alpha
-				ctx.globalAlpha = p.alpha;
-				
-				// Draw the smoke particle
-				ctx.font = `${p.size}px sans-serif`;
-				ctx.fillText('💨', p.x, p.y);
-				
-				ctx.restore();
-			});
+    ctx.save();
+    // This is the correct way to apply the particle's alpha
+    ctx.globalAlpha = p.alpha;
+    
+    // Draw the smoke particle
+    ctx.font = `${p.size}px sans-serif`;
+    ctx.fillText('💨', p.x, p.y);
+    
+    ctx.restore();
+});
 
             enemies.forEach(enemy => {
                 ctx.save();
@@ -3501,13 +4042,13 @@ function draw() {
             });
             
             merchants.forEach(m => {
-				ctx.save();
-				ctx.font = `${m.size}px serif`;
-				ctx.textAlign = 'center';
-				ctx.textBaseline = 'middle';
-				ctx.fillText('🧙‍♂️', m.x, m.y);
-				ctx.restore();
-			});
+    ctx.save();
+    ctx.font = `${m.size}px serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('🧙‍♂️', m.x, m.y);
+    ctx.restore();
+});
             
             const bobOffset = player.isDashing ? 0 : Math.sin(player.stepPhase) * BOB_AMPLITUDE;
             const spinDuration = 500; // 0.5 seconds
