@@ -993,7 +993,30 @@ function handleGamepadInput() {
                 savePlayerData();
                 floatingTexts.push({ text: "+5000 Coins!", x: player.x, y: player.y - player.size, startTime: Date.now(), duration: 2000, color: '#FFD700' });
             }
+
+            if (player2 && player2.active) {
+            const key = e.key.toLowerCase();
             
+            // P2 MOVEMENT KEYUP LOGIC (Handles simultaneous key presses)
+            if (key === 'i' || key === 'k') {
+                // Only stop vertical movement if both 'i' and 'k' are released
+                if (keys['k']) { p2MoveDy = 1; } else if (keys['i']) { p2MoveDy = -1; } else { p2MoveDy = 0; }
+            }
+            if (key === 'j' || key === 'l') {
+                // Only stop horizontal movement if both 'j' and 'l' are released
+                if (keys['l']) { p2MoveDx = 1; } else if (keys['j']) { p2MoveDx = -1; } else { p2MoveDx = 0; }
+            }
+            
+            // P2 AIM KEYUP LOGIC (Numpad)
+            if (e.key === '8' || e.key === '2') {
+                if (keys['2']) { p2aimDy = 1; } else if (keys['8']) { p2aimDy = -1; } else { p2aimDy = 0; }
+            }
+            if (e.key === '4' || e.key === '6') {
+                if (keys['6']) { p2aimDx = 1; } else if (keys['4']) { p2aimDx = -1; } else { p2aimDx = 0; }
+            }
+        }
+
+                
             if (e.key === 'Insert' && gameActive && !gameOver && !gamePaused) {
                 if (player.lives > 1 && (!player2 || !player2.active)) {
                     player.lives--;
