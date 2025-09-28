@@ -2329,11 +2329,9 @@ async function startGame() {
             }
         }
 
-        // ================================================================================= //
+// ================================================================================= //
         // ======================== MERCHANT AND GAME LOGIC START ========================== //
         // ================================================================================= //
-
-
 
         function closeMerchantShop() {
     merchantShop.style.display = 'none';
@@ -2343,3 +2341,422 @@ async function startGame() {
 
         function showMerchantShop() {
             gamePaused = true;
+            merchantOptionsContainer.innerHTML = ''; // Clear previous options
+            playUISound('levelUp');
+
+            const options = [];
+            
+            // Option 1: Trade 3 apples for XP
+            const canAffordXp = player.appleCount >= 3;
+            options.push({
+                type: 'xp_for_apples',
+                name: "Gain Experience",
+                desc: "A hearty meal to fuel your journey.",
+                icon: '📈',
+                cost: 3,
+                currency: 'apples',
+                xpAmount: player.xpToNextLevel, // Give a full level up's worth
+                enabled: canAffordXp
+            });
+
+            // Options 2 & 3: Buy a random powerup with coins
+            const availablePowerups = [];
+            if (!magneticProjectileActive) availablePowerups.push({id:'magnetic_projectile', name: 'Magnetic Shots', icon: '🧲'});
+            if (!explosiveBulletsActive) availablePowerups.push({id: 'explosive_bullets', name: 'Explosive Bullets', icon: '💥'});
+            if (!ricochetActive) availablePowerups.push({id:'ricochet', name: 'Ricochet Shots', icon: '🔄'});
+            if (!player.swordActive) availablePowerups.push({id:'sword', name: 'Auto-Sword', icon: '🗡️'});
+            if (!dogCompanionActive && playerData.unlockedPickups.dog_companion) availablePowerups.push({id: 'dog_companion', name: 'Dog Companion', icon: '🐶'});
+            if (!nightOwlActive && playerData.unlockedPickups.night_owl) availablePowerups.push({id: 'night_owl', name: 'Night Owl', icon: '🦉'});
+
+            for (let i = availablePowerups.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [availablePowerups[i], availablePowerups[j]] = [availablePowerups[j], availablePowerups[i]];
+            }
+
+            const powerupsToSell = availablePowerups.slice(0, 2);
+            powerupsToSell.forEach(powerup => {
+                const coinCost = 50 + Math.floor(player.level * 5);
+                options.push({
+                    type: 'buy_powerup',
+                    name: powerup.name,
+                    desc: `A powerful artifact.`,
+                    icon: powerup.icon,
+                    cost: coinCost,
+                    currency: 'coins',
+                    powerupId: powerup.id,
+                    enabled: player.coins >= coinCost
+                });
+            });
+
+            // Create the cards
+            options.forEach(option => {
+                const card = document.createElement('div');
+                card.className = 'merchant-card';
+                card.innerHTML = `
+                    <div class="merchant-icon">${option.icon}</div>
+                    <h3>${option.name}</h3>
+                    <p>${option.desc}</p>
+                    <div class="cost">${option.cost} ${option.currency === 'apples' ? '🍎' : '🪙'}</div>
+                `;
+                if (!option.enabled) {
+                    card.style.opacity = '0.5';
+                    card.style.cursor = 'not-allowed';
+                } else {
+                    card.onclick = () => purchaseFromMerchant(option);
+                    card.addEventListener('mouseover', () => playUISound('uiClick'));
+                }
+                merchantOptionsContainer.appendChild(card);
+            });
+
+            merchantShop.style.display = 'flex';
+        }
+
+        function purchaseFromMerchant(option) {
+            playUISound('levelUpSelect');
+            vibrate(20);
+
+            if (option.type === 'xp_for_apples') {
+                player.appleCount -= option.cost;
+                player.xp += option.xpAmount;
+                floatingTexts.push({ text: `+${option.xpAmount} XP!`, x: player.x, y: player.y - player.size, startTime: Date.now(), duration: 1500, color: '#00c6ff' });
+                if (player.xp >= player.xpToNextLevel) {
+                    // Delay closing the shop slightly to see the level up screen
+                    setTimeout(() => levelUp(), 200);
+                }
+            } else if (option.type === 'buy_powerup') {
+                player.coins -= option.cost;
+                activatePowerup(option.powerupId);
+                floatingTexts.push({ text: `${option.name}!`, x: player.x, y: player.y - player.size, startTime: Date.now(), duration: 1500 });
+            }
+
+            if (option.type !== 'xp_for_apples' || player.xp < player.xpToNextLevel) {
+                closeMerchantShop();
+            }
+        }
+
+        // Helper function to consolidate powerup activation logic
+        function activatePowerup(id) {
+            if (id === 'doppelganger') {
+                doppelgangerActive = true; runStats.lastDoppelgangerStartTime = Date.now();
+                doppelganger = {
+                    x: player.x - player.size * 2, y: player.y, size: player.size,
+                    rotationAngle: 0, lastFireTime: 0, endTime: Date.now() + DOPPELGANGER_DURATION
+                };
+            }
+            else if (id === 'dash_invincibility') { hasDashInvincibility = true; }
+            else if (id === 'dash_cooldown') { playerData.hasReducedDashCooldown = true; player.dashCooldown = 3000; savePlayerData(); }
+            else if (id === 'temporal_ward') temporalWardActive = true;
+            else if (id === 'bomb') { bombEmitterActive = true; lastBombEmitMs = Date.now(); }
+            else if (id === 'orbiter') { orbitingPowerUpActive = true; player.orbitAngle = 0; }
+            else if (id === 'circle') { damagingCircleActive = true; lastDamagingCircleDamageTime = Date.now(); }
+            else if (id === 'lightning_projectile') { lightningProjectileActive = true; lastLightningSpawnTime = Date.now(); }
+            else if (id === 'magnetic_projectile') magneticProjectileActive = true;
+            else if (id === 'v_shape_projectile') vShapeProjectileLevel = Math.min(4, vShapeProjectileLevel + 1);
+            else if (id === 'sword') { player.swordActive = true; player.lastSwordSwingTime = Date.now() - SWORD_SWING_INTERVAL; }
+            else if (id === 'ice_projectile') iceProjectileActive = true;
+            else if (id === 'puddle_trail') { puddleTrailActive = true; lastPlayerPuddleSpawnTime = Date.now() - PLAYER_PUDDLE_SPAWN_INTERVAL; }
+            else if (id === 'laser_pointer') laserPointerActive = true; 
+            else if (id === 'auto_aim') autoAimActive = true;
+            else if (id === 'explosive_bullets') explosiveBulletsActive = true;
+            else if (id === 'vengeance_nova') vengeanceNovaActive = true;
+            else if (id === 'dog_companion') {  dogCompanionActive = true; dog.x = player.x; dog.y = player.y; dog.state = 'returning'; }
+            else if (id === 'anti_gravity') { antiGravityActive = true; lastAntiGravityPushTime = Date.now(); }
+            else if (id === 'ricochet') ricochetActive = true;
+            else if (id === 'rocket_launcher') { rocketLauncherActive = true; weaponFireInterval *= 2; }
+            else if (id === 'black_hole') { blackHoleActive = true; lastBlackHoleTime = Date.now(); }
+            else if (id === 'dual_gun') dualGunActive = true;
+            else if (id === 'flaming_bullets') flamingBulletsActive = true;
+            else if (id === 'bug_swarm') { bugSwarmActive = true; lastBugSwarmSpawnTime = Date.now(); }
+            else if (id === 'night_owl') { nightOwlActive = true; }
+            else if (id === 'whirlwind_axe') { whirlwindAxeActive = true; }
+            else if (id === 'lightning_strike') { lightningStrikeActive = true; lastLightningStrikeTime = Date.now(); }
+            updatePowerupIconsUI();
+        }
+
+        function update() {
+    if (gamePaused || gameOver || !gameActive) return;
+
+    // *** OPTIMIZATION: Clear and repopulate the Quadtree each frame ***
+    quadtree.clear();
+    const allGameObjects = [...enemies, ...destructibles, player];
+    if (player2 && player2.active) allGameObjects.push(player2);
+    if (doppelganger) allGameObjects.push(doppelganger);
+    
+    for(const obj of allGameObjects) {
+        quadtree.insert({
+            x: obj.x - obj.size / 2,
+            y: obj.y - obj.size / 2,
+            width: obj.size,
+            height: obj.size,
+            ref: obj // Keep a reference to the original object
+        });
+    }
+    // *** END OF QUADTREE POPULATION ***
+
+    const now = Date.now();
+            const deltaTime = now - lastFrameTime;
+            if (deltaTime > 0) {
+                const xpGainMultiplier = 1 + (playerData.upgrades.xpGain || 0) * PERMANENT_UPGRADES.xpGain.effect;
+                if(doppelgangerActive && runStats.lastDoppelgangerStartTime > 0){
+                    runStats.doppelgangerActiveTimeThisRun += deltaTime;
+                }
+            }
+            lastFrameTime = now;
+            checkAchievements();
+            
+            if (Date.now() - lastMerchantSpawnTime >= MERCHANT_SPAWN_INTERVAL) {
+    spawnMerchant(player.x + 200, player.y); 
+    lastMerchantSpawnTime = Date.now(); // Reset the timer right after spawning
+}
+
+// Loop through all active merchants to check for collision.
+for (let i = merchants.length - 1; i >= 0; i--) {
+    const currentMerchant = merchants[i];
+    const dx = player.x - currentMerchant.x;
+    const dy = player.y - currentMerchant.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+
+    if (distance < (player.size / 2) + (currentMerchant.size / 2)) {
+        showMerchantShop();      // Open the shop
+        merchants.splice(i, 1); // Remove THIS merchant from the array
+        break;                   // Stop checking for this frame
+    }
+}
+
+            if (fireRateBoostActive && now > fireRateBoostEndTime) fireRateBoostActive = false;
+            
+            if (isTimeStopped && now > timeStopEndTime) {
+                isTimeStopped = false;
+            }
+            
+            if (now - lastCircleSpawnEventTime > 180000) {
+                triggerCircleSpawnEvent();
+                lastCircleSpawnEventTime = now;
+            }
+
+            if (now - lastBarrelSpawnTime > 30000) {
+                spawnRandomBarrel();
+                lastBarrelSpawnTime = now;
+            }
+            
+
+
+            let moveX = 0; let moveY = 0; let isMoving = false;
+            if (keys['ArrowUp'] || keys['w']) moveY -= 1;
+            if (keys['ArrowDown'] || keys['s']) moveY += 1;
+            if (keys['ArrowLeft'] || keys['a']) moveX -= 1;
+            if (keys['ArrowRight'] || keys['d']) moveX += 1;
+
+            if (moveX === 0 && moveY === 0) { moveX = joystickDirX; moveY = joystickDirY; }
+
+            const moveMagnitude = Math.hypot(moveX, moveY);
+            if (moveMagnitude > 0) {
+                isMoving = true;
+                moveX /= moveMagnitude;
+                moveY /= moveMagnitude;
+            }
+
+            const spinDuration = 500; // Spin completes in 0.5 seconds
+            if (player.isDashing && player.spinStartTime) {
+                if (now < player.spinStartTime + spinDuration) {
+                    if (moveX > 0) {
+                        player.spinDirection = 1; // clockwise
+                    } else if (moveX < 0) {
+                        player.spinDirection = -1; // counter-clockwise
+                    } else if (player.spinDirection === 0) {
+                        player.spinDirection = 1; // Default to clockwise if no horizontal movement
+                    }
+                } else {
+                    player.spinStartTime = null;
+                    player.spinDirection = 0;
+                }
+            }
+
+            if (isMoving && !player.isDashing) { player.stepPhase += player.speed * 0.1; }
+            
+            let currentPlayerSpeed = player.speed;
+            if (cheats.double_game_speed) currentPlayerSpeed *= 2;
+
+
+            if(player.isDashing) {
+                currentPlayerSpeed *= 3.5;
+                if(now > player.dashEndTime) {
+                    player.isDashing = false;
+                    player.isInvincible = false;
+                } else {
+                    if (hasDashInvincibility) player.isInvincible = true;
+                    // Spawn dash trail
+                    if (Math.random() > 0.5) {
+                        smokeParticles.push({
+                            x: player.x, y: player.y + player.size / 4,
+                            dx: (Math.random() - 0.5) * 0.5, dy: (Math.random() - 0.5) * 0.5,
+                            size: 15 + Math.random() * 10, alpha: 0.8,
+                            angle: Math.PI / 2 + (Math.random() - 0.5) * 0.2
+                        });
+                    }
+                }
+            }
+
+            player.isSlowedByMosquitoPuddle = false;
+            for (const puddle of mosquitoPuddles) {
+                const dx = player.x - puddle.x;
+                const dy = player.y - puddle.y;
+                if (dx*dx + dy*dy < ((player.size / 2) + (puddle.size / 2))**2) {
+                    currentPlayerSpeed *= MOSQUITO_PUDDLE_SLOW_FACTOR;
+                    player.isSlowedByMosquitoPuddle = true;
+                    break;
+                }
+            }
+
+            for (const puddle of snailPuddles) {
+                const dx = player.x - puddle.x;
+                const dy = player.y - puddle.y;
+                if (dx*dx + dy*dy < ((player.size / 2) + (puddle.size / 2))**2) {
+                    currentPlayerSpeed *= PLAYER_PUDDLE_SLOW_FACTOR; 
+                    break;
+                }
+            }
+
+            if (isMoving) {
+                let nextX = player.x + moveX * currentPlayerSpeed;
+                let nextY = player.y + moveY * currentPlayerSpeed;
+                let collision = false;
+                for (const obs of destructibles) {
+                    const dx = nextX - obs.x;
+                    const dy = nextY - obs.y;
+                    if(dx*dx + dy*dy < ((player.size / 2) + (obs.size / 2))**2) {
+                        collision = true;
+                        break;
+                    }
+                }
+                if (!collision) { player.x = nextX; player.y = nextY; }
+            }
+            
+            const PUSH_BACK_STRENGTH = 2.5;
+            const halfPlayerSize = player.size / 2;
+            if (player.x < halfPlayerSize) player.x += PUSH_BACK_STRENGTH;
+            if (player.x > WORLD_WIDTH - halfPlayerSize) player.x -= PUSH_BACK_STRENGTH;
+            if (player.y < halfPlayerSize) player.y += PUSH_BACK_STRENGTH;
+            if (player.y > WORLD_HEIGHT - halfPlayerSize) player.y -= PUSH_BACK_STRENGTH;
+            player.x = Math.max(halfPlayerSize, Math.min(WORLD_WIDTH - halfPlayerSize, player.x));
+            player.y = Math.max(halfPlayerSize, Math.min(WORLD_HEIGHT - halfPlayerSize, player.y));
+
+            const aimMagnitude = Math.hypot(aimDx, aimDy);
+            const normAimDx = aimMagnitude > 0 ? aimDx / aimMagnitude : 0;
+            const normAimDy = aimMagnitude > 0 ? aimDy / aimMagnitude : 0;
+            const targetAimOffsetX = normAimDx * CAMERA_PULL_STRENGTH;
+            const targetAimOffsetY = normAimDy * CAMERA_PULL_STRENGTH;
+            cameraAimOffsetX += (targetAimOffsetX - cameraAimOffsetX) * CAMERA_LERP_FACTOR;
+            cameraAimOffsetY += (targetAimOffsetY - cameraAimOffsetY) * CAMERA_LERP_FACTOR;
+            const targetCameraX = player.x + cameraAimOffsetX;
+            const targetCameraY = player.y + cameraAimOffsetY;
+            cameraOffsetX = Math.max(0, Math.min(WORLD_WIDTH - canvas.width, targetCameraX - canvas.width / 2));
+            cameraOffsetY = Math.max(0, Math.min(WORLD_HEIGHT - canvas.height, targetCameraY - canvas.height / 2));
+            
+            if (autoAimActive) {
+                let closestEnemy = null; let minDistanceSq = Infinity;
+                enemies.forEach(enemy => {
+                    if (!enemy.isHit) {
+                        const distSq = (player.x - enemy.x)**2 + (player.y - enemy.y)**2;
+                        if (distSq < minDistanceSq) { minDistanceSq = distSq; closestEnemy = enemy; }
+                    }
+                });
+                if (closestEnemy) {
+                    const angle = Math.atan2(closestEnemy.y - player.y, closestEnemy.x - player.x);
+                    player.rotationAngle = angle;
+                    if (angle > -Math.PI / 4 && angle <= Math.PI / 4) player.facing = 'right';
+                    else if (angle > Math.PI / 4 && angle <= 3 * Math.PI / 4) player.facing = 'down';
+                    else if (angle > 3 * Math.PI / 4 || angle <= -3 * Math.PI / 4) player.facing = 'left';
+                    else player.facing = 'up';
+                }
+            } else if (aimDx !== 0 || aimDy !== 0) {
+                const angle = Math.atan2(aimDy, aimDx);
+                player.rotationAngle = angle;
+                if (angle > -Math.PI / 4 && angle <= Math.PI / 4) player.facing = 'right';
+                else if (angle > Math.PI / 4 && angle <= 3 * Math.PI / 4) player.facing = 'down';
+                else if (angle > 3 * Math.PI / 4 || angle <= -3 * Math.PI / 4) player.facing = 'left';
+                else player.facing = 'up';
+            }
+
+            // ===== UPDATED PLAYER 2 CONTROLS =====
+            if (player2 && player2.active) {
+                // Reset Player 2 movement and aiming each frame
+                let p2VelX = 0; let p2VelY = 0;
+                let p2aimDx = 0; let p2aimDy = 0;
+                
+                // Movement with jkli keys
+                if (keys['j']) p2VelX -= player2.speed;
+                if (keys['l']) p2VelX += player2.speed;
+                if (keys['i']) p2VelY -= player2.speed;
+                if (keys['k']) p2VelY += player2.speed;
+                
+                // If using gamepad for Player 2, override keyboard movement
+                if (player2.dx !== undefined && player2.dy !== undefined) {
+                    p2VelX = player2.dx * player2.speed;
+                    p2VelY = player2.dy * player2.speed;
+                }
+
+                // Player 2 spin animation logic
+                if(player2.isDashing && player2.spinStartTime) {
+                    if (now < player2.spinStartTime + spinDuration) {
+                        if (p2VelX > 0) {
+                            player2.spinDirection = 1; // clockwise
+                        } else if (p2VelX < 0) {
+                            player2.spinDirection = -1; // counter-clockwise
+                        } else if (player2.spinDirection === 0) {
+                            player2.spinDirection = 1; // Default
+                        }
+                    } else {
+                        player2.spinStartTime = null;
+                        player2.spinDirection = 0;
+                    }
+                }
+
+                // Apply dash speed multiplier
+                if(player2.isDashing){
+                    p2VelX *= 3.5;
+                    p2VelY *= 3.5;
+                    if(now > player2.dashEndTime) player2.isDashing = false;
+                }
+                
+                // Apply movement
+                player2.x += p2VelX; 
+                player2.y += p2VelY;
+                
+                // Update facing direction
+                if (p2VelX > 0) player2.facing = 'right'; 
+                else if (p2VelX < 0) player2.facing = 'left';
+                if (p2VelY > 0) player2.facing = 'down'; 
+                else if (p2VelY < 0) player2.facing = 'up';
+                
+                // Keep Player 2 within world bounds
+                player2.x = Math.max(player2.size / 2, Math.min(WORLD_WIDTH - player2.size / 2, player2.x));
+                player2.y = Math.max(player2.size / 2, Math.min(WORLD_HEIGHT - player2.size / 2, player2.y));
+                
+                // Player 2 aiming with numpad (8=up, 2=down, 4=left, 6=right)
+                if (keys['8']) p2aimDy = -1; // Numpad 8 is up
+                if (keys['2']) p2aimDy = 1;  // Numpad 2 is down  
+                if (keys['4']) p2aimDx = -1; // Numpad 4 is left
+                if (keys['6']) p2aimDx = 1;  // Numpad 6 is right
+                
+                // Diagonal aiming support
+                if (keys['7']) { p2aimDx = -1; p2aimDy = -1; } // Up-left
+                if (keys['9']) { p2aimDx = 1; p2aimDy = -1; }  // Up-right
+                if (keys['1']) { p2aimDx = -1; p2aimDy = 1; }  // Down-left
+                if (keys['3']) { p2aimDx = 1; p2aimDy = 1; }   // Down-right
+                
+                // Normalize diagonal aiming
+                const p2AimMagnitude = Math.hypot(p2aimDx, p2aimDy);
+                if (p2AimMagnitude > 0) {
+                    p2aimDx /= p2AimMagnitude;
+                    p2aimDy /= p2AimMagnitude;
+                    player2.gunAngle = Math.atan2(p2aimDy, p2aimDx);
+                }
+                
+                // Player 2 shooting logic
+                const p2isShooting = p2aimDx !== 0 || p2aimDy !== 0;
+                if (p2isShooting && now - player2.lastFireTime > player2.fireInterval) {
+                    createPlayer2Weapon();
+                    player2.lastFireTime = now;
+                }
+            }
