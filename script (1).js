@@ -3179,3 +3179,319 @@ for (let i = merchants.length - 1; i >= 0; i--) {
                             const randomChoice = powerUpChoices[Math.floor(Math.random() * powerUpChoices.length)];
                             powerupName = randomChoice.name; 
                             activatePowerup(randomChoice.id);
+                            
+                            playSound('boxPickup');
+                            floatingTexts.push({ text: powerupName + "!", x: player.x, y: player.y - player.size, startTime: now, duration: 1500 });
+                            updatePowerupIconsUI(); 
+                        }
+                        pickupItems.splice(i, 1);
+                        continue;
+                    }
+                    player.xp += item.xpValue * (cheats.xp_boost ? 2 : 1);
+                    runStats.xpCollectedThisRun += item.xpValue;
+                    score += item.xpValue * 7;
+                    vibrate(10);
+                    pickupItems.splice(i, 1);
+                    playSound('xpPickup');
+                    if (player.xp >= player.xpToNextLevel) levelUp();
+                }
+            }
+            for (let i = appleItems.length - 1; i >= 0; i--) {
+                const apple = appleItems[i];
+                if (now - apple.spawnTime > apple.lifetime) { appleItems.splice(i, 1); continue; }
+                const dx = player.x - apple.x;
+                const dy = player.y - apple.y;
+                const distanceSq = dx*dx + dy*dy;
+
+                if (distanceSq < player.magnetRadius*player.magnetRadius) {
+                    const angle = Math.atan2(dy, dx);
+                    apple.x += Math.cos(angle) * MAGNET_STRENGTH; 
+                    apple.y += Math.sin(angle) * MAGNET_STRENGTH; 
+                }
+
+                let collected = distanceSq < ((player.size / 2) + (apple.size / 2))**2;
+                if (!collected && player2 && player2.active) {
+                    const dx2 = player2.x - apple.x;
+                    const dy2 = player2.y - apple.y;
+                    collected = (dx2*dx2 + dy2*dy2) < ((player2.size / 2) + (apple.size / 2))**2;
+                }
+                
+                if (collected) {
+                    vibrate(20);
+                    player.appleCount++;
+                    runStats.applesEatenThisRun++;
+                    playerStats.totalApplesEaten++;
+                    if (player.appleCount >= 5) {
+                        player.maxLives++;
+                        player.appleCount = 0;
+                        vibrate(50);
+                        playSound('levelUpSelect');
+                        floatingTexts.push({ text: "Max Life +1!", x: player.x, y: player.y - player.size, startTime: now, duration: 1500 });
+                    }
+                    player.lives = player.maxLives;
+                    fireRateBoostActive = true;
+                    fireRateBoostEndTime = now + FIRE_RATE_BOOST_DURATION;
+                    playSound('xpPickup');
+                    updateUIStats();
+                    appleItems.splice(i, 1);
+                }
+            }
+            let currentFireInterval = weaponFireInterval;
+if(fireRateBoostActive) currentFireInterval /= 2;
+if(cheats.fastShooting) currentFireInterval /= 5;
+if(cheats.double_game_speed) currentFireInterval /= 2;
+currentFireInterval = Math.max(50, currentFireInterval);
+if (!cheats.no_gun_mode && (aimDx !== 0 || aimDy !== 0) && (now - lastWeaponFireTime > currentFireInterval)) {
+    createWeapon();
+    lastWeaponFireTime = now;
+}
+
+            for(const weapon of weaponPool) {
+                if(!weapon.active) continue;
+
+                if (magneticProjectileActive && enemies.length > 0) {
+                    let closestEnemy = null, minDistanceSq = Infinity;
+                    enemies.forEach(enemy => {
+                        if (enemy.isHit || (enemy.isFrozen && now < enemy.freezeEndTime)) return;
+                        const distSq = (weapon.x - enemy.x)**2 + (weapon.y - enemy.y)**2;
+                        if (distSq < minDistanceSq) { minDistanceSq = distSq; closestEnemy = enemy; }
+                    });
+                    if (closestEnemy) {
+                        const targetAngle = Math.atan2(closestEnemy.y - weapon.y, closestEnemy.x - weapon.x);
+                        let angleDiff = targetAngle - weapon.angle;
+                        if (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
+                        if (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
+                        weapon.angle += Math.sign(angleDiff) * Math.min(Math.abs(angleDiff), 0.02);
+                        weapon.dx = Math.cos(weapon.angle) * weapon.speed;
+                        weapon.dy = Math.sin(weapon.angle) * weapon.speed;
+                    }
+                }
+                weapon.x += weapon.dx;
+                weapon.y += weapon.dy;
+                if (now > weapon.lifetime) weapon.active = false;
+            }
+
+            for (const weapon of weaponPool) {
+                if(!weapon.active) continue;
+                for (let j = destructibles.length - 1; j >= 0; j--) {
+                    const obs = destructibles[j];
+                    const dx = weapon.x - obs.x;
+                    const dy = weapon.y - obs.y;
+                    if (dx*dx + dy*dy < ((weapon.size / 2) + (obs.size / 2))**2) {
+                        weapon.active = false;
+                        if(obs.health !== Infinity) obs.health--;
+                        if (obs.health <= 0) {
+                            handleBarrelDestruction(obs);
+                            destructibles.splice(j, 1);
+                        }
+                        break; 
+                    }
+                }
+            }
+
+
+            for (const weapon of weaponPool) {
+    if (!weapon.active) continue;
+
+    // Define the weapon's bounding box to search the quadtree
+    const weaponBounds = {
+        x: weapon.x - weapon.size / 2,
+        y: weapon.y - weapon.size / 2,
+        width: weapon.size,
+        height: weapon.size
+    };
+    
+    // Ask the quadtree for a small list of only the objects near the weapon
+    const nearbyObjects = quadtree.retrieve(weaponBounds);
+
+    // Now, only loop through this much smaller list of potential targets
+    for (const targetObject of nearbyObjects) {
+        const enemy = targetObject.ref; // Get the original enemy object using our reference
+
+        // Make sure the object is a valid, hittable enemy
+        if (!enemy || !enemy.health || enemy.isHit) {
+            continue;
+        }
+
+        const canGhostBeHit = enemy.emoji !== '👻' || (enemy.emoji === '👻' && enemy.isVisible);
+
+        if (canGhostBeHit && !weapon.hitEnemies.includes(enemy)) {
+            const dx = weapon.x - enemy.x;
+            const dy = weapon.y - enemy.y;
+            const combinedRadius = (weapon.size / 2) + (enemy.size / 2);
+
+            // This is the same distance check as before
+            if (dx * dx + dy * dy < combinedRadius * combinedRadius) {
+                
+                // --- ALL YOUR ORIGINAL COLLISION LOGIC IS COPIED HERE ---
+                let damageToDeal = player.damageMultiplier;
+                if (rocketLauncherActive) { damageToDeal *= 2; }
+                if (cheats.one_hit_kill) damageToDeal = Infinity;
+
+                enemy.health -= damageToDeal;
+                createBloodSplatter(enemy.x, enemy.y);
+                weapon.hitEnemies.push(enemy);
+
+                if (explosiveBulletsActive) {
+                    const explosionId = Math.random();
+                    explosions.push({
+                        x: weapon.x, y: weapon.y, radius: enemy.size * 2,
+                        startTime: Date.now(), duration: 300
+                    });
+                    // This part can also be optimized later, but let's leave it for now
+                    enemies.forEach(otherEnemy => { 
+                        if (otherEnemy !== enemy && !otherEnemy.isHit) {
+                            const distSq = (otherEnemy.x - weapon.x)**2 + (otherEnemy.y - weapon.y)**2;
+                            if (distSq < (enemy.size * 2)**2 + (otherEnemy.size / 2)**2) {
+                                otherEnemy.health -= player.damageMultiplier;
+                                if(cheats.instaKill) otherEnemy.health = 0;
+                                createBloodSplatter(otherEnemy.x, otherEnemy.y);
+                                if (otherEnemy.health <= 0) { handleEnemyDeath(otherEnemy, explosionId); }
+                            }
+                        }
+                    });
+                }
+
+                if (player.knockbackStrength > 0 && !enemy.isBoss) {
+                    const knockbackDistance = 50 * player.knockbackStrength;
+                    const normDx = weapon.dx / weapon.speed;
+                    const normDy = weapon.dy / weapon.speed;
+                    enemy.x += normDx * knockbackDistance;
+                    enemy.y += normDy * knockbackDistance;
+                }
+                if (iceProjectileActive) { 
+                    enemy.isFrozen = true; 
+                    enemy.freezeEndTime = Date.now() + 250;
+                    playerStats.totalEnemiesFrozen++;
+                }
+                if (flamingBulletsActive) {
+                    enemy.isIgnited = true;
+                    enemy.ignitionEndTime = Date.now() + 6000;
+                    enemy.lastIgnitionDamageTime = Date.now();
+                }
+                if (enemy.health <= 0) { handleEnemyDeath(enemy); }
+                weapon.hitsLeft--;
+                if (weapon.hitsLeft > 0 && ricochetActive && !rocketLauncherActive) {
+                    let newTarget = null; let minDistanceSq = Infinity;
+                    enemies.forEach(otherEnemy => {
+                        if (!weapon.hitEnemies.includes(otherEnemy) && !otherEnemy.isHit) {
+                            const distSq = (weapon.x - otherEnemy.x)**2 + (weapon.y - otherEnemy.y)**2;
+                            if (distSq < minDistanceSq) { minDistanceSq = distSq; newTarget = otherEnemy; }
+                        }
+                    });
+                    if (newTarget) {
+                        if (explosiveBulletsActive) { explosions.push({ x: weapon.x, y: weapon.y, radius: enemy.size * 2, startTime: Date.now(), duration: 300 }); }
+                        const angle = Math.atan2(newTarget.y - weapon.y, newTarget.x - weapon.x);
+                        weapon.angle = angle;
+                        weapon.dx = Math.cos(angle) * weapon.speed;
+                        weapon.dy = Math.sin(angle) * weapon.speed;
+                    } else { weapon.active = false; }
+                } else { weapon.active = false; }
+
+                // Break from the inner loop if the weapon is gone
+                if (!weapon.active) {
+                    break;
+                }
+            }
+        }
+    }
+}
+            if (bombEmitterActive && now - lastBombEmitMs >= BOMB_INTERVAL_MS) {
+                bombs.push({ x: player.x, y: player.y, size: BOMB_SIZE, spawnTime: now });
+                lastBombEmitMs = now;
+            }
+            for (let b = bombs.length - 1; b >= 0; b--) {
+                const bomb = bombs[b];
+                if (now - bomb.spawnTime > BOMB_LIFETIME_MS) { bombs.splice(b, 1); continue; }
+                for (let e = enemies.length - 1; e >= 0; e--) {
+                    const enemy = enemies[e];
+                    const dx = enemy.x - bomb.x;
+                    const dy = enemy.y - bomb.y;
+                    if (dx*dx + dy*dy < ((enemy.size / 2) + (bomb.size / 2))**2) {
+                        explosions.push({
+                            x: bomb.x, y: bomb.y, radius: bomb.size * 2,
+                            startTime: now, duration: 300
+                        });
+                        handleEnemyDeath(enemy);
+                        playBombExplosionSound();
+                        bombs.splice(b, 1);
+                        break;
+                    }
+                }
+            }
+            if (orbitingPowerUpActive) {
+                player.orbitAngle = (player.orbitAngle + ORBIT_SPEED) % (Math.PI * 2);
+                const orbitX = player.x + ORBIT_RADIUS * Math.cos(player.orbitAngle);
+                const orbitY = player.y + ORBIT_RADIUS * Math.sin(player.orbitAngle);
+                for (let i = enemies.length - 1; i >= 0; i--) {
+                    const enemy = enemies[i];
+                    const dx = orbitX - enemy.x;
+                    const dy = orbitY - enemy.y;
+                    if (dx*dx + dy*dy < ((ORBIT_POWER_UP_SIZE / 2) + (enemy.size / 2))**2) {
+                        if (!enemy.isHit && !enemy.isHitByOrbiter) {
+                            enemy.health -= player.damageMultiplier;
+                            createBloodSplatter(enemy.x, enemy.y);
+                            enemy.isHitByOrbiter = true;
+                            if (enemy.health <= 0) { handleEnemyDeath(enemy); }
+                        }
+                    } else { enemy.isHitByOrbiter = false; }
+                }
+                for (let i = eyeProjectiles.length - 1; i >= 0; i--) {
+                    const eyeProj = eyeProjectiles[i];
+                    const dx = orbitX - eyeProj.x;
+                    const dy = orbitY - eyeProj.y;
+                    if (!eyeProj.isHit && (dx*dx + dy*dy) < ((ORBIT_POWER_UP_SIZE / 2) + (eyeProj.size / 2))**2) {
+                        eyeProj.isHit = true; 
+                    }
+                }
+            }
+             if (whirlwindAxeActive) {
+                whirlwindAxeAngle -= WHIRLWIND_AXE_SPEED;
+                const axeX = player.x + WHIRLWIND_AXE_RADIUS * Math.cos(whirlwindAxeAngle);
+                const axeY = player.y + WHIRLWIND_AXE_RADIUS * Math.sin(whirlwindAxeAngle);
+                for (let i = enemies.length - 1; i >= 0; i--) {
+                    const enemy = enemies[i];
+                    const dx = axeX - enemy.x;
+                    const dy = axeY - enemy.y;
+                    if (dx*dx + dy*dy < ((WHIRLWIND_AXE_SIZE / 2) + (enemy.size / 2))**2) {
+                        if (!enemy.isHit && !enemy.isHitByAxe) { 
+                            enemy.health -= 1;
+                            createBloodSplatter(enemy.x, enemy.y);
+                            enemy.isHitByAxe = true;
+                            if (enemy.health <= 0) { handleEnemyDeath(enemy); }
+                        }
+                    } else { enemy.isHitByAxe = false; }
+                }
+            }
+            if (damagingCircleActive && now - lastDamagingCircleDamageTime > DAMAGING_CIRCLE_DAMAGE_INTERVAL) {
+                const radiusSq = (DAMAGING_CIRCLE_RADIUS)**2;
+                for (let i = enemies.length - 1; i >= 0; i--) {
+                    const enemy = enemies[i];
+                    const dx = player.x - enemy.x;
+                    const dy = player.y - enemy.y;
+                    if (!enemy.isHit && (dx*dx + dy*dy) < radiusSq + (enemy.size / 2)**2) {
+                        if (!enemy.isHitByCircle) {
+                            enemy.health -= player.damageMultiplier; 
+                            createBloodSplatter(enemy.x, enemy.y);
+                            enemy.isHitByCircle = true;
+                            if (enemy.health <= 0) { handleEnemyDeath(enemy); }
+                        }
+                    } else { enemy.isHitByCircle = false; }
+                }
+                lastDamagingCircleDamageTime = now;
+            }
+            if (lightningProjectileActive && now - lastLightningSpawnTime > LIGHTNING_SPAWN_INTERVAL) {
+                let closestEnemy = null, minDistanceSq = Infinity;
+                enemies.forEach(enemy => {
+                    if (enemy.isHit || (enemy.isFrozen && now < enemy.freezeEndTime)) return;
+                    const distSq = (player.x - enemy.x)**2 + (player.y - enemy.y)**2;
+                    if (distSq < minDistanceSq) { minDistanceSq = distSq; closestEnemy = enemy; }
+                });
+                if (closestEnemy) {
+                    const angle = Math.atan2(closestEnemy.y - player.y, closestEnemy.x - player.x);
+                    lightningBolts.push({ x: player.x, y: player.y, size: LIGHTNING_SIZE, emoji: LIGHTNING_EMOJI, speed: 5.6, dx: Math.cos(angle) * 5.6, dy: Math.sin(angle) * 5.6, angle: angle, isHit: false, lifetime: now + 2000 });
+                    playSound('playerShoot');
+                }
+                lastLightningSpawnTime = now;
+            }
+                
