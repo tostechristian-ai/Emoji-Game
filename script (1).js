@@ -3495,3 +3495,533 @@ if (!cheats.no_gun_mode && (aimDx !== 0 || aimDy !== 0) && (now - lastWeaponFire
                 lastLightningSpawnTime = now;
             }
                 
+for (let i = lightningBolts.length - 1; i >= 0; i--) {
+                const bolt = lightningBolts[i];
+                bolt.x += bolt.dx; bolt.y += bolt.dy;
+                if (now > bolt.lifetime) bolt.isHit = true;
+                for (let j = enemies.length - 1; j >= 0; j--) {
+                    const enemy = enemies[j];
+                    const dx = bolt.x - enemy.x;
+                    const dy = bolt.y - enemy.y;
+                    if (!enemy.isHit && !bolt.isHit && (dx*dx + dy*dy) < ((bolt.size / 2) + (enemy.size / 2))**2) {
+                        enemy.health -= player.damageMultiplier; bolt.isHit = true; 
+                        createBloodSplatter(enemy.x, enemy.y);
+                        if (enemy.health <= 0) { handleEnemyDeath(enemy); }
+                        break;
+                    }
+                }
+            }
+            lightningBolts = lightningBolts.filter(bolt => !bolt.isHit);
+            if (player.swordActive && now - player.lastSwordSwingTime > SWORD_SWING_INTERVAL) {
+                let swordAngle;
+                if (aimDx !== 0 || aimDy !== 0) swordAngle = Math.atan2(aimDy, aimDx);
+                else {
+                    let closestEnemy = null, minDistanceSq = Infinity;
+                    enemies.forEach(enemy => {
+                        if (enemy.isHit || (enemy.isFrozen && now < enemy.freezeEndTime)) return;
+                        const distSq = (player.x - enemy.x)**2 + (player.y - enemy.y)**2;
+                        if (distSq < minDistanceSq) { minDistanceSq = distSq; closestEnemy = enemy; }
+                    });
+                    swordAngle = closestEnemy ? Math.atan2(closestEnemy.y - player.y, closestEnemy.x - player.x) : -Math.PI / 2;
+                }
+                player.currentSwordSwing = { x: player.x, y: player.y, angle: swordAngle, activeUntil: now + SWORD_SWING_DURATION, startTime: now };
+                playSwordSwingSound();
+                const swordAttackRadiusSq = (player.size + SWORD_THRUST_DISTANCE)**2;
+                for (let i = enemies.length - 1; i >= 0; i--) {
+                    const enemy = enemies[i];
+                    const dx = player.x - enemy.x;
+                    const dy = player.y - enemy.y;
+                    if ((dx*dx + dy*dy) < swordAttackRadiusSq + (enemy.size / 2)**2 && !enemy.isHit) {
+                        enemy.health -= player.damageMultiplier; 
+                        createBloodSplatter(enemy.x, enemy.y);
+                        if (enemy.health <= 0) { handleEnemyDeath(enemy); }
+                    }
+                }
+                player.lastSwordSwingTime = now;
+            }
+            if (player.currentSwordSwing && now > player.currentSwordSwing.activeUntil) player.currentSwordSwing = null;
+            for (let i = eyeProjectiles.length - 1; i >= 0; i--) {
+                const eyeProj = eyeProjectiles[i];
+                eyeProj.x += eyeProj.dx; eyeProj.y += eyeProj.dy;
+                if (now > eyeProj.lifetime) eyeProj.isHit = true;
+                const dx = player.x - eyeProj.x;
+                const dy = player.y - eyeProj.y;
+                if (!player.isInvincible && (dx*dx + dy*dy) < ((player.size / 2) + (eyeProj.size / 2))**2 && !eyeProj.isHit) {
+                    player.lives--; 
+                    runStats.lastDamageTime = now;
+                    createBloodSplatter(player.x, player.y); createBloodPuddle(player.x, player.y, player.size);
+                    playSound('playerScream'); playEyeProjectileHitSound(); 
+                    updateUIStats(); eyeProj.isHit = true;
+                    isPlayerHitShaking = true; playerHitShakeStartTime = now;
+                    if (player.lives <= 0) endGame();
+                }
+            }
+            if (puddleTrailActive && now - lastPlayerPuddleSpawnTime > PLAYER_PUDDLE_SPAWN_INTERVAL) {
+                playerPuddles.push({ x: player.x, y: player.y, size: PLAYER_PUDDLE_SIZE, spawnTime: now, lifetime: PLAYER_PUDDLE_LIFETIME });
+                lastPlayerPuddleSpawnTime = now;
+            }
+            if (antiGravityActive && !isTimeStopped && now - lastAntiGravityPushTime > ANTI_GRAVITY_INTERVAL) {
+                antiGravityPulses.push({ x: player.x, y: player.y, spawnTime: now, duration: 500 });
+                enemies.forEach(enemy => {
+                    if (!enemy.isBoss) {
+                        const dist = Math.hypot(player.x - enemy.x, player.y - enemy.y);
+                        if (dist < ANTI_GRAVITY_RADIUS && dist > 0) {
+                            const angle = Math.atan2(enemy.y - player.y, enemy.x - player.x);
+                            enemy.x += Math.cos(angle) * ANTI_GRAVITY_STRENGTH;
+                            enemy.y += Math.sin(angle) * ANTI_GRAVITY_STRENGTH;
+                        }
+                    }
+                });
+                lastAntiGravityPushTime = now;
+            }
+            
+            if (blackHoleActive && !isTimeStopped && now - lastBlackHoleTime > BLACK_HOLE_INTERVAL) {
+                blackHoles.push({
+                    x: player.x, y: player.y, spawnTime: now, lifetime: BLACK_HOLE_DELAY + BLACK_HOLE_PULL_DURATION,
+                    radius: BLACK_HOLE_RADIUS, pullStrength: BLACK_HOLE_PULL_STRENGTH
+                });
+                lastBlackHoleTime = now;
+            }
+
+            for (let i = blackHoles.length - 1; i >= 0; i--) {
+                const hole = blackHoles[i];
+                if (now - hole.spawnTime > hole.lifetime) { blackHoles.splice(i, 1); continue; }
+                if (now - hole.spawnTime > BLACK_HOLE_DELAY) {
+                    enemies.forEach(enemy => {
+                        if (!enemy.isBoss) {
+                            const dist = Math.hypot(enemy.x - hole.x, enemy.y - hole.y);
+                            if (dist < hole.radius && dist > 0) {
+                                const angle = Math.atan2(hole.y - enemy.y, hole.x - enemy.x);
+                                const pullForce = hole.pullStrength * (1 - dist / hole.radius);
+                                enemy.x += Math.cos(angle) * pullForce;
+                                enemy.y += Math.sin(angle) * pullForce;
+                            }
+                        }
+                    });
+                }
+            }
+
+            for (let i = playerPuddles.length - 1; i >= 0; i--) { if (now - playerPuddles[i].spawnTime > playerPuddles[i].lifetime) playerPuddles.splice(i, 1); }
+            for (let i = snailPuddles.length - 1; i >= 0; i--) { if (now - snailPuddles[i].spawnTime > snailPuddles[i].lifetime) snailPuddles.splice(i, 1); }
+            for (let i = mosquitoPuddles.length - 1; i >= 0; i--) { if (now - mosquitoPuddles[i].spawnTime > mosquitoPuddles[i].lifetime) mosquitoPuddles.splice(i, 1); }
+            for (let i = bloodSplatters.length - 1; i >= 0; i--) {
+                const p = bloodSplatters[i];
+                if (now - p.spawnTime > p.lifetime) { bloodSplatters.splice(i, 1); continue; }
+                p.x += p.dx; p.y += p.dy; p.dx *= 0.96; p.dy *= 0.96; 
+            }
+            for (let i = bloodPuddles.length - 1; i >= 0; i--) { if (now - bloodPuddles[i].spawnTime > bloodPuddles[i].lifetime) { bloodPuddles.splice(i, 1); } }
+
+            dogHomingShots.forEach(shot => {
+                if (shot.isHoming && enemies.length > 0) {
+                    let closestEnemy = null, minDistanceSq = Infinity;
+                    enemies.forEach(enemy => {
+                        if (enemy.isHit) return;
+                        const distSq = (shot.x - enemy.x)**2 + (shot.y - enemy.y)**2;
+                        if (distSq < minDistanceSq) { minDistanceSq = distSq; closestEnemy = enemy; }
+                    });
+                    if (closestEnemy) {
+                        const targetAngle = Math.atan2(closestEnemy.y - shot.y, closestEnemy.x - shot.x);
+                        let angleDiff = targetAngle - shot.angle;
+                        if (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
+                        if (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
+                        shot.angle += Math.sign(angleDiff) * Math.min(Math.abs(angleDiff), 0.04);
+                        shot.dx = Math.cos(shot.angle) * shot.speed;
+                        shot.dy = Math.sin(shot.angle) * shot.speed;
+                    }
+                }
+                shot.x += shot.dx; shot.y += shot.dy;
+                if (now > shot.lifetime) shot.isHit = true;
+            });
+
+            for (let i = enemies.length - 1; i >= 0; i--) {
+                const enemy = enemies[i];
+                if (!enemy.isHit) {
+                    for (let j = dogHomingShots.length - 1; j >= 0; j--) {
+                        const shot = dogHomingShots[j];
+                        const dx = shot.x - enemy.x;
+                        const dy = shot.y - enemy.y;
+                        if (!shot.isHit && (dx*dx + dy*dy) < ((shot.size / 2) + (enemy.size / 2))**2) {
+                            enemy.health -= 1;
+                            createBloodSplatter(enemy.x, enemy.y);
+                            if (enemy.health <= 0) handleEnemyDeath(enemy);
+                            shot.isHit = true;
+                        }
+                    }
+                }
+            }
+
+            for (let i = flameAreas.length - 1; i >= 0; i--) {
+                const area = flameAreas[i];
+                if (now > area.endTime) { flameAreas.splice(i, 1); continue; }
+                enemies.forEach(enemy => {
+                    const dx = enemy.x - area.x;
+                    const dy = enemy.y - area.y;
+                    if (!enemy.isHit && (dx*dx + dy*dy) < area.radius*area.radius) {
+                        if (!enemy.isIgnited || now > enemy.ignitionEndTime) {
+                            enemy.isIgnited = true;
+                            enemy.ignitionEndTime = now + 6000;
+                            enemy.lastIgnitionDamageTime = now;
+                        }
+                    }
+                });
+            }
+
+             for (let i = flies.length - 1; i >= 0; i--) {
+                const fly = flies[i];
+                if (fly.isHit || enemies.length === 0) { flies.splice(i, 1); continue; }
+                let closestEnemy = null, minDistanceSq = Infinity;
+                enemies.forEach(enemy => {
+                    if (!enemy.isHit) {
+                        const distSq = (fly.x - enemy.x)**2 + (fly.y - enemy.y)**2;
+                        if (distSq < minDistanceSq) { minDistanceSq = distSq; closestEnemy = enemy; }
+                    }
+                });
+                fly.target = closestEnemy;
+                if (fly.target) {
+                    const angle = Math.atan2(fly.target.y - fly.y, fly.target.x - fly.x);
+                    fly.x += Math.cos(angle) * FLY_SPEED;
+                    fly.y += Math.sin(angle) * FLY_SPEED;
+                    const dx = fly.x - fly.target.x;
+                    const dy = fly.y - fly.target.y;
+                    if ((dx*dx + dy*dy) < ((FLY_SIZE / 2) + (fly.target.size / 2))**2) {
+                        fly.target.health -= FLY_DAMAGE;
+                        createBloodSplatter(fly.target.x, fly.target.y);
+                        if (fly.target.health <= 0) { handleEnemyDeath(fly.target); }
+                        fly.isHit = true;
+                    }
+                }
+            }
+            for (let i = owlProjectiles.length - 1; i >= 0; i--) {
+                const proj = owlProjectiles[i];
+                proj.x += proj.dx; proj.y += proj.dy;
+                if (now > proj.lifetime) proj.isHit = true;
+                for (let j = enemies.length - 1; j >= 0; j--) {
+                    const enemy = enemies[j];
+                    const dx = proj.x - enemy.x;
+                    const dy = proj.y - enemy.y;
+                    if (!enemy.isHit && !proj.isHit && (dx*dx + dy*dy) < ((proj.size / 2) + (enemy.size / 2))**2) {
+                        enemy.health -= player.damageMultiplier;
+                        proj.isHit = true;
+                        createBloodSplatter(enemy.x, enemy.y);
+                        if (enemy.health <= 0) { handleEnemyDeath(enemy); }
+                        break;
+                    }
+                }
+            }
+             for (let i = smokeParticles.length - 1; i >= 0; i--) {
+                const p = smokeParticles[i];
+                p.x += p.dx;
+                p.y += p.dy;
+                p.alpha -= 0.02;
+                if (p.alpha <= 0) {
+                    smokeParticles.splice(i, 1);
+                }
+            }
+
+
+            antiGravityPulses = antiGravityPulses.filter(p => now - p.spawnTime < p.duration);
+            explosions = explosions.filter(exp => now - exp.startTime < exp.duration);
+            vengeanceNovas.forEach(nova => {
+                const age = now - nova.startTime;
+                if (age < nova.duration) {
+                    const currentRadius = nova.maxRadius * (age / nova.duration);
+                    for (let i = enemies.length - 1; i >= 0; i--) {
+                        const enemy = enemies[i];
+                        const dx = nova.x - enemy.x;
+                        const dy = nova.y - enemy.y;
+                        if (!enemy.isHit && (dx*dx + dy*dy) < currentRadius*currentRadius) {
+                            handleEnemyDeath(enemy);
+                        }
+                    }
+                }
+            });
+            vengeanceNovas = vengeanceNovas.filter(nova => now - nova.startTime < nova.duration);
+            floatingTexts = floatingTexts.filter(ft => now - ft.startTime < ft.duration);
+            enemies = enemies.filter(e => !e.isHit);
+            eyeProjectiles = eyeProjectiles.filter(p => !p.isHit);
+            dogHomingShots = dogHomingShots.filter(s => !s.isHit);
+            owlProjectiles = owlProjectiles.filter(p => !p.isHit);
+            lightningStrikes = lightningStrikes.filter(ls => now - ls.startTime < ls.duration);
+        }
+
+        function draw() {
+            if (!gameActive) return;
+            const now = Date.now();
+            let currentHitShakeX = 0, currentHitShakeY = 0;
+            if (isPlayerHitShaking) {
+                const elapsedTime = now - playerHitShakeStartTime;
+                if (elapsedTime < PLAYER_HIT_SHAKE_DURATION) {
+                    const shakeIntensity = MAX_PLAYER_HIT_SHAKE_OFFSET * (1 - (elapsedTime / PLAYER_HIT_SHAKE_DURATION));
+                    currentHitShakeX = (Math.random() - 0.5) * 2 * shakeIntensity;
+                    currentHitShakeY = (Math.random() - 0.5) * 2 * shakeIntensity;
+                } else isPlayerHitShaking = false;
+            }
+
+            let finalCameraOffsetX = cameraOffsetX - currentHitShakeX;
+            let finalCameraOffsetY = cameraOffsetY - currentHitShakeY;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            ctx.save();
+            ctx.translate(canvas.width / 2, canvas.height / 2);
+            ctx.scale(cameraZoom, cameraZoom);
+            ctx.translate(-canvas.width / 2, -canvas.height / 2);
+            
+            ctx.save();
+            ctx.translate(-finalCameraOffsetX, -finalCameraOffsetY);
+            if (backgroundImages.length > 0) ctx.drawImage(backgroundImages[currentBackgroundIndex], 0, 0, WORLD_WIDTH, WORLD_HEIGHT);
+            else { ctx.fillStyle = '#000000'; ctx.fillRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT); }
+            ctx.restore();
+            
+            ctx.save();
+            ctx.translate(-finalCameraOffsetX, -finalCameraOffsetY);
+            
+            destructibles.forEach(obs => {
+                if(obs.health !== Infinity) ctx.globalAlpha = 0.5 + (obs.health / obs.maxHealth) * 0.5;
+                const preRendered = preRenderedEntities[obs.emoji];
+                if(preRendered) {
+                    ctx.drawImage(preRendered, obs.x - preRendered.width / 2, obs.y - preRendered.height / 2);
+                }
+                ctx.globalAlpha = 1.0;
+            });
+
+            flameAreas.forEach(area => {
+                const age = now - area.startTime;
+                const lifeRatio = age / (area.endTime - area.startTime);
+                const alpha = 1 - lifeRatio;
+                ctx.save();
+                ctx.globalAlpha = alpha * 0.4;
+                ctx.fillStyle = '#1a1a1a'; // Black puddle
+                ctx.beginPath();
+                ctx.arc(area.x, area.y, area.radius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.globalAlpha = alpha * 0.7;
+                const flameCount = 2;
+                for (let i = 0; i < flameCount; i++) {
+                    const angle = (i / flameCount) * Math.PI * 2 + (now / 500);
+                    const dist = Math.random() * area.radius * 0.8;
+                    const flameX = area.x + Math.cos(angle) * dist;
+                    const flameY = area.y + Math.sin(angle) * dist;
+                    const flameSize = 10 + Math.random() * 5;
+                    ctx.font = `${flameSize}px sans-serif`;
+                    ctx.fillText('🔥', flameX, flameY);
+                }
+                ctx.restore();
+            });
+
+            bloodSplatters.forEach(p => {
+                const age = now - p.spawnTime;
+                const alpha = 1 - (age / p.lifetime);
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, alpha);
+                ctx.fillStyle = 'red';
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            });
+
+            if (damagingCircleActive) {
+                damagingCircleAngle += DAMAGING_CIRCLE_SPIN_SPEED;
+                const pulse = 1 + Math.sin(now / 300) * 0.1;
+                const size = DAMAGING_CIRCLE_RADIUS * 2 * pulse;
+                ctx.save();
+                ctx.globalAlpha = 0.5;
+                ctx.translate(player.x, player.y);
+                ctx.rotate(damagingCircleAngle);
+                ctx.drawImage(sprites.circle, -size / 2, -size / 2, size, size);
+                ctx.restore();
+            }
+
+            for (const puddle of playerPuddles) {
+                const age = now - puddle.spawnTime;
+                const opacity = 1 - (age / puddle.lifetime);
+                if (opacity > 0) {
+                    ctx.save();
+                    ctx.globalAlpha = opacity * 0.7;
+                    ctx.drawImage(sprites.slime, puddle.x - puddle.size / 2, puddle.y - puddle.size / 2, puddle.size, puddle.size);
+                    ctx.restore();
+                }
+            }
+
+            for (const puddle of mosquitoPuddles) {
+                const age = now - puddle.spawnTime;
+                const opacity = 1 - (age / puddle.lifetime);
+                if (opacity > 0) {
+                    ctx.save();
+                    ctx.globalAlpha = opacity * 0.5;
+                    ctx.fillStyle = 'rgba(255, 0, 0, 1)';
+                    ctx.beginPath();
+                    ctx.arc(puddle.x, puddle.y, puddle.size / 2, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.restore();
+                }
+            }
+            
+            bloodPuddles.forEach(puddle => {
+                const age = now - puddle.spawnTime;
+                if (age < puddle.lifetime) {
+                    const lifeRatio = age / puddle.lifetime;
+                    const currentSize = puddle.initialSize * (1 - lifeRatio);
+                    ctx.save();
+                    ctx.globalAlpha = 0.5;
+                    ctx.translate(puddle.x, puddle.y);
+                    ctx.rotate(puddle.rotation);
+                    ctx.drawImage(sprites.bloodPuddle, -currentSize / 2, -currentSize / 2, currentSize, currentSize);
+                    ctx.restore();
+                }
+            });
+
+            antiGravityPulses.forEach(pulse => {
+                const age = now - pulse.spawnTime;
+                const lifeRatio = age / pulse.duration;
+                const currentRadius = ANTI_GRAVITY_RADIUS * lifeRatio;
+                const alpha = 1 - lifeRatio;
+                ctx.save();
+                ctx.strokeStyle = `rgba(255, 255, 255, ${alpha})`;
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.arc(pulse.x, pulse.y, currentRadius, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.restore();
+            });
+
+            blackHoles.forEach(hole => {
+                const age = now - hole.spawnTime;
+                const lifeRatio = age / hole.lifetime;
+                const alpha = 1 - lifeRatio;
+                ctx.save();
+                const timeIntoDelay = now - hole.spawnTime;
+                let currentRadius = hole.radius;
+                let coreRadius = 20 * (1 - lifeRatio);
+                if (timeIntoDelay < BLACK_HOLE_DELAY) {
+                    const delayProgress = timeIntoDelay / BLACK_HOLE_DELAY;
+                    currentRadius = hole.radius * delayProgress;
+                    const pulse = 1 + Math.sin(now / 100) * 0.2;
+                    coreRadius = 10 * pulse;
+                    ctx.beginPath();
+                    ctx.arc(hole.x, hole.y, currentRadius, 0, Math.PI * 2);
+                    ctx.fillStyle = `rgba(150, 0, 200, ${alpha * 0.1 * delayProgress})`;
+                    ctx.fill();
+                    ctx.strokeStyle = `rgba(200, 100, 255, ${alpha * 0.5 * delayProgress})`;
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                } else {
+                    ctx.beginPath();
+                    ctx.arc(hole.x, hole.y, currentRadius, 0, Math.PI * 2);
+                    ctx.fillStyle = `rgba(50, 0, 100, ${alpha * 0.2})`;
+                    ctx.fill();
+                }
+                ctx.beginPath();
+                ctx.arc(hole.x, hole.y, coreRadius, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(0, 0, 0, ${alpha})`;
+                ctx.fill();
+                ctx.restore();
+            });
+            
+            smokeParticles.forEach(p => {
+    ctx.save();
+    // This is the correct way to apply the particle's alpha
+    ctx.globalAlpha = p.alpha;
+    
+    // Draw the smoke particle
+    ctx.font = `${p.size}px sans-serif`;
+    ctx.fillText('💨', p.x, p.y);
+    
+    ctx.restore();
+});
+
+            enemies.forEach(enemy => {
+                ctx.save();
+                if (enemy.emoji === '👻') {
+                    ctx.globalAlpha = enemy.isVisible ? 1.0 : 0.2;
+                }
+                if (enemy.isFrozen) ctx.filter = 'saturate(0.5) brightness(1.5) hue-rotate(180deg)';
+                if (enemy.isSlowedByPuddle) ctx.filter = 'saturate(2) brightness(0.8)';
+                
+                const emojiToDraw = enemy.isBoss ? enemy.mimics : enemy.emoji;
+                const preRenderedImage = preRenderedEntities[emojiToDraw];
+                if(preRenderedImage) {
+                    ctx.drawImage(preRenderedImage, enemy.x - preRenderedImage.width / 2, enemy.y - preRenderedImage.height / 2 + (enemy.bobOffset || 0));
+                }
+
+                if (enemy.isIgnited) {
+                    if (Math.random() < 0.1) {
+                        smokeParticles.push({ x: enemy.x + (Math.random() - 0.5) * enemy.size, y: enemy.y, dx: (Math.random() - 0.5) * 0.5, dy: -Math.random() * 1, size: 10 + Math.random() * 5, alpha: 0.7 });
+                    }
+                    ctx.globalAlpha = Math.min(ctx.globalAlpha, 0.8);
+                    ctx.font = `${enemy.size * 0.8}px sans-serif`;
+                    ctx.fillText('🔥', enemy.x, enemy.y + (enemy.bobOffset || 0));
+                }
+                ctx.restore();
+            });
+
+            explosions.forEach(explosion => {
+                const age = now - explosion.startTime;
+                if (age < explosion.duration) {
+                    const lifeRatio = age / explosion.duration;
+                    const currentRadius = explosion.radius * lifeRatio;
+                    const alpha = 1 - lifeRatio;
+                    ctx.save();
+                    ctx.beginPath();
+                    ctx.arc(explosion.x, explosion.y, currentRadius, 0, Math.PI * 2);
+                    ctx.fillStyle = `rgba(255, 165, 0, ${alpha * 0.7})`;
+                    ctx.fill();
+                    ctx.strokeStyle = `rgba(255, 255, 255, ${alpha})`;
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                    ctx.restore();
+                }
+            });
+
+            vengeanceNovas.forEach(nova => {
+                const age = now - nova.startTime;
+                if (age < nova.duration) {
+                    const lifeRatio = age / nova.duration;
+                    const currentRadius = nova.maxRadius * lifeRatio;
+                    const alpha = 1 - lifeRatio;
+                    ctx.save();
+                    ctx.strokeStyle = `rgba(255, 0, 0, ${alpha})`;
+                    ctx.lineWidth = 5;
+                    ctx.beginPath();
+                    ctx.arc(nova.x, nova.y, currentRadius, 0, Math.PI * 2);
+                    ctx.stroke();
+                    ctx.restore();
+                }
+            });
+
+            for(const weapon of weaponPool) {
+                if(!weapon.active) continue;
+                ctx.save();
+                ctx.translate(weapon.x, weapon.y);
+                ctx.rotate(weapon.angle);
+                if (flamingBulletsActive) ctx.filter = 'hue-rotate(30deg) saturate(5) brightness(1.5)';
+                else if (magneticProjectileActive && iceProjectileActive) ctx.filter = 'hue-rotate(270deg) saturate(2)';
+                else if (magneticProjectileActive) ctx.filter = 'hue-rotate(0deg) saturate(5) brightness(1.5)';
+                else if (iceProjectileActive) ctx.filter = 'hue-rotate(180deg) saturate(2)';
+                ctx.drawImage(sprites.bullet, -weapon.size / 2, -weapon.size / 2, weapon.size, weapon.size * 0.5);
+                ctx.restore();
+            }
+
+            dogHomingShots.forEach(shot => {
+                ctx.save();
+                ctx.translate(shot.x, shot.y);
+                ctx.rotate(shot.angle);
+                ctx.filter = 'hue-rotate(0deg) saturate(5) brightness(1.5)';
+                ctx.drawImage(sprites.bullet, -shot.size / 2, -shot.size / 2, shot.size, shot.size * 0.5);
+                ctx.restore();
+            });
+
+            lightningBolts.forEach(bolt => {
+                const preRendered = preRenderedEntities[bolt.emoji];
+                if(preRendered) {
+                    ctx.save();
+                    ctx.translate(bolt.x, bolt.y);
+                    ctx.rotate(bolt.angle + Math.PI / 2);
+                    ctx.drawImage(preRendered, -preRendered.width/2, -preRendered.height/2);
+                    ctx.restore();
+                }
+            });
+
+            bombs.forEach(bomb => {
+                const preRendered = preRenderedEntities['💣'];
+                if(preRendered) ctx.draw
