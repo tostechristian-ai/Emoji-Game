@@ -2683,6 +2683,8 @@ for (let i = merchants.length - 1; i >= 0; i--) {
                 // Reset Player 2 movement and aiming each frame
                 let p2VelX = 0; let p2VelY = 0;
                 let p2aimDx = 0; let p2aimDy = 0;
+                let p2MoveDx = 0; // Tracks P2 horizontal movement (Left/Right)
+                let p2MoveDy = 0; // Tracks P2 vertical movement (Up/Down) 
                 
                 // Movement with jkli keys
                 if (keys['j']) p2VelX -= player2.speed;
