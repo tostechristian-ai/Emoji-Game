@@ -4024,4 +4024,755 @@ for (let i = lightningBolts.length - 1; i >= 0; i--) {
 
             bombs.forEach(bomb => {
                 const preRendered = preRenderedEntities['💣'];
-                if(preRendered) ctx.draw
+                if(preRendered) ctx.drawImage(preRendered, bomb.x - preRendered.width/2, bomb.y - preRendered.height/2);
+            });
+
+            const drawGlimmer = (item) => {
+                const glimmerDuration = 1000;
+                const timeSinceStart = (now - item.glimmerStartTime) % 2000;
+                if (timeSinceStart < glimmerDuration) {
+                    const progress = timeSinceStart / glimmerDuration;
+                    const alpha = Math.sin(progress * Math.PI);
+                    const size = item.size * (1 + progress * 0.5);
+                    ctx.save();
+                    ctx.globalAlpha = alpha * 0.5;
+                    ctx.fillStyle = 'white';
+                    ctx.beginPath();
+                    ctx.arc(item.x, item.y, size / 2, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.restore();
+                }
+            };
+
+            pickupItems.forEach(item => {
+                drawGlimmer(item);
+                if (item.type === 'box') { 
+                    ctx.drawImage(sprites.pickupBox, item.x - item.size / 2, item.y - item.size / 2, item.size, item.size); 
+                } else {
+                    const preRendered = preRenderedEntities[item.type];
+                    if(preRendered) ctx.drawImage(preRendered, item.x - preRendered.width/2, item.y - preRendered.height/2);
+                }
+            });
+            
+            appleItems.forEach(item => { 
+                drawGlimmer(item);
+                const preRendered = preRenderedEntities[APPLE_ITEM_EMOJI];
+                if(preRendered) ctx.drawImage(preRendered, item.x - preRendered.width/2, item.y - preRendered.height/2);
+            });
+            eyeProjectiles.forEach(proj => { 
+                const preRendered = preRenderedEntities[proj.emoji];
+                if(preRendered) ctx.drawImage(preRendered, proj.x - preRendered.width/2, proj.y - preRendered.height/2);
+            });
+            
+            merchants.forEach(m => {
+    ctx.save();
+    ctx.font = `${m.size}px serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('🧙‍♂️', m.x, m.y);
+    ctx.restore();
+});
+            
+            const bobOffset = player.isDashing ? 0 : Math.sin(player.stepPhase) * BOB_AMPLITUDE;
+            const spinDuration = 500; // 0.5 seconds
+
+            const FOOT_SIZE = 8; const FOOT_OFFSET_X = 2; const FOOT_OFFSET_Y = 2;
+            const STEP_LENGTH = 10; const stepOffset = Math.sin(player.stepPhase) * STEP_LENGTH;
+            
+            const isSpinning = player.spinStartTime && now < player.spinStartTime + spinDuration;
+            if(!player.isDashing && !isSpinning){
+                ctx.save();
+                ctx.translate(player.x, player.y + bobOffset);
+                ctx.rotate(player.rotationAngle - Math.PI / 2);
+                ctx.fillStyle = '#322110';
+                ctx.beginPath(); ctx.arc(-FOOT_OFFSET_X, FOOT_OFFSET_Y + stepOffset, FOOT_SIZE, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath(); ctx.arc(FOOT_OFFSET_X, FOOT_OFFSET_Y - stepOffset, FOOT_SIZE, 0, Math.PI * 2); ctx.fill();
+                ctx.restore();
+            }
+
+            let playerSprite;
+            switch (player.facing) {
+                case 'up': playerSprite = sprites.playerUp; break;
+                case 'down': playerSprite = sprites.playerDown; break;
+                case 'left': playerSprite = sprites.playerLeft; break;
+                case 'right': playerSprite = sprites.playerRight; break;
+                default: playerSprite = sprites.playerDown;
+            }
+            
+            ctx.save();
+            ctx.translate(player.x, player.y + bobOffset);
+            if (isSpinning) {
+                const spinProgress = (now - player.spinStartTime) / spinDuration;
+                const rotation = spinProgress * 2.1 * Math.PI * player.spinDirection;
+                ctx.rotate(rotation);
+            }
+            ctx.drawImage(playerSprite, -player.size / 2, -player.size / 2, player.size, player.size);
+            ctx.restore();
+
+
+            // Dash Cooldown Bar
+            const dashCharge = Math.min(1, (now - player.lastDashTime) / player.dashCooldown);
+            if (dashCharge < 1) {
+                const barWidth = player.size * 0.8;
+                const barX = player.x - barWidth / 2;
+                const barY = player.y + player.size / 2 + 4;
+                ctx.fillStyle = '#444';
+                ctx.fillRect(barX, barY, barWidth, 4);
+                ctx.fillStyle = '#00FFFF';
+                ctx.fillRect(barX, barY, barWidth * dashCharge, 4);
+            }
+
+            // Dash Invincibility Shield
+            if (player.isInvincible) {
+                ctx.save();
+                ctx.globalAlpha = 0.5;
+                ctx.fillStyle = '#007BFF';
+                ctx.beginPath();
+                ctx.arc(player.x, player.y, player.size / 2 + 5, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+
+
+            if (aimDx !== 0 || aimDy !== 0 || autoAimActive) {
+                const aimAngle = player.rotationAngle;
+                ctx.save();
+                ctx.translate(player.x, player.y + bobOffset);
+                ctx.rotate(aimAngle);
+                if (aimAngle > Math.PI / 2 || aimAngle < -Math.PI / 2) { ctx.scale(1, -1); }
+                const gunWidth = player.size * 0.8;
+                const gunHeight = gunWidth * (sprites.gun.height / sprites.gun.width);
+                const gunXOffset = player.size / 4;
+                const gunYOffset = -gunHeight / 2;
+                ctx.drawImage(sprites.gun, gunXOffset, gunYOffset, gunWidth, gunHeight);
+                if (dualGunActive) { ctx.save(); ctx.scale(-1, 1); ctx.drawImage(sprites.gun, -gunXOffset, gunYOffset, gunWidth, gunHeight); ctx.restore(); }
+                if (laserPointerActive) {
+                    ctx.save(); ctx.beginPath();
+                    const startX = gunXOffset + gunWidth * 0.9; const startY = gunYOffset + gunHeight / 2;
+                    ctx.moveTo(startX, startY); 
+                    const isMobile = document.body.classList.contains('is-mobile');
+                    if (isMobile) { ctx.lineTo(1000, startY); } 
+                    else {
+                        const worldMouseX = mouseX / cameraZoom + finalCameraOffsetX; const worldMouseY = mouseY / cameraZoom + finalCameraOffsetY;
+                        const rotatedMouseX = (worldMouseX - (player.x)) * Math.cos(-aimAngle) - (worldMouseY - (player.y + bobOffset)) * Math.sin(-aimAngle);
+                        ctx.lineTo(rotatedMouseX, startY);
+                    }
+                    ctx.strokeStyle = 'rgba(255, 0, 0, 0.4)'; ctx.lineWidth = 1; ctx.stroke();
+                    ctx.restore();
+                }
+                ctx.restore();
+            }
+            
+            if (doppelganger) {
+                ctx.save();
+                ctx.globalAlpha = 0.6; ctx.filter = 'hue-rotate(180deg)';
+                ctx.drawImage(playerSprite, doppelganger.x - doppelganger.size / 2, doppelganger.y - doppelganger.size / 2, doppelganger.size, doppelganger.size);
+                const gunWidth = doppelganger.size * 0.8; const gunHeight = gunWidth * (sprites.gun.height / sprites.gun.width);
+                const gunXOffset = doppelganger.size / 4; const gunYOffset = -gunHeight / 2;
+                ctx.translate(doppelganger.x, doppelganger.y); ctx.rotate(doppelganger.rotationAngle);
+                if (doppelganger.rotationAngle > Math.PI / 2 || doppelganger.rotationAngle < -Math.PI / 2) { ctx.scale(1, -1); }
+                ctx.drawImage(sprites.gun, gunXOffset, gunYOffset, gunWidth, gunHeight);
+                ctx.restore();
+            }
+
+            if (orbitingPowerUpActive && sprites.spinninglight) {
+                const orbitX = player.x + ORBIT_RADIUS * Math.cos(player.orbitAngle);
+                const orbitY = player.y + ORBIT_RADIUS * Math.sin(player.orbitAngle);
+                orbitingImageAngle -= 0.2;
+                ctx.save();
+                ctx.translate(orbitX, orbitY);
+                ctx.rotate(orbitingImageAngle);
+                ctx.drawImage(sprites.spinninglight, -ORBIT_POWER_UP_SIZE / 2, -ORBIT_POWER_UP_SIZE / 2, ORBIT_POWER_UP_SIZE, ORBIT_POWER_UP_SIZE);
+                ctx.restore();
+            }
+
+            if (player.swordActive && player.currentSwordSwing) {
+                const swingProgress = (now - player.currentSwordSwing.startTime) / SWORD_SWING_DURATION;
+                let currentOffset = player.size / 2 + (swingProgress >= 0 && swingProgress <= 1 ? SWORD_THRUST_DISTANCE * Math.sin(swingProgress * Math.PI) : 0);
+                ctx.save();
+                ctx.translate(player.currentSwordSwing.x, player.currentSwordSwing.y);
+                ctx.rotate(player.currentSwordSwing.angle);
+                ctx.fillStyle = '#c0c0c0';
+                ctx.fillRect(currentOffset, -2, 20, 4);
+                ctx.restore();
+            }
+
+            if (dogCompanionActive) {
+                const preRendered = preRenderedEntities['🐶'];
+                if(preRendered) ctx.drawImage(preRendered, dog.x - preRendered.width/2, dog.y - preRendered.height/2);
+            }
+            
+            if (player2 && player2.active) {
+                ctx.fillStyle = 'rgba(255, 255, 0, 0.5)';
+                ctx.beginPath(); ctx.arc(player2.x, player2.y, player2.size / 2, 0, Math.PI * 2); ctx.fill();
+                let p2Sprite;
+                switch (player2.facing) {
+                    case 'up': p2Sprite = sprites.playerUp; break;
+                    case 'down': p2Sprite = sprites.playerDown; break;
+                    case 'left': p2Sprite = sprites.playerLeft; break;
+                    case 'right': p2Sprite = sprites.playerRight; break;
+                    default: p2Sprite = sprites.playerDown;
+                }
+
+                const isP2Spinning = player2.spinStartTime && now < player2.spinStartTime + spinDuration;
+                
+                ctx.save();
+                ctx.translate(player2.x, player2.y);
+                if(isP2Spinning) {
+                    const spinProgress = (now - player2.spinStartTime) / spinDuration;
+                    const rotation = spinProgress * 2 * Math.PI * player2.spinDirection;
+                    ctx.rotate(rotation);
+                }
+                ctx.drawImage(p2Sprite, -player2.size / 2, -player2.size / 2, player2.size, player2.size);
+                ctx.restore();
+                
+                ctx.save();
+                ctx.translate(player2.x, player2.y);
+                ctx.rotate(player2.gunAngle);
+                if (player2.gunAngle > Math.PI / 2 || player2.gunAngle < -Math.PI / 2) { ctx.scale(1, -1); }
+                const gunWidth = player2.size * 0.8; const gunHeight = gunWidth * (sprites.gun.height / sprites.gun.width);
+                ctx.drawImage(sprites.gun, player2.size / 4, -gunHeight / 2, gunWidth, gunHeight);
+                ctx.restore();
+                 // P2 Dash Cooldown Bar
+                const p2DashCharge = Math.min(1, (now - player2.lastDashTime) / player2.dashCooldown);
+                if (p2DashCharge < 1) {
+                    const barWidth = player2.size * 0.8;
+                    const barX = player2.x - barWidth / 2;
+                    const barY = player2.y + player2.size / 2 + 4;
+                    ctx.fillStyle = '#444';
+                    ctx.fillRect(barX, barY, barWidth, 4);
+                    ctx.fillStyle = '#00FFFF';
+                    ctx.fillRect(barX, barY, barWidth * p2DashCharge, 4);
+                }
+            }
+            flies.forEach(fly => {
+                const color = Math.floor(now / 100) % 2 === 0 ? 'red' : 'black';
+                ctx.fillStyle = color;
+                ctx.beginPath();
+                ctx.arc(fly.x, fly.y, FLY_SIZE / 2, 0, Math.PI * 2);
+                ctx.fill();
+            });
+            if (nightOwlActive && owl) {
+                const preRendered = preRenderedEntities['🦉'];
+                if(preRendered) ctx.drawImage(preRendered, owl.x - preRendered.width/2, owl.y - preRendered.height/2);
+                
+                owlProjectiles.forEach(proj => {
+                    ctx.save();
+                    ctx.translate(proj.x, proj.y); ctx.rotate(proj.angle);
+                    ctx.fillStyle = '#FFFACD';
+                    ctx.beginPath(); ctx.arc(0, 0, proj.size / 2, 0, Math.PI * 2); ctx.fill();
+                    ctx.restore();
+                });
+            }
+            if (whirlwindAxeActive) {
+                const axeX = player.x + WHIRLWIND_AXE_RADIUS * Math.cos(whirlwindAxeAngle);
+                const axeY = player.y + WHIRLWIND_AXE_RADIUS * Math.sin(whirlwindAxeAngle);
+                ctx.save();
+                ctx.translate(axeX, axeY);
+                ctx.rotate(whirlwindAxeAngle + Math.PI / 2);
+                const preRendered = preRenderedEntities['🪓'];
+                if(preRendered) ctx.drawImage(preRendered, -preRendered.width/2, -preRendered.height/2);
+                ctx.restore();
+            }
+            lightningStrikes.forEach(strike => {
+                const age = now - strike.startTime;
+                const lifeRatio = age / strike.duration;
+                const alpha = Math.sin(lifeRatio * Math.PI);
+                ctx.save();
+                ctx.globalAlpha = alpha;
+                ctx.fillStyle = 'yellow';
+                ctx.fillRect(strike.x - 5, 0, 10, WORLD_HEIGHT);
+                ctx.font = `40px sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                ctx.fillText('⚡', strike.x, strike.y);
+                ctx.restore();
+            });
+
+
+            floatingTexts.forEach(ft => {
+                const elapsed = now - ft.startTime;
+                const alpha = 1.0 - (elapsed / ft.duration);
+                const yOffset = (elapsed / ft.duration) * 20; 
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, alpha);
+                ctx.font = 'bold 14px "Press Start 2P"';
+                ctx.fillStyle = ft.color || '#FFFFFF';
+                ctx.strokeStyle = '#000000';
+                ctx.lineWidth = 3;
+                ctx.textAlign = 'center';
+                ctx.strokeText(ft.text, ft.x, ft.y - yOffset);
+                ctx.fillText(ft.text, ft.x, ft.y - yOffset);
+                ctx.restore();
+            });
+
+            ctx.restore();
+            ctx.restore();
+            
+            if (isTimeStopped) {
+                const timeLeft = timeStopEndTime - now;
+                const duration = 2000;
+                let alpha = 0;
+                if (timeLeft > duration - 250) { alpha = 1 - (timeLeft - (duration - 250)) / 250; } 
+                else if (timeLeft < 500) { alpha = timeLeft / 500; } 
+                else { alpha = 1; }
+                alpha = Math.max(0, Math.min(alpha, 1)); 
+                ctx.save();
+                ctx.fillStyle = `rgba(0, 100, 255, ${alpha * 0.4})`;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.restore();
+            }
+
+            if (isMouseInCanvas && gameActive && sprites.crosshair) {
+                const reticleSize = 16;
+                ctx.drawImage(sprites.crosshair, mouseX - reticleSize / 2, mouseY - reticleSize / 2, reticleSize, reticleSize);
+            }
+        }
+
+        function gameLoop() {
+            update();
+            handleGamepadInput();
+            draw();
+            updateUIStats();
+            if (!gameOver && gameActive) animationFrameId = requestAnimationFrame(gameLoop);
+        }
+
+        let playerData = {};
+        const PERMANENT_UPGRADES = {
+            playerDamage: { name: "Weapon Power", desc: "Permanently increase base damage by 2%.", baseCost: 100, costIncrease: 1.2, effect: 0.02, maxLevel: 10, icon: '💥' },
+            playerSpeed: { name: "Movement Speed", desc: "Permanently increase base movement speed by 1.5%.", baseCost: 80, costIncrease: 1.2, effect: 0.015, maxLevel: 10, icon: '🏃' },
+            xpGain: { name: "XP Gain", desc: "Gain 3% more experience from all sources.", baseCost: 90, costIncrease: 1.2, effect: 0.03, maxLevel: 10, icon: '📈' },
+            enemyHealth: { name: "Weaken Foes", desc: "Enemies spawn with 2% less health.", baseCost: 150, costIncrease: 1.25, effect: -0.02, maxLevel: 5, icon: '💔' },
+            magnetRadius: { name: "Pickup Radius", desc: "Increase pickup attraction radius by 4%.", baseCost: 60, costIncrease: 1.2, effect: 0.04, maxLevel: 10, icon: '🧲' },
+            luck: { name: "Luck", desc: "Increase the chance for better drops by 0.1%.", baseCost: 200, costIncrease: 1.3, effect: 0.001, maxLevel: 5, icon: '🍀' }
+        };
+        
+        const ALWAYS_AVAILABLE_PICKUPS = {
+            v_shape_projectile: { id:'v_shape_projectile', name: 'V-Shape Shots'}, magnetic_projectile: { id:'magnetic_projectile', name: 'Magnetic Shots'},
+            ice_projectile: { id:'ice_projectile', name: 'Ice Projectiles'}, ricochet: { id:'ricochet', name: 'Ricochet Shots'},
+            explosive_bullets: { id: 'explosive_bullets', name: 'Explosive Bullets'}, puddle_trail: { id:'puddle_trail', name: 'Slime Trail'},
+            sword: { id:'sword', name: 'Auto-Sword'}, laser_pointer: { id: 'laser_pointer', name: 'Laser Pointer'},
+            auto_aim: { id: 'auto_aim', name: 'Auto Aim'}, dual_gun: { id: 'dual_gun', name: 'Dual Gun'},
+            bomb: { id:'bomb', name: 'Bomb Emitter'}, orbiter: { id:'orbiter', name: 'Spinning Orbiter'},
+            lightning_projectile: { id:'lightning_projectile', name: 'Lightning Projectile'}
+        };
+
+        const UNLOCKABLE_PICKUPS = {
+            map_select: { name: "Map Select", desc: "Unlocks the ability to choose your map.", cost: 1500, icon: '🗺️' },
+            night_owl: { name: "Night Owl", desc: "Unlocks a companion that snipes enemies.", cost: 1300, icon: '🦉' },
+            whirlwind_axe: { name: "Whirlwind Axe", desc: "Unlocks a large, damaging orbiting axe.", cost: 1000, icon: '🪓' },
+            doppelganger: { name: "Doppelganger", desc: "Unlocks the doppelganger pickup.", cost: 1200, icon: '👯' },
+            dog_companion: { name: "Dog Companion", desc: "Unlocks the loyal dog companion pickup.", cost: 500, icon: '🐶' },
+            anti_gravity: { name: "Anti-Gravity", desc: "Unlocks the enemy-repelling pulse pickup.", cost: 600, icon: '💨' },
+            temporal_ward: { name: "Temporal Ward", desc: "Unlocks the time-freezing defensive pickup.", cost: 800, icon: '⏱️' },
+            rocket_launcher: { name: "Heavy Shells", desc: "Unlocks the powerful heavy shells pickup.", cost: 1100, icon: '🚀' },
+            circle: { name: "Damaging Circle", desc: "Unlocks the persistent damaging aura pickup.", cost: 900, icon: '⭕' },
+            flaming_bullets: { name: "Flaming Bullets", desc: "Unlocks bullets that ignite enemies.", cost: 1150, icon: '🔥' },
+            black_hole: { name: "Black Hole", desc: "Unlocks the enemy-vortex pickup.", cost: 1180, icon: '⚫' },
+            vengeance_nova: { name: "Vengeance Nova", desc: "Unlocks the defensive blast pickup.", cost: 700, icon: '🛡️' }
+        };
+
+        function loadPlayerData() {
+            try {
+                const savedData = localStorage.getItem('emojiSurvivorData');
+                if (savedData) {
+                    playerData = JSON.parse(savedData);
+                    for (const key in PERMANENT_UPGRADES) { if (!playerData.upgrades.hasOwnProperty(key)) { playerData.upgrades[key] = 0; } }
+                    if (!playerData.unlockedPickups) { playerData.unlockedPickups = {}; }
+                    for (const key in UNLOCKABLE_PICKUPS) { if (!playerData.unlockedPickups.hasOwnProperty(key)) { playerData.unlockedPickups[key] = false; } }
+                } else { initializePlayerData(); }
+            } catch (e) { console.error("Failed to load player data", e); initializePlayerData(); }
+        }
+
+        function initializePlayerData() {
+            playerData = { currency: 0, upgrades: {}, unlockedPickups: {}, hasReducedDashCooldown: false };
+            for (const key in PERMANENT_UPGRADES) { playerData.upgrades[key] = 0; }
+            for (const key in UNLOCKABLE_PICKUPS) { playerData.unlockedPickups[key] = false; }
+        }
+
+        function savePlayerData() { try { localStorage.setItem('emojiSurvivorData', JSON.stringify(playerData)); } catch (e) { console.error("Failed to save player data.", e); } }
+        function openUpgradeShop() { difficultyContainer.style.display = 'none'; upgradeShop.style.display = 'flex'; displayUpgrades(); }
+
+
+
+        function displayUpgrades() {
+            currencyDisplay.textContent = `Coins: ${playerData.currency} 🪙`;
+            permanentUpgradesContainer.innerHTML = ''; unlockablePickupsContainer.innerHTML = '';
+            for (const key in PERMANENT_UPGRADES) {
+                const config = PERMANENT_UPGRADES[key];
+                const currentLevel = playerData.upgrades[key] || 0;
+                const cost = Math.floor(config.baseCost * Math.pow(config.costIncrease, currentLevel));
+                const card = document.createElement('div'); card.className = 'permanent-upgrade-card';
+                let buttonHTML = `<button onclick="buyUpgrade('${key}')">Buy (${cost} 🪙)</button>`;
+                if (currentLevel >= config.maxLevel) { buttonHTML = `<button disabled>MAX</button>`; } 
+                else if (playerData.currency < cost) { buttonHTML = `<button disabled>Buy (${cost} 🪙)</button>`; }
+                card.innerHTML = `<h4>${config.icon} ${config.name}</h4><p>${config.desc}</p><div class="upgrade-level">Level: ${currentLevel} / ${config.maxLevel}</div>${buttonHTML}`;
+                permanentUpgradesContainer.appendChild(card);
+            }
+            for (const key in UNLOCKABLE_PICKUPS) {
+                const config = UNLOCKABLE_PICKUPS[key];
+                const isUnlocked = playerData.unlockedPickups[key];
+                const card = document.createElement('div'); card.className = 'permanent-upgrade-card';
+                card.style.borderColor = isUnlocked ? '#FFD700' : '#F44336';
+                let buttonHTML = `<button onclick="buyUnlockable('${key}')">Unlock (${config.cost} 🪙)</button>`;
+                if (isUnlocked) { buttonHTML = `<button disabled>Unlocked</button>`; } 
+                else if (playerData.currency < config.cost) { buttonHTML = `<button disabled>Unlock (${config.cost} 🪙)</button>`; }
+                card.innerHTML = `<h4>${config.icon} ${config.name}</h4><p>${config.desc}</p>${buttonHTML}`;
+                unlockablePickupsContainer.appendChild(card);
+            }
+        }
+
+        function buyUpgrade(key) {
+            const config = PERMANENT_UPGRADES[key];
+            const currentLevel = playerData.upgrades[key] || 0;
+            const cost = Math.floor(config.baseCost * Math.pow(config.costIncrease, currentLevel));
+            if (playerData.currency >= cost && currentLevel < config.maxLevel) {
+                playerData.currency -= cost; playerData.upgrades[key]++;
+                savePlayerData(); displayUpgrades(); playUISound('levelUpSelect');
+            }
+        }
+        
+        function buyUnlockable(key) {
+            const config = UNLOCKABLE_PICKUPS[key];
+            const isUnlocked = playerData.unlockedPickups[key];
+            if (playerData.currency >= config.cost && !isUnlocked) {
+                playerData.currency -= config.cost; playerData.unlockedPickups[key] = true;
+                savePlayerData(); displayUpgrades(); playUISound('levelUpSelect');
+                checkAchievements(); 
+            }
+        }
+
+        function applyPermanentUpgrades() {
+            player.damageMultiplier = 1 + (playerData.upgrades.playerDamage || 0) * PERMANENT_UPGRADES.playerDamage.effect;
+            player.speed = 1.4 * (1 + (playerData.upgrades.playerSpeed || 0) * PERMANENT_UPGRADES.playerSpeed.effect);
+            baseEnemySpeed = 0.84 * (1 + (playerData.upgrades.enemyHealth || 0) * PERMANENT_UPGRADES.enemyHealth.effect);
+            player.magnetRadius = (player.size * 2) * (1 + (playerData.upgrades.magnetRadius || 0) * PERMANENT_UPGRADES.magnetRadius.effect);
+            const luckBonus = (playerData.upgrades.luck || 0) * PERMANENT_UPGRADES.luck.effect;
+            boxDropChance = 0.01 + luckBonus; appleDropChance = 0.05 + luckBonus;
+        }
+
+        function resetAllData() {
+            const userConfirmed = window.confirm("Are you sure you want to reset all your progress? This will erase your coins, upgrades, high scores, and ALL achievements permanently.");
+            if (userConfirmed) {
+                localStorage.removeItem('emojiSurvivorData');
+                localStorage.removeItem('highScores');
+                localStorage.removeItem('emojiSurvivorStats');
+                localStorage.removeItem('emojiSurvivorCheats');
+                initializePlayerData();
+                initializePlayerStats();
+                loadCheats();
+                displayHighScores();
+                console.log("All player data has been reset.");
+            }
+        }
+
+        function spawnInitialObstacles() {
+            destructibles.length = 0;
+            const playerSafeRadius = 200;
+            const spawnPos = { x: WORLD_WIDTH / 2, y: WORLD_HEIGHT / 2 };
+
+            const barrelCount = 5;
+            for (let i = 0; i < barrelCount; i++) {
+                let x, y, dist;
+                do {
+                    x = Math.random() * WORLD_WIDTH;
+                    y = Math.random() * WORLD_HEIGHT;
+                    dist = Math.hypot(x - spawnPos.x, y - spawnPos.y);
+                } while (dist < playerSafeRadius);
+                destructibles.push({ x, y, size: 15, health: 1, maxHealth: 1, emoji: '🛢️' });
+            }
+             const brickCount = 4;
+             for (let i = 0; i < brickCount; i++) {
+                let x, y, dist;
+                do {
+                    x = Math.random() * WORLD_WIDTH;
+                    y = Math.random() * WORLD_HEIGHT;
+                    dist = Math.hypot(x - spawnPos.x, y - spawnPos.y);
+                } while (dist < playerSafeRadius);
+                destructibles.push({ x, y, size: 30, health: Infinity, emoji: '🧱' });
+            }
+        }
+
+        function spawnRandomBarrel() {
+            const spawnMargin = 50; let x, y;
+            const edge = Math.floor(Math.random() * 4);
+            switch(edge) {
+                case 0: x = Math.random() * WORLD_WIDTH; y = -spawnMargin; break;
+                case 1: x = WORLD_WIDTH + spawnMargin; y = Math.random() * WORLD_HEIGHT; break;
+                case 2: x = Math.random() * WORLD_WIDTH; y = WORLD_HEIGHT + spawnMargin; break;
+                case 3: x = -spawnMargin; y = Math.random() * WORLD_HEIGHT; break;
+            }
+             destructibles.push({ x: x, y: y, size: 15, health: 1, maxHealth: 1, emoji: '🛢️' });
+        }
+
+        function handleBarrelDestruction(barrel) {
+            playSound('enemyDeath');
+            const explosionRadius = 54;
+            flameAreas.push({ x: barrel.x, y: barrel.y, radius: explosionRadius, startTime: Date.now(), endTime: Date.now() + 3000 });
+            enemies.forEach(enemy => {
+                if (!enemy.isHit) {
+                    const dx = enemy.x - barrel.x;
+                    const dy = enemy.y - barrel.y;
+                    if (dx*dx + dy*dy < explosionRadius*explosionRadius) {
+                        enemy.health -= 2;
+                        createBloodSplatter(enemy.x, enemy.y);
+                        if (enemy.health <= 0) { handleEnemyDeath(enemy); }
+                    }
+                }
+            });
+        }
+        
+       function showMapSelectScreen() {
+        
+            difficultyContainer.style.display = 'none';
+            mapSelectContainer.style.display = 'block';
+            mapTilesContainer.innerHTML = '';
+
+            const mapNames = [
+                "Grass Map 1", 
+                "Desert Map 1", 
+                "Desert Map 2",
+                "Lava Map 1",
+                "Lava Map 2",
+                "Desert Map 2",
+                "Ice Map 1",
+                "Grass Map 1",
+                "Ice Map 2"
+            ];
+            
+            backgroundPaths.forEach((path, index) => {
+                const tile = document.createElement('div');
+                tile.className = 'map-tile';
+                tile.style.backgroundImage = `url('${backgroundImages[index].src}')`;
+                tile.dataset.mapIndex = index;
+                
+                const label = document.createElement('p');
+                
+                label.textContent = mapNames[index] || `Map ${index + 1}`;
+                
+                tile.appendChild(label);
+                
+                tile.addEventListener('click', () => {
+                    playUISound('uiClick');
+                    vibrate(10);
+                    selectedMapIndex = index;
+                    startGame();
+                });
+                mapTilesContainer.appendChild(tile);
+            });
+        }
+
+        
+function showCharacterSelectScreen() {
+            difficultyContainer.style.display = 'none';
+            characterSelectContainer.style.display = 'block';
+            characterTilesContainer.innerHTML = ''; // Clear previous tiles
+
+            // Loop through each character in the CHARACTERS object
+            Object.values(CHARACTERS).forEach(character => {
+                let isUnlocked = false;
+
+                // Determine if the character is unlocked
+                if (character.unlockCondition.type === 'start') {
+                    isUnlocked = true;
+                } else if (character.unlockCondition.type === 'achievement') {
+                    // Check if the required achievement has been unlocked in playerStats
+                    if (ACHIEVEMENTS[character.unlockCondition.id] && ACHIEVEMENTS[character.unlockCondition.id].unlocked) {
+                        isUnlocked = true;
+                    }
+                }
+
+                const tile = document.createElement('div');
+                tile.className = 'character-tile';
+                if (!isUnlocked) {
+                    tile.classList.add('locked');
+                }
+                 if (equippedCharacterID === character.id) {
+                    tile.classList.add('selected');
+                }
+
+                // Create the content for the tile
+                tile.innerHTML = `
+                    <p class="char-emoji">${character.emoji}</p>
+                    <h4 class="char-name">${character.name}</h4>
+                    <p class="char-perk">${isUnlocked ? character.perk : 'LOCKED'}</p>
+                `;
+
+                // Add a click event listener only if the character is unlocked
+                if (isUnlocked) {
+                    tile.addEventListener('click', () => {
+                        playUISound('levelUpSelect');
+                        vibrate(10);
+                        equippedCharacterID = character.id;
+                        
+                        // Go back to the main menu after selecting
+                        characterSelectContainer.style.display = 'none';
+                        difficultyContainer.style.display = 'block';
+                    });
+                }
+
+                characterTilesContainer.appendChild(tile);
+            });
+        }
+        window.onload = function() {
+            if (isMobileDevice) { document.body.classList.add('is-mobile'); }
+            
+            loadPlayerData();
+            loadPlayerStats();
+            loadCheats();
+            displayHighScores();
+
+            resizeCanvas();
+            gameContainer.style.display = 'none'; 
+            difficultyContainer.style.display = 'none';
+            mapSelectContainer.style.display = 'none'; 
+            characterSelectContainer.style.display = 'none';
+            movementStickBase.style.display = 'none';
+            firestickBase.style.display = 'none'; 
+            upgradeMenu.style.display = 'none';
+            gameOverlay.style.display = 'none'; 
+            gameGuideModal.style.display = 'none';
+            achievementsModal.style.display = 'none'; 
+            cheatsModal.style.display = 'none';
+            pauseButton.style.display = 'none';
+
+            startButton.addEventListener('click', () => {
+                Tone.start().then(() => {
+                    console.log("AudioContext started by user.");
+                    showInitialScreen();
+                });
+            }, { once: true });
+            
+            [gameGuideModal, achievementsModal, cheatsModal, merchantShop].forEach(modal => {
+                if(modal){
+                    const content = modal.querySelector('.content-wrapper') || modal.querySelector('.merchant-options-container');
+                    modal.addEventListener('click', (e) => {
+                        if (e.target === modal) { 
+                            if(modal.id === 'merchantShop') closeMerchantShop();
+                            else modal.style.display = 'none';
+                        }
+                    });
+                    if(content) {
+                        content.addEventListener('click', (e) => e.stopPropagation());
+                        content.addEventListener('touchstart', (e) => e.stopPropagation());
+                    }
+                }
+            });
+
+            difficultyButtons.forEach(button => {
+                button.addEventListener('click', (e) => {
+                    vibrate(10);
+                    playUISound('uiClick');
+                    currentDifficulty = e.target.dataset.difficulty;
+                    if (playerData.unlockedPickups.map_select) {
+                        showMapSelectScreen();
+                    } else {
+                        selectedMapIndex = -1;
+                        startGame();
+                    }
+                });
+                button.addEventListener('mouseover', () => playUISound('uiClick'));
+            });
+            if (howToPlayButton) {
+                howToPlayButton.addEventListener('click', async () => { 
+                    vibrate(10);
+                    if (difficultyContainer) difficultyContainer.style.display = 'none';
+                    if (gameGuideModal) gameGuideModal.style.display = 'flex';
+                });
+                howToPlayButton.addEventListener('mouseover', () => playUISound('uiClick'));
+            }
+            if (backToDifficultyButton) {
+                backToDifficultyButton.addEventListener('click', () => {
+                    vibrate(10);
+                    if (gameGuideModal) gameGuideModal.style.display = 'none';
+                    if (difficultyContainer) difficultyContainer.style.display = 'block';
+                });
+            }
+            
+            backToDifficultySelectButton.addEventListener('click', () => {
+                vibrate(10); playUISound('uiClick');
+                selectedMapIndex = -1;
+                mapSelectContainer.style.display = 'none'; difficultyContainer.style.display = 'block';
+            });
+            
+            characterSelectButton.addEventListener('click', () => {
+                vibrate(10); playUISound('uiClick');
+                showCharacterSelectScreen();
+            });
+
+             backToMenuFromCharsButton.addEventListener('click', () => {
+                vibrate(10); playUISound('uiClick');
+                characterSelectContainer.style.display = 'none';
+                difficultyContainer.style.display = 'block';
+            });
+
+
+            const openShopAction = () => { vibrate(10); playUISound('uiClick'); openUpgradeShop(); };
+            desktopUpgradesButton.addEventListener('click', openShopAction);
+            if (mobileMenuUpgradesButton) mobileMenuUpgradesButton.addEventListener('click', openShopAction);
+
+
+            backToMenuButton.addEventListener('click', () => { vibrate(10); playUISound('uiClick'); showDifficultyScreen(); });
+            
+            const resetAction = () => { vibrate(20); resetAllData(); };
+            desktopResetButton.addEventListener('click', resetAction);
+            mobileResetButton.addEventListener('click', resetAction);
+            
+            const achievementsAction = () => {
+                vibrate(10); playUISound('uiClick');
+                difficultyContainer.style.display = 'none';
+                displayAchievements();
+                achievementsModal.style.display = 'flex';
+            };
+            desktopAchievementsButton.addEventListener('click', achievementsAction);
+            if(mobileMenuTrophiesButton) mobileMenuTrophiesButton.addEventListener('click', achievementsAction);
+
+            
+            const cheatsAction = () => {
+                vibrate(10); playUISound('uiClick');
+                achievementsModal.style.display = 'none';
+                displayCheats();
+                cheatsModal.style.display = 'flex';
+            };
+            cheatsMenuButton.addEventListener('click', cheatsAction);
+            if(mobileMenuCheatsButton) mobileMenuCheatsButton.addEventListener('click', cheatsAction);
+            
+            backToMenuFromAchievements.addEventListener('click', () => {
+                vibrate(10); playUISound('uiClick');
+                achievementsModal.style.display = 'none';
+                difficultyContainer.style.display = 'block';
+            });
+             backToAchievementsButton.addEventListener('click', () => {
+                vibrate(10); playUISound('uiClick');
+                cheatsModal.style.display = 'none';
+                displayAchievements();
+                achievementsModal.style.display = 'flex';
+            });
+
+            if(pauseButton) {
+                pauseButton.addEventListener('click', togglePause);
+                pauseButton.addEventListener('touchstart', (e) => { e.preventDefault(); vibrate(10); togglePause(); });
+            }
+
+            if(resumeButton) {
+                const resumeAction = (e) => { e.preventDefault(); vibrate(10); playUISound('uiClick'); togglePause(); };
+                resumeButton.addEventListener('click', resumeAction);
+                resumeButton.addEventListener('touchstart', resumeAction);
+            }
+            
+            leaveMerchantButton.addEventListener('click', () => {
+                vibrate(10);
+                playUISound('uiClick');
+                closeMerchantShop();
+            });
+
+            musicVolumeSlider.addEventListener('input', (e) => { if (currentBGMPlayer) { currentBGMPlayer.volume.value = e.target.value; } });
+            effectsVolumeSlider.addEventListener('input', (e) => {
+                const newVolume = parseFloat(e.target.value);
+                for (const key in audioPlayers) { if (audioPlayers.hasOwnProperty(key)) { audioPlayers[key].volume.value = newVolume; } }
+                swordSwingSynth.volume.value = newVolume; eyeProjectileHitSynth.volume.value = newVolume; bombExplosionSynth.volume.value = newVolume;
+            });
+            zoomToggle.addEventListener('change', (e) => { cameraZoom = e.target.checked ? 1.4 : 1.0; });
+            pauseRestartButton.addEventListener('click', () => {
+                playUISound('uiClick'); vibrate(10); togglePause(); endGame(); showDifficultyScreen();
+            });
+            
+        };
