@@ -42,7 +42,7 @@
     const BONE_SPIN_SPEED = 0.25;
     const NOVA_COUNT = 16,
       NOVA_SPEED = 6.0,
-      NOVA_SIZE = 1, // <-- Set bone projectile size to half (was 20)
+      NOVA_SIZE = 8, // <-- Set bone projectile size to half (was 20)
       NOVA_LIFE = 1000;
 
     // --- SETUP CHARACTER, UNLOCKS, AND ACHIEVEMENTS (No changes here) ---
@@ -88,7 +88,7 @@
     }
 
     try {
-      preRenderEmoji(BONE_EMOJI, 16);
+      preRenderEmoji(BONE_EMOJI, 8);
       preRenderEmoji(SKULL_EMOJI, 136);
     } catch (e) {}
 
