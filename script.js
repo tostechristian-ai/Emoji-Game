@@ -2666,11 +2666,7 @@ for (let i = merchants.length - 1; i >= 0; i--) {
                 if (keys['i']) p2VelY -= player2.speed;
                 if (keys['k']) p2VelY += player2.speed;
                 
-                // If using gamepad for Player 2, override keyboard movement
-                if (player2.dx !== undefined && player2.dy !== undefined) {
-                    p2VelX = player2.dx * player2.speed;
-                    p2VelY = player2.dy * player2.speed;
-                }
+
 
                 // Player 2 spin animation logic
                 if(player2.isDashing && player2.spinStartTime) {
