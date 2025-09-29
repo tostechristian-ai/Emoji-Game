@@ -88,7 +88,8 @@
     }
 
     try {
-      preRenderEmoji(BONE_EMOJI, 16);
+      preRenderEmoji(BONE_EMOJI, 8);
+      preRenderEmoji(SKULL_EMOJI, 32);
     } catch (e) {}
 
     if (!sprites._backup_bullet && sprites.bullet) {
