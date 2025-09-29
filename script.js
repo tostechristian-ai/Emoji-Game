@@ -820,8 +820,6 @@ function handleGamepadInput() {
         const gp2 = navigator.getGamepads?.()[1]; // Get the second gamepad (index 1)
         if (player2 && player2.active && gp2) {
             // Movement from Left Stick
-            let lx2 = applyDeadzone(gp2.axes[0] || 0);
-            let ly2 = applyDeadzone(gp2.axes[1] || 0);
             const lmag2 = Math.hypot(lx2, ly2);
             if (lmag2 > 0) {
                 player2.dx = lx2 / lmag2;
