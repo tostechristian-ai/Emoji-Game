@@ -367,6 +367,16 @@ function applyCheats() {
         for(const powerupKey in ALWAYS_AVAILABLE_PICKUPS){
             activatePowerup(powerupKey);
         }
+        function applyCheats() {
+    if (cheats.hearts_start_10) {
+        player.lives = 10;
+        player.maxLives = 10;
+    }
+    if (cheats.all_powerups_start) {
+        console.log("Activating all power-ups cheat.");
+        for(const powerupKey in ALWAYS_AVAILABLE_PICKUPS){
+            activatePowerup(powerupKey);
+        }
         for(const powerupKey in UNLOCKABLE_PICKUPS){
              if(playerData.unlockedPickups[powerupKey]){
                  activatePowerup(powerupKey);
@@ -374,4 +384,201 @@ function applyCheats() {
         }
     }
     if (cheats.dog_companion_start) {
-        activatePowerup('dog_companion
+        activatePowerup('dog_companion');
+    }
+    if (cheats.magnet_mode) {
+        player.magnetRadius = WORLD_WIDTH;
+    }
+}
+
+// --- ACHIEVEMENT SYSTEM ---
+
+function unlockAchievement(id) {
+    if (ACHIEVEMENTS[id] && !ACHIEVEMENTS[id].unlocked) {
+        ACHIEVEMENTS[id].unlocked = true;
+        vibrate(50);
+        playUISound('levelUpSelect');
+        achievementUnlockQueue.push(id);
+        showAchievementBanner();
+        savePlayerStats();
+    }
+}
+
+function showAchievementBanner() {
+    if (isBannerShowing || achievementUnlockQueue.length === 0) {
+        return;
+    }
+    isBannerShowing = true;
+    const trophyId = achievementUnlockQueue.shift();
+    const trophy = ACHIEVEMENTS[trophyId];
+
+    document.getElementById('achievement-banner-icon').textContent = trophy.icon;
+    document.getElementById('achievement-banner-name').textContent = `Trophy Unlocked!`;
+    document.getElementById('achievement-banner-desc').textContent = trophy.name;
+    
+    achievementBanner.classList.add('show');
+    
+    achievementBanner.addEventListener('animationend', () => {
+        achievementBanner.classList.remove('show');
+        isBannerShowing = false;
+        setTimeout(showAchievementBanner, 500); 
+    }, { once: true });
+}
+
+function checkAchievements() {
+    if(!gameActive || gameOver) return;
+    const now = Date.now();
+    const survivalTime = now - runStats.startTime;
+
+    if(runStats.killsThisRun >= 1) unlockAchievement('first_blood');
+    if(runStats.killsThisRun >= 100) unlockAchievement('hunter');
+    if(playerStats.totalKills >= 1000) unlockAchievement('slayer');
+    if(playerStats.totalKills >= 10000) unlockAchievement('exterminator');
+    if(runStats.bossesKilledThisRun >= 1) unlockAchievement('boss_breaker');
+    if(playerStats.totalBossesKilled >= 10) unlockAchievement('boss_crusher');
+    if(survivalTime >= 5 * 60 * 1000) unlockAchievement('survivor');
+    if(survivalTime >= 10 * 60 * 1000) unlockAchievement('endurer');
+    if(survivalTime >= 20 * 60 * 1000) unlockAchievement('unbreakable');
+    if(runStats.coinsThisRun >= 100) unlockAchievement('treasure_hunter');
+    if(runStats.coinsThisRun >= 1000) unlockAchievement('rich_kid');
+    if(playerStats.totalCoins >= 10000) unlockAchievement('millionaire');
+    if(runStats.levelsGainedThisRun >= 10) unlockAchievement('quick_learner');
+    if(cheats.night_mode && survivalTime >= 5 * 60 * 1000) unlockAchievement('night_walker');
+}
+
+function displayAchievements() {
+    achievementsContainer.innerHTML = '';
+    for (const id in ACHIEVEMENTS) {
+        const achievement = ACHIEVEMENTS[id];
+        const card = document.createElement('div');
+        card.className = 'achievement-card' + (achievement.unlocked ? ' unlocked' : '');
+        card.innerHTML = `
+            <div class="achievement-icon">${achievement.icon}</div>
+            <div class="achievement-details">
+                <h4>${achievement.name}</h4>
+                <p>${achievement.desc}</p>
+            </div>
+        `;
+        achievementsContainer.appendChild(card);
+    }
+}
+
+function displayCheats() {
+    cheatsContainer.innerHTML = '';
+    for (const id in CHEATS) {
+        const cheat = CHEATS[id];
+        const unlockedByTrophyId = Object.keys(TROPHY_UNLOCKS_CHEAT).find(key => TROPHY_UNLOCKS_CHEAT[key] === id);
+        const isUnlocked = unlockedByTrophyId && ACHIEVEMENTS[unlockedByTrophyId]?.unlocked;
+        
+        const card = document.createElement('div');
+        card.className = 'cheat-card' + (isUnlocked ? '' : ' locked');
+        
+        const toggleHTML = isUnlocked ? `
+            <label class="switch">
+                <input type="checkbox" id="cheat-${id}" ${cheats[id] ? 'checked' : ''}>
+                <span class="slider round"></span>
+            </label>
+        ` : '<span>🔒</span>';
+
+        card.innerHTML = `
+            <div class="cheat-info">
+                <h4>${cheat.name}</h4>
+                <p>${isUnlocked ? cheat.desc : `Unlock the "${ACHIEVEMENTS[unlockedByTrophyId]?.name}" trophy.`}</p>
+            </div>
+            ${toggleHTML}
+        `;
+        cheatsContainer.appendChild(card);
+        
+        if (isUnlocked) {
+            document.getElementById(`cheat-${id}`).addEventListener('change', (e) => {
+                cheats[id] = e.target.checked;
+                saveCheats();
+            });
+        }
+    }
+}
+
+// --- SHOP SYSTEM ---
+
+function openUpgradeShop() { 
+    difficultyContainer.style.display = 'none'; 
+    upgradeShop.style.display = 'flex'; 
+    displayUpgrades(); 
+}
+
+function displayUpgrades() {
+    currencyDisplay.textContent = `Coins: ${playerData.currency} 🪙`;
+    permanentUpgradesContainer.innerHTML = ''; 
+    unlockablePickupsContainer.innerHTML = '';
+    
+    for (const key in PERMANENT_UPGRADES) {
+        const config = PERMANENT_UPGRADES[key];
+        const currentLevel = playerData.upgrades[key] || 0;
+        const cost = Math.floor(config.baseCost * Math.pow(config.costIncrease, currentLevel));
+        const card = document.createElement('div'); 
+        card.className = 'permanent-upgrade-card';
+        
+        let buttonHTML = `<button onclick="buyUpgrade('${key}')">Buy (${cost} 🪙)</button>`;
+        if (currentLevel >= config.maxLevel) { 
+            buttonHTML = `<button disabled>MAX</button>`; 
+        } else if (playerData.currency < cost) { 
+            buttonHTML = `<button disabled>Buy (${cost} 🪙)</button>`; 
+        }
+        
+        card.innerHTML = `
+            <h4>${config.icon} ${config.name}</h4>
+            <p>${config.desc}</p>
+            <div class="upgrade-level">Level: ${currentLevel} / ${config.maxLevel}</div>
+            ${buttonHTML}
+        `;
+        permanentUpgradesContainer.appendChild(card);
+    }
+    
+    for (const key in UNLOCKABLE_PICKUPS) {
+        const config = UNLOCKABLE_PICKUPS[key];
+        const isUnlocked = playerData.unlockedPickups[key];
+        const card = document.createElement('div'); 
+        card.className = 'permanent-upgrade-card';
+        card.style.borderColor = isUnlocked ? '#FFD700' : '#F44336';
+        
+        let buttonHTML = `<button onclick="buyUnlockable('${key}')">Unlock (${config.cost} 🪙)</button>`;
+        if (isUnlocked) { 
+            buttonHTML = `<button disabled>Unlocked</button>`; 
+        } else if (playerData.currency < config.cost) { 
+            buttonHTML = `<button disabled>Unlock (${config.cost} 🪙)</button>`; 
+        }
+        
+        card.innerHTML = `
+            <h4>${config.icon} ${config.name}</h4>
+            <p>${config.desc}</p>
+            ${buttonHTML}
+        `;
+        unlockablePickupsContainer.appendChild(card);
+    }
+}
+
+function buyUpgrade(key) {
+    const config = PERMANENT_UPGRADES[key];
+    const currentLevel = playerData.upgrades[key] || 0;
+    const cost = Math.floor(config.baseCost * Math.pow(config.costIncrease, currentLevel));
+    if (playerData.currency >= cost && currentLevel < config.maxLevel) {
+        playerData.currency -= cost; 
+        playerData.upgrades[key]++;
+        savePlayerData(); 
+        displayUpgrades(); 
+        playUISound('levelUpSelect');
+    }
+}
+
+function buyUnlockable(key) {
+    const config = UNLOCKABLE_PICKUPS[key];
+    const isUnlocked = playerData.unlockedPickups[key];
+    if (playerData.currency >= config.cost && !isUnlocked) {
+        playerData.currency -= config.cost; 
+        playerData.unlockedPickups[key] = true;
+        savePlayerData(); 
+        displayUpgrades(); 
+        playUISound('levelUpSelect');
+        checkAchievements(); 
+    }
+}
