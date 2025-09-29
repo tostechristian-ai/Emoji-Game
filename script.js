@@ -579,7 +579,7 @@ let doppelganger = null;
         let pickups = [];
         let merchants = []; // Changed from 'merchant = null' to an array
         let lastMerchantSpawnTime = 0;
-        const MERCHANT_SPAWN_INTERVAL = 70000; // Correct value for 3 minutes (3 * 60 * 1000)
+        const MERCHANT_SPAWN_INTERVAL = 140000; // Correct value for 3 minutes (3 * 60 * 1000)
 
         // --- NEW FEATURES ---
         let bugSwarmActive = false;
@@ -816,28 +816,6 @@ function handleGamepadInput() {
         joystickDirX = 0;
         joystickDirY = 0;
     }
-// ===== PLAYER 2 GAMEPAD INPUT =====
-        const gp2 = navigator.getGamepads?.()[1]; // Get the second gamepad (index 1)
-        if (player2 && player2.active && gp2) {
-            // Movement from Left Stick
-            const lmag2 = Math.hypot(lx2, ly2);
-            if (lmag2 > 0) {
-                player2.dx = lx2 / lmag2;
-                player2.dy = ly2 / lmag2;
-            } else {
-                player2.dx = 0;
-                player2.dy = 0;
-            }
-
-            // Dodge/Dash from Right Trigger
-            const pressed2 = (i) => !!gp2.buttons?.[i]?.pressed;
-            if (pressed2(7) && !player2._rTriggerLatch) {
-                player2._rTriggerLatch = true;
-                triggerDash(player2);
-            } else if (!pressed2(7)) {
-                player2._rTriggerLatch = false;
-            }
-        }
     
     let rx = applyDeadzone(gp.axes[2] || 0);
     let ry = applyDeadzone(gp.axes[3] || 0);
