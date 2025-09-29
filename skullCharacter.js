@@ -1,125 +1,105 @@
-// skullCharacter.js
-// Standalone plugin to add the Skull character, bone bullets, dodge-nova, and fix unlock flow.
-// Drop this file into your project and include it AFTER your main script.
-
+// skullCharacter.js (fixed)
+// Drop this in AFTER script.js
 (function() {
   'use strict';
 
-  // small helper: wait until condition true then call cb
-  function waitFor(conditionFn, cb, timeout = 5000, interval = 40) {
+  // tiny wait helper
+  function waitFor(cond, cb, timeout = 8000, interval = 40) {
     const start = Date.now();
     const t = setInterval(() => {
       try {
-        if (conditionFn()) {
-          clearInterval(t);
-          cb();
-        } else if (Date.now() - start > timeout) {
-          clearInterval(t);
-          // timeout - still try to call cb if it makes sense later
-        }
-      } catch (e) {
-        clearInterval(t);
-      }
+        if (cond()) { clearInterval(t); cb(); }
+        else if (Date.now() - start > timeout) { clearInterval(t); }
+      } catch (e) { clearInterval(t); }
     }, interval);
   }
+  function log(...s){ try { console.log('[SkullPlugin]', ...s); }catch(e){} }
 
-  // safe console wrapper
-  function log(...s) { try { console.log('[SkullPlugin]', ...s); } catch(e) {} }
-
-  // main init once core objects are available
   waitFor(() => (typeof CHARACTERS !== 'undefined' && typeof UNLOCKABLE_PICKUPS !== 'undefined' && typeof ACHIEVEMENTS !== 'undefined' && typeof playerData !== 'undefined' && typeof sprites !== 'undefined' && typeof preRenderEmoji !== 'undefined' && typeof preRenderedEntities !== 'undefined'), init, 8000);
 
   function init() {
-    log('initializing skull character plugin');
+    log('initializing skull character plugin (fixed image handling)');
 
-    // ---- CONFIG ----
     const SKULL_ID = 'skull';
-    const SKULL_ACH_ID = 'skull_unlocked'; // fake achievement id to satisfy menu check
+    const SKULL_ACH_ID = 'skull_unlocked';
     const SKULL_EMOJI = '💀';
     const BONE_EMOJI = '🦴';
-    const BONE_SPRITE_PATH = 'sprites/bone.png'; // place bone.png in sprites folder (optional)
-    const NOVA_PROJECTILE_COUNT = 16;
-    const NOVA_PROJECTILE_SPEED = 6.0;
-    const NOVA_PROJECTILE_SIZE = 20;
-    const NOVA_DURATION_MS = 1000;
+    const BONE_SPRITE_PATH = 'sprites/bone.png';
+    const NOVA_COUNT = 16, NOVA_SPEED = 6.0, NOVA_SIZE = 20, NOVA_LIFE = 1000;
 
-    // ensure character exists
+    // Ensure character exists and menu sees it (menu checks achievement type)
     if (!CHARACTERS[SKULL_ID]) {
       CHARACTERS[SKULL_ID] = {
-        id: SKULL_ID,
-        name: 'Skull',
-        emoji: SKULL_EMOJI,
-        perk: 'Bone bullets + dodge nova',
-        unlockCondition: { type: 'achievement', id: SKULL_ACH_ID } // menu checks 'achievement' type
+        id: SKULL_ID, name: 'Skull', emoji: SKULL_EMOJI, perk: 'Bone bullets + dodge nova',
+        unlockCondition: { type: 'achievement', id: SKULL_ACH_ID }
       };
-      log('added skull character entry to CHARACTERS');
+      log('added CHARACTERS.skull');
     } else {
-      // enforce our unlockCondition so menu sees it
       CHARACTERS[SKULL_ID].unlockCondition = { type: 'achievement', id: SKULL_ACH_ID };
       CHARACTERS[SKULL_ID].emoji = SKULL_EMOJI;
-      if (!CHARACTERS[SKULL_ID].name) CHARACTERS[SKULL_ID].name = 'Skull';
     }
 
-    // ensure unlockable pickups entry exists (so shop shows it)
+    // Add to unlockables/shop
     if (!UNLOCKABLE_PICKUPS[SKULL_ID]) {
-      UNLOCKABLE_PICKUPS[SKULL_ID] = {
-        id: SKULL_ID,
-        name: 'Skull Character',
-        desc: 'Unlock the skull character. Bullets become bones.',
-        cost: 1000 // default; leave or change to fit your economy
-      };
-      log('added unlockablePickup entry for skull');
+      UNLOCKABLE_PICKUPS[SKULL_ID] = { name: 'Skull Character', desc: 'Unlock the Skull (bone bullets)', cost: 1000, icon: SKULL_EMOJI };
+      log('added UNLOCKABLE_PICKUPS.skull');
     }
 
-    // ensure the fake achievement exists
+    // Create a small faux achievement so menu recognizes the purchase unlock
     if (!ACHIEVEMENTS[SKULL_ACH_ID]) {
       ACHIEVEMENTS[SKULL_ACH_ID] = { name: 'Skull Unlocked', desc: 'Unlocks the Skull character', icon: SKULL_EMOJI, unlocked: false };
       log('created faux achievement for skull unlock');
     }
 
-    // If playerData already has pickup unlocked, mark achievement
+    // If playerData already has it unlocked, mark the achievement
     if (playerData.unlockedPickups && playerData.unlockedPickups[SKULL_ID]) {
       ACHIEVEMENTS[SKULL_ACH_ID].unlocked = true;
-      log('playerData indicates skull was already unlocked — set achievement');
     }
 
-    // Pre-render the bone emoji (used by existing preRenderedEntities drawing)
-    try { preRenderEmoji(BONE_EMOJI, 16); } catch (e) { /* harmless if unavailable */ }
+    // pre-render bone emoji (fallback)
+    try { preRenderEmoji(BONE_EMOJI, 16); } catch (e) {}
 
-    // create sprites.bone Image if not present
-    if (!sprites.bone) {
+    // Load bone sprite but DO NOT assign sprites.bone until onload succeeds
+    (function loadBoneSprite() {
+      if (sprites.bone && sprites.bone.complete && sprites.bone.naturalWidth > 0) {
+        log('bone sprite already present and loaded');
+        return;
+      }
       const boneImg = new Image();
-      boneImg.src = BONE_SPRITE_PATH; // optional file; if not present final draw still uses preRendered emoji
-      boneImg.onload = () => { sprites.bone = boneImg; log('bone sprite loaded'); };
-      boneImg.onerror = () => { log('bone sprite not found at', BONE_SPRITE_PATH, '- will use emoji fallback'); };
-      sprites.bone = sprites.bone || boneImg;
-    }
+      boneImg.onload = () => {
+        sprites.bone = boneImg;
+        log('bone sprite loaded:', BONE_SPRITE_PATH);
+        // if player currently using skull, swap bullet now
+        try { if (player && player._isSkull) sprites.bullet = sprites.bone; } catch(e){}
+      };
+      boneImg.onerror = () => {
+        log('bone sprite not found at', BONE_SPRITE_PATH, '- will use emoji fallback');
+      };
+      boneImg.src = BONE_SPRITE_PATH;
+    })();
 
-    // ---- helper functions to apply/reset skull visuals/behaviour ----
+    // ---- backup original bullet sprite if any ----
+    if (!sprites._backup_bullet && sprites.bullet) sprites._backup_bullet = sprites.bullet;
+
+    // ---- helpers apply/reset skull visuals ----
     function applySkullToPlayer() {
       try {
-        // mark player as skull active
         player._isSkull = true;
-
-        // swap bullet sprite (backup original)
-        if (!sprites._backup_bullet) sprites._backup_bullet = sprites.bullet;
-        if (sprites.bone) {
+        // only overwrite sprites.bullet if sprites.bone successfully loaded
+        if (sprites.bone && sprites.bone.complete && sprites.bone.naturalWidth > 0) {
+          if (!sprites._backup_bullet) sprites._backup_bullet = sprites.bullet;
           sprites.bullet = sprites.bone;
-        } else {
-          // if no bone image, we can rely on preRenderedEntities for emoji drawing
-          // but swapping sprites.bullet to a canvas with preRendered bones is more work; skip for now
         }
+        // speed/damage tweaks
+        if (!player._skull_speed_backup) player._skull_speed_backup = player.speed;
+        player.speed = player.originalPlayerSpeed * 0.95;
+        if (!player._skull_damage_backup) player._skull_damage_backup = player.damageMultiplier;
+        player.damageMultiplier = 1.25;
 
-        // optional: increase speed slightly if your game defines SKULL_SPEED_MULTIPLIER
-        if (typeof SKULL_SPEED_MULTIPLIER !== 'undefined' && !player._skull_speed_backed) {
-          player._skull_speed_backed = player.speed;
-          player.speed = player.speed * SKULL_SPEED_MULTIPLIER;
-        } else if (!player._skull_speed_backed) {
-          player._skull_speed_backed = player.speed;
-        }
+        // set dodge logic to skull nova (game uses triggerDash to call dodge)
+        player._dodge_override = function() { createSkullNova(); };
 
-        // immediate UI refresh if necessary
-        if (typeof updateUIStats === 'function') updateUIStats();
+        // redraw overlay will ensure skull covers feet; see draw patch below
       } catch (e) { console.error(e); }
     }
 
@@ -127,138 +107,97 @@
       try {
         player._isSkull = false;
         if (sprites._backup_bullet) sprites.bullet = sprites._backup_bullet;
-        if (player._skull_speed_backed) { player.speed = player._skull_speed_backed; delete player._skull_speed_backed; }
-        if (typeof updateUIStats === 'function') updateUIStats();
+        if (player._skull_speed_backup) { player.speed = player._skull_speed_backup; delete player._skull_speed_backup; }
+        if (player._skull_damage_backup) { player.damageMultiplier = player._skull_damage_backup; delete player._skull_damage_backup; }
+        if (player._dodge_override) delete player._dodge_override;
       } catch (e) { console.error(e); }
     }
 
-    // ---- patch buyUnlockable so buying the skull sets the achievement (so menu sees it) ----
+    // ---- patch buyUnlockable so buying skull sets the faux achievement + persists ----
     function patchBuyUnlockable() {
       if (typeof buyUnlockable !== 'function') return false;
-      const _orig = buyUnlockable;
-      window.buyUnlockable = function(key, ...args) {
-        const result = _orig.call(this, key, ...args);
+      const orig = buyUnlockable;
+      window.buyUnlockable = function(key, ...rest) {
+        const ret = orig.call(this, key, ...rest);
         try {
           if (key === SKULL_ID) {
-            // set purchase in the playerData (main code may have already set it, but ensure)
             playerData.unlockedPickups = playerData.unlockedPickups || {};
             playerData.unlockedPickups[SKULL_ID] = true;
-            // mark achievement so character menu logic sees it
-            ACHIEVEMENTS[SKULL_ACH_ID] = ACHIEVEMENTS[SKULL_ACH_ID] || { name: 'Skull Unlocked', desc: '', icon: SKULL_EMOJI, unlocked: true };
+            ACHIEVEMENTS[SKULL_ACH_ID] = ACHIEVEMENTS[SKULL_ACH_ID] || { name: 'Skull Unlocked', desc:'', icon:SKULL_EMOJI, unlocked:true };
             ACHIEVEMENTS[SKULL_ACH_ID].unlocked = true;
-            // persist both places if save functions exist
-            if (typeof savePlayerData === 'function') try { savePlayerData(); } catch(e) {}
-            if (typeof savePlayerStats === 'function') try { savePlayerStats(); } catch(e) {}
-            // refresh character select screen if open
-            const charContainer = document.getElementById('characterSelectContainer');
-            if (charContainer && charContainer.style.display !== 'none' && typeof showCharacterSelectScreen === 'function') {
-              showCharacterSelectScreen();
-            }
-            log('skull bought: marked achievement + persisted');
+            if (typeof savePlayerData === 'function') savePlayerData();
+            if (typeof savePlayerStats === 'function') savePlayerStats();
+            if (typeof showCharacterSelectScreen === 'function') showCharacterSelectScreen();
+            log('skull bought: persisted and marked achievement');
           }
-        } catch (e) { console.error(e); }
-        return result;
+        } catch(e){ console.error(e); }
+        return ret;
       };
       log('patched buyUnlockable');
       return true;
     }
+    if (!patchBuyUnlockable()) waitFor(() => typeof buyUnlockable === 'function', patchBuyUnlockable, 8000);
 
-    // try to patch immediately or wait a bit if buyUnlockable not defined yet
-    if (!patchBuyUnlockable()) {
-      waitFor(() => typeof buyUnlockable === 'function', patchBuyUnlockable, 8000);
-    }
-
-    // ---- patch checkAchievements so achievement-based unlock also updates skull achievement when needed ----
+    // ---- patch checkAchievements to ensure skull unlock reflects either purchase or slayer achievement ----
     function patchCheckAchievements() {
       if (typeof checkAchievements !== 'function') return false;
-      const _orig = checkAchievements;
+      const orig = checkAchievements;
       window.checkAchievements = function(...args) {
-        const r = _orig.apply(this, args);
+        const r = orig.apply(this, args);
         try {
-          // if 'slayer' (or other achievements) unlock the skull, reflect that
-          const slayerUnlocked = ACHIEVEMENTS['slayer'] && ACHIEVEMENTS['slayer'].unlocked;
-          const purchased = playerData.unlockedPickups && playerData.unlockedPickups[SKULL_ID];
-          ACHIEVEMENTS[SKULL_ACH_ID] = ACHIEVEMENTS[SKULL_ACH_ID] || { name: 'Skull Unlocked', desc: '', icon: SKULL_EMOJI, unlocked: false };
-          ACHIEVEMENTS[SKULL_ACH_ID].unlocked = !!(slayerUnlocked || purchased || ACHIEVEMENTS[SKULL_ACH_ID].unlocked);
-          // refresh UI if needed
-          const charContainer = document.getElementById('characterSelectContainer');
-          if (charContainer && charContainer.style.display !== 'none' && typeof showCharacterSelectScreen === 'function') {
-            showCharacterSelectScreen();
-          }
-        } catch (e) { console.error(e); }
+          const bought = !!(playerData.unlockedPickups && playerData.unlockedPickups[SKULL_ID]);
+          const slayer = !!(ACHIEVEMENTS.slayer && ACHIEVEMENTS.slayer.unlocked);
+          ACHIEVEMENTS[SKULL_ACH_ID].unlocked = !!(bought || slayer || ACHIEVEMENTS[SKULL_ACH_ID].unlocked);
+          if (typeof showCharacterSelectScreen === 'function') showCharacterSelectScreen();
+        } catch(e){ console.error(e); }
         return r;
       };
       log('patched checkAchievements');
       return true;
     }
-    if (!patchCheckAchievements()) {
-      waitFor(() => typeof checkAchievements === 'function', patchCheckAchievements, 8000);
-    }
+    if (!patchCheckAchievements()) waitFor(() => typeof checkAchievements === 'function', patchCheckAchievements, 8000);
 
-    // ---- character selection UI: detect click on skull tile and apply visuals immediately ----
-    (function hookupCharacterTileClicks() {
+    // ---- character selection click hook (apply / reset visuals quickly when player chooses) ----
+    (function hookCharacterTiles() {
       const container = document.getElementById('characterTilesContainer');
-      if (!container) {
-        // wait until the element exists
-        waitFor(() => !!document.getElementById('characterTilesContainer'), hookupCharacterTileClicks, 8000);
-        return;
-      }
-
+      if (!container) { waitFor(() => !!document.getElementById('characterTilesContainer'), hookCharacterTiles, 8000); return; }
       container.addEventListener('click', (ev) => {
         const tile = ev.target.closest('.character-tile');
         if (!tile) return;
-        if (tile.classList.contains('locked')) return; // ignore selections on locked ones
-
-        // get emoji (unique)
-        const emojiEl = tile.querySelector('.char-emoji');
-        const nameEl = tile.querySelector('.char-name');
-        const emoji = emojiEl ? emojiEl.textContent.trim() : null;
-        const name = nameEl ? nameEl.textContent.trim() : null;
-
-        // find matched char by emoji or name fallback
-        const chosen = Object.values(CHARACTERS).find(c => (c.emoji === emoji) || (c.name === name));
-        if (!chosen) return;
-
-        // small delay to let original handler set equippedCharacterID; after that apply skull visuals if needed
+        if (tile.classList.contains('locked')) return;
+        // small delay to let main game set equippedCharacterID
         setTimeout(() => {
           try {
-            if (chosen.id === SKULL_ID) {
-              applySkullToPlayer();
-            } else {
-              resetSkullFromPlayer();
-            }
-          } catch (e) { console.error(e); }
-        }, 12);
+            if (typeof equippedCharacterID !== 'undefined' && equippedCharacterID === SKULL_ID) { applySkullToPlayer(); }
+            else { resetSkullFromPlayer(); }
+          } catch(e){ console.error(e); }
+        }, 8);
       });
       log('character tile click hook installed');
     })();
 
-    // If menu selection was done elsewhere (equippedCharacterID variable), apply skull at load if currently selected
-    try {
-      if (typeof equippedCharacterID !== 'undefined' && equippedCharacterID === SKULL_ID) {
-        applySkullToPlayer();
-      }
-    } catch (e) {}
+    // if currently equipped is skull at load, apply visuals
+    try { if (typeof equippedCharacterID !== 'undefined' && equippedCharacterID === SKULL_ID) applySkullToPlayer(); } catch (e) {}
 
-    // ---- draw overlay: draw skull emoji over player each frame when active (so it overrides directional sprites & feet) ----
+    // ---- draw overlay patch: run original draw then draw the skull emoji centered over player (hides feet & direction sprites) ----
     function patchDrawOverlay() {
       if (typeof draw !== 'function') return false;
-      const _orig = draw;
+      const origDraw = draw;
       window.draw = function(...args) {
         // call original draw
-        _orig.apply(this, args);
+        origDraw.apply(this, args);
 
-        // then overlay skull if active (covers feet & base player sprite)
         try {
           if (player && player._isSkull) {
+            // prefer preRenderedEntities for crisp emoji canvas
             const pre = preRenderedEntities && preRenderedEntities[SKULL_EMOJI];
             if (pre && typeof ctx !== 'undefined') {
               ctx.save();
-              ctx.drawImage(pre, player.x - pre.width / 2, player.y - pre.height / 2);
+              ctx.drawImage(pre, player.x - pre.width/2, player.y - pre.height/2);
               ctx.restore();
             } else if (typeof ctx !== 'undefined') {
               ctx.save();
-              const size = (typeof SKULL_SIZE !== 'undefined') ? SKULL_SIZE : 20;
+              const size = Math.max(18, player.size);
               ctx.font = `${size}px sans-serif`;
               ctx.textAlign = 'center';
               ctx.textBaseline = 'middle';
@@ -267,98 +206,107 @@
             }
           }
         } catch (e) {
-          // don't break the game loop
+          // swallow so we don't break main loop
+          console.error('[SkullPlugin] overlay draw error', e);
         }
       };
-      log('patched draw to overlay skull when active');
+      log('patched draw to overlay skull when active (safe)');
       return true;
     }
     if (!patchDrawOverlay()) waitFor(() => typeof draw === 'function', patchDrawOverlay, 8000);
 
-    // ---- swap bullets to bones by swapping sprites.bullet while skull active (backup & restore) ----
-    // handled in applySkullToPlayer()/resetSkullFromPlayer() above (we backup sprites._backup_bullet)
-
-    // ---- skull dodge-nova: when player dodges and skull active, spawn bone projectiles in a circle ----
+    // ---- create nova of bone projectiles using weaponPool (safe about sprite) ----
     function createSkullNova() {
       try {
-        if (!weaponPool || !Array.isArray(weaponPool) || weaponPool.length === 0) return;
-
+        if (!window.weaponPool || !Array.isArray(weaponPool)) return;
         const now = Date.now();
-        // visual ring if game uses vengeanceNovas array
-        if (typeof vengeanceNovas !== 'undefined' && Array.isArray(vengeanceNovas)) {
-          vengeanceNovas.push({ x: player.x, y: player.y, startTime: now, duration: 500, maxRadius: 120 });
-        }
+        // optional vengeanceNovas visual if exists
+        if (Array.isArray(vengeanceNovas)) vengeanceNovas.push({ x: player.x, y: player.y, startTime: now, duration: 500, maxRadius: 120 });
 
-        for (let i = 0; i < NOVA_PROJECTILE_COUNT; i++) {
-          const angle = (i / NOVA_PROJECTILE_COUNT) * Math.PI * 2;
-          // find an inactive weapon slot
+        for (let i = 0; i < NOVA_COUNT; i++) {
+          const angle = (i / NOVA_COUNT) * Math.PI * 2;
           for (const w of weaponPool) {
             if (!w.active) {
               w.x = player.x;
               w.y = player.y;
-              w.size = NOVA_PROJECTILE_SIZE;
-              w.speed = NOVA_PROJECTILE_SPEED * (player.projectileSpeedMultiplier || 1);
+              w.size = NOVA_SIZE;
+              w.speed = NOVA_SPEED * (player.projectileSpeedMultiplier || 1);
               w.angle = angle;
               w.dx = Math.cos(angle) * w.speed;
               w.dy = Math.sin(angle) * w.speed;
-              w.lifetime = Date.now() + NOVA_DURATION_MS;
+              w.lifetime = Date.now() + NOVA_LIFE;
               w.hitsLeft = 1;
               w.hitEnemies = w.hitEnemies || [];
               w.hitEnemies.length = 0;
               w.active = true;
+              // we do NOT set a broken sprite here; drawProjectile patch will prefer sprites.bone if valid, else emoji fallback
               break;
             }
           }
         }
-        // small feedback
         try { if (typeof playSound === 'function') playSound('dodge'); } catch(e){}
       } catch (e) { console.error(e); }
     }
 
-    // Patch triggerDash to call nova when skull player dashes
+    // patch triggerDash to spawn nova for skull
     function patchTriggerDash() {
       if (typeof triggerDash !== 'function') return false;
-      const _orig = triggerDash;
-      window.triggerDash = function(entity, ...args) {
-        const r = _orig.apply(this, [entity, ...args]);
+      const orig = triggerDash;
+      window.triggerDash = function(entity, ...rest) {
+        const r = orig.apply(this, [entity, ...rest]);
         try {
-          if (entity === player && player._isSkull) {
-            createSkullNova();
-          }
-        } catch (e) { console.error(e); }
+          if (entity === player && player._isSkull) createSkullNova();
+        } catch(e){ console.error(e); }
         return r;
       };
-      log('patched triggerDash to spawn skull nova when dashing');
+      log('patched triggerDash to spawn nova when skull dashes');
       return true;
     }
     if (!patchTriggerDash()) waitFor(() => typeof triggerDash === 'function', patchTriggerDash, 8000);
 
-    // ---- ensure the skull achievement state is synced at load and when achievements change ----
-    try {
-      // initial sync (if playerData had skull unlocked earlier)
-      ACHIEVEMENTS[SKULL_ACH_ID].unlocked = !!(ACHIEVEMENTS[SKULL_ACH_ID].unlocked || (playerData.unlockedPickups && playerData.unlockedPickups[SKULL_ID]) || (ACHIEVEMENTS.slayer && ACHIEVEMENTS.slayer.unlocked));
-    } catch (e) {}
+    // ---- drawProjectile override (use bone sprite if fully loaded, otherwise emoji fallback) ----
+    (function patchDrawProjectile() {
+      if (typeof window.drawProjectile !== 'function') {
+        waitFor(() => typeof window.drawProjectile === 'function', patchDrawProjectile, 8000);
+        return;
+      }
+      const origDrawProj = window.drawProjectile;
+      window.drawProjectile = function(ctxLocal, proj) {
+        try {
+          if (typeof equippedCharacterID !== 'undefined' && equippedCharacterID === SKULL_ID) {
+            // If bone sprite loaded and valid -> draw it
+            if (sprites.bone && sprites.bone.complete && sprites.bone.naturalWidth > 0) {
+              try {
+                ctxLocal.drawImage(sprites.bone, proj.x - proj.size/2 - window.cameraOffsetX, proj.y - proj.size/2 - window.cameraOffsetY, proj.size, proj.size);
+                return;
+              } catch(e) { /* fallback below */ }
+            }
+            // fallback to pre-rendered bone emoji if available
+            if (preRenderedEntities && preRenderedEntities[BONE_EMOJI]) {
+              const buf = preRenderedEntities[BONE_EMOJI];
+              ctxLocal.drawImage(buf, proj.x - proj.size/2 - window.cameraOffsetX, proj.y - proj.size/2 - window.cameraOffsetY, proj.size, proj.size);
+              return;
+            }
+            // last fallback -> let original draw handle it
+          }
+        } catch(e){ /* ignore */ }
+        // default behavior
+        return origDrawProj.call(this, ctxLocal, proj);
+      };
+      log('patched drawProjectile (safe bone fallback)');
+    })();
 
-    // Also set up a small periodic sync in case other code toggles things after us (non-invasive)
+    // ---- ensure achievement sync periodically (keeps menu consistent) ----
     setInterval(() => {
       try {
-        const purchased = !!(playerData.unlockedPickups && playerData.unlockedPickups[SKULL_ID]);
-        const slayerUnlocked = !!(ACHIEVEMENTS.slayer && ACHIEVEMENTS.slayer.unlocked);
-        if (ACHIEVEMENTS[SKULL_ACH_ID] && (ACHIEVEMENTS[SKULL_ACH_ID].unlocked !== (purchased || slayerUnlocked))) {
-          ACHIEVEMENTS[SKULL_ACH_ID].unlocked = !!(purchased || slayerUnlocked);
-        }
-      } catch (e) {}
+        const bought = !!(playerData.unlockedPickups && playerData.unlockedPickups[SKULL_ID]);
+        const slayer = !!(ACHIEVEMENTS.slayer && ACHIEVEMENTS.slayer.unlocked);
+        if (ACHIEVEMENTS[SKULL_ACH_ID]) ACHIEVEMENTS[SKULL_ACH_ID].unlocked = !!(bought || slayer || ACHIEVEMENTS[SKULL_ACH_ID].unlocked);
+      } catch(e){}
     }, 1000);
 
-    // ---- small debug helper: console command to force equip / unequip ----
-    window.__skullPlugin = {
-      apply: applySkullToPlayer,
-      reset: resetSkullFromPlayer,
-      createNova: createSkullNova,
-      isActive: () => !!(player && player._isSkull)
-    };
-
-    log('skull plugin initialization complete');
+    // debug API
+    window.__skullPlugin = { apply: applySkullToPlayer, reset: resetSkullFromPlayer, nova: createSkullNova, isActive: ()=>!!(player && player._isSkull) };
+    log('skull plugin ready (fixed).');
   } // end init
-
 })(); // end IIFE
