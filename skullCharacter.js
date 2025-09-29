@@ -1,5 +1,5 @@
-// skullCharacter.js (fixed by Gemini - Emoji Projectile Version)
-// This version uses the 🦴 emoji for projectiles and removes all attempts to load a .png file.
+// skullCharacter.js (fixed by Gemini - Spinning Projectile Version)
+// This version makes the 🦴 projectiles spin as they travel.
 (function() {
   'use strict';
 
@@ -30,18 +30,19 @@
   waitFor(() => (typeof CHARACTERS !== 'undefined' && typeof UNLOCKABLE_PICKUPS !== 'undefined' && typeof ACHIEVEMENTS !== 'undefined' && typeof playerData !== 'undefined' && typeof sprites !== 'undefined' && typeof preRenderEmoji !== 'undefined' && typeof preRenderedEntities !== 'undefined'), init, 8000);
 
   function init() {
-    log('Initializing skull character plugin (Emoji Projectile Version)...');
+    log('Initializing skull character plugin (Spinning Projectile Version)...');
 
     const SKULL_ID = 'skull';
     const SKULL_ACH_ID = 'skull_unlocked';
     const SKULL_EMOJI = '💀';
-    const BONE_EMOJI = '🦴'; // The emoji we will use for bullets
+    const BONE_EMOJI = '🦴';
+    const BONE_SPIN_SPEED = 0.25; // Controls how fast the bone spins. Adjust if needed.
     const NOVA_COUNT = 16,
       NOVA_SPEED = 6.0,
       NOVA_SIZE = 20,
       NOVA_LIFE = 1000;
 
-    // --- SETUP CHARACTER, UNLOCKS, AND ACHIEVEMENTS ---
+    // --- SETUP CHARACTER, UNLOCKS, AND ACHIEVEMENTS (No changes here) ---
     if (!CHARACTERS[SKULL_ID]) {
       CHARACTERS[SKULL_ID] = {
         id: SKULL_ID,
@@ -86,7 +87,6 @@
       ACHIEVEMENTS[SKULL_ACH_ID].unlocked = true;
     }
 
-    // Pre-render the bone emoji to a canvas. This is crucial for performance.
     try {
       preRenderEmoji(BONE_EMOJI, 16);
       log('Pre-rendered bone emoji for projectiles.');
@@ -94,12 +94,11 @@
       log('Could not pre-render bone emoji.');
     }
 
-    // Backup the original bullet sprite once
     if (!sprites._backup_bullet && sprites.bullet) {
       sprites._backup_bullet = sprites.bullet;
     }
 
-    // --- HELPER FUNCTIONS ---
+    // --- HELPER FUNCTIONS (No changes here) ---
     function applySkullToPlayer() {
       if (!player) return;
       player._isSkull = true;
@@ -115,7 +114,6 @@
     function resetSkullFromPlayer() {
       if (!player) return;
       player._isSkull = false;
-      // When switching away from the skull, always restore the original bullet sprite.
       if (sprites._backup_bullet) {
         sprites.bullet = sprites._backup_bullet;
       }
@@ -141,7 +139,6 @@
         const ret = orig.call(this, key, ...rest);
         if (key === SKULL_ID) {
           ACHIEVEMENTS[SKULL_ACH_ID].unlocked = true;
-          log('Skull purchased: Faux achievement unlocked.');
         }
         return ret;
       };
@@ -180,7 +177,7 @@
 
 
     // ⭐⭐⭐ THE MAIN FIX IS HERE ⭐⭐⭐
-    // We patch the main 'draw' function to use the emoji for bullets and add the skull overlay.
+    // We patch the main 'draw' function to hijack projectile drawing for the Skull character.
     (function patchDraw() {
       if (typeof draw !== 'function') {
         waitFor(patchDraw, 8000);
@@ -189,39 +186,68 @@
       const origDraw = window.draw;
 
       window.draw = function(...args) {
-        if (player && player._isSkull) {
-          // If the skull character is active, set the bullet to our pre-rendered emoji canvas.
-          if (preRenderedEntities[BONE_EMOJI]) {
-            sprites.bullet = preRenderedEntities[BONE_EMOJI];
-          }
-        } else {
-          // If any other character is active, ensure the original bullet sprite is being used.
+        // If it's not the skull character, just run the original game's draw function and stop.
+        if (!player || !player._isSkull) {
+          // Ensure the original bullet sprite is restored if we switch characters mid-game
           if (sprites._backup_bullet) {
-            sprites.bullet = sprites._backup_bullet;
+             sprites.bullet = sprites._backup_bullet;
           }
+          origDraw.apply(this, args);
+          return;
         }
 
-        // With sprites.bullet safely set, call the original game's draw function.
-        origDraw.apply(this, args);
+        // --- SKULL CHARACTER IS ACTIVE ---
+        
+        // 1. Find all active projectiles and temporarily hide them from the original draw function.
+        const activeWeapons = weaponPool.filter(w => w.active);
+        activeWeapons.forEach(w => w.active = false);
 
-        // After everything else is drawn, draw the skull emoji over the player if active.
-        try {
-          if (player && player._isSkull) {
-            const pre = preRenderedEntities && preRenderedEntities[SKULL_EMOJI];
-            if (pre && typeof ctx !== 'undefined') {
-              ctx.save();
-              ctx.translate(-cameraOffsetX, -cameraOffsetY);
-              ctx.drawImage(pre, player.x - pre.width / 2, player.y - pre.height / 2);
-              ctx.restore();
+        // 2. Call the original draw function. It will now draw everything EXCEPT the projectiles.
+        origDraw.apply(this, args);
+        
+        // 3. Re-activate the projectiles so the game's logic can still update them.
+        activeWeapons.forEach(w => w.active = true);
+
+        // 4. Manually draw the projectiles ourselves with the spinning effect.
+        const boneCanvas = preRenderedEntities[BONE_EMOJI];
+        if (boneCanvas) {
+            ctx.save();
+            // Apply the same camera offset the main game uses so projectiles are in the right place.
+            ctx.translate(-cameraOffsetX, -cameraOffsetY);
+            
+            for (const proj of activeWeapons) {
+                // Initialize or increment the spin angle for each projectile.
+                proj.spinAngle = (proj.spinAngle || 0) + BONE_SPIN_SPEED;
+
+                ctx.save();
+                ctx.translate(proj.x, proj.y);
+                ctx.rotate(proj.spinAngle); // Apply the spin rotation!
+                
+                // Draw the bone emoji canvas, centered at the projectile's location.
+                ctx.drawImage(boneCanvas, -proj.size / 2, -proj.size / 2, proj.size, proj.size);
+
+                ctx.restore();
             }
+            ctx.restore();
+        }
+
+        // 5. Draw the skull emoji over the (hidden) player, same as before.
+        try {
+          const pre = preRenderedEntities && preRenderedEntities[SKULL_EMOJI];
+          if (pre && typeof ctx !== 'undefined') {
+            ctx.save();
+            ctx.translate(-cameraOffsetX, -cameraOffsetY);
+            ctx.drawImage(pre, player.x - pre.width / 2, player.y - pre.height / 2);
+            ctx.restore();
           }
         } catch (e) {
           console.error('[SkullPlugin] Overlay draw error', e);
         }
       };
-      log('Patched draw function to safely render skull character with emoji projectiles.');
+      log('Patched draw function for spinning skull projectiles.');
     })();
 
+    // No changes needed below this line
     function createSkullNova() {
       try {
         if (!window.weaponPool) return;
@@ -291,6 +317,6 @@
       } catch (e) {}
     }, 1000);
 
-    log('Skull plugin (Emoji Version) is ready.');
+    log('Skull plugin (Spinning Version) is ready.');
   }
 })();
