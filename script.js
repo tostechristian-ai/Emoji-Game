@@ -816,63 +816,6 @@ function handleGamepadInput() {
         joystickDirX = 0;
         joystickDirY = 0;
     }
-// ===== PLAYER 2 GAMEPAD INPUT =====
-        const gp2 = navigator.getGamepads?.()[1]; // Get the second gamepad (index 1)
-        if (player2 && player2.active && gp2) {
-            // Movement from Left Stick
-            let lx2 = applyDeadzone(gp2.axes[0] || 0);
-            let ly2 = applyDeadzone(gp2.axes[1] || 0);
-            const lmag2 = Math.hypot(lx2, ly2);
-            if (lmag2 > 0) {
-                player2.dx = lx2 / lmag2;
-                player2.dy = ly2 / lmag2;
-            } else {
-                player2.dx = 0;
-                player2.dy = 0;
-            }
-
-            // Dodge/Dash from Right Trigger
-            const pressed2 = (i) => !!gp2.buttons?.[i]?.pressed;
-            if (pressed2(7) && !player2._rTriggerLatch) {
-                player2._rTriggerLatch = true;
-                triggerDash(player2);
-            } else if (!pressed2(7)) {
-                player2._rTriggerLatch = false;
-            }
-        }
-    
-    let rx = applyDeadzone(gp.axes[2] || 0);
-    let ry = applyDeadzone(gp.axes[3] || 0);
-    const rmag = Math.hypot(rx, ry);
-    if (rmag > 0) {
-        aimDx = rx / rmag;
-        aimDy = ry / rmag;
-    } else {
-        aimDx = 0;
-        aimDy = 0;
-    }
-
-    const pressed = (i) => !!gp.buttons?.[i]?.pressed;
-    if (pressed(7) && !gp._rTriggerLatch) {
-    gp._rTriggerLatch = true;
-    triggerDash(player);
-} else if (!pressed(7)) gp._rTriggerLatch = false;
-    
-    if ((pressed(9) || pressed(1)) && !gp._pauseLatch) {
-        gp._pauseLatch = true;
-        if (gameActive && !gameOver) togglePause();
-    } else if (!pressed(9) && !pressed(1)) gp._pauseLatch = false;
-}
-
-let isGamepadUpgradeMode = false;
-let selectedUpgradeIndex = 0;
-let lastGamepadUpdate = 0;
-const GAMEPAD_INPUT_DELAY = 200; // milliseconds
-
-function handleGamepadInput() {
-    if (gamepadIndex == null) return;
-    const gp = navigator.getGamepads?.()[gamepadIndex];
-    if (!gp) return;
 
     // --- NEW UPGRADE MENU GAMEPAD LOGIC ---
     if (isGamepadUpgradeMode) {
