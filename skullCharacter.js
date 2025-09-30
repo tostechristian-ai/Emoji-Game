@@ -30,7 +30,7 @@
     log('Initializing skull character plugin...');
 
     const SKULL_ID = 'skull';
-    const SKULL_ACH_ID = 'slayer'; // Matches the achievement in script.js
+    const SKULL_ACH_ID = 'slayer';
     const SKULL_EMOJI = '💀';
     const BONE_EMOJI = '🦴';
     const BONE_SPIN_SPEED = 0.25;
@@ -135,38 +135,24 @@
       }
     } catch (e) {}
 
-    // --- DRAWING LOGIC (REWRITTEN TO BE MORE STABLE) ---
     (function patchDraw() {
       if (typeof draw !== 'function') { setTimeout(patchDraw, 100); return; }
       const origDraw = window.draw;
-
       window.draw = function(...args) {
         if (!player || !player._isSkull || !gameActive) {
-          origDraw.apply(this, args); // Use original draw for non-skull characters
+          origDraw.apply(this, args);
           return;
         }
-
-        // --- Bone Hiding Hack ---
         const activeWeapons = weaponPool.filter(w => w.active);
         const weaponStates = activeWeapons.map(w => ({ weapon: w, active: w.active }));
         activeWeapons.forEach(w => w.active = false);
-
-        // --- Player Hiding Hack ---
-        // This prevents the original draw function from rendering the default cowboy sprite.
         const originalPlayerPos = { x: player.x, y: player.y };
-        player.x = -2000; // Move player far off-screen
+        player.x = -2000;
         player.y = -2000;
-
-        // Run the original draw function. It will draw everything *except* the player character,
-        // which is safely off-screen.
         origDraw.apply(this, args);
-
-        // --- Restore Everything for our custom draw ---
         player.x = originalPlayerPos.x;
         player.y = originalPlayerPos.y;
         weaponStates.forEach(state => state.weapon.active = state.active);
-
-        // --- Custom Skull and Bone Drawing ---
         const now = Date.now();
         let currentHitShakeX = 0, currentHitShakeY = 0;
         if (typeof isPlayerHitShaking !== 'undefined' && isPlayerHitShaking) {
@@ -179,14 +165,11 @@
         }
         let finalCameraOffsetX = cameraOffsetX - currentHitShakeX;
         let finalCameraOffsetY = cameraOffsetY - currentHitShakeY;
-
         ctx.save();
         ctx.translate(canvas.width / 2, canvas.height / 2);
         ctx.scale(cameraZoom, cameraZoom);
         ctx.translate(-canvas.width / 2, -canvas.height / 2);
         ctx.translate(-finalCameraOffsetX, -finalCameraOffsetY);
-
-        // 1. Draw the Skull in place of the hidden cowboy
         try {
             const pre = preRenderedEntities && preRenderedEntities[SKULL_EMOJI];
             if (pre) {
@@ -201,8 +184,6 @@
                 ctx.restore();
             }
         } catch (e) { console.error('[SkullPlugin] skull draw error', e); }
-
-        // 2. Draw the Bones
         const boneCanvas = preRenderedEntities[BONE_EMOJI];
         if (boneCanvas) {
             for (const proj of activeWeapons) {
@@ -247,20 +228,40 @@
       } catch (e) { console.error('[SkullPlugin] Nova creation error:', e); }
     }
 
+    // --- DODGE NOVA LOGIC (FIXED) ---
     (function patchTriggerDash() {
+      if (typeof triggerDash !== 'function') {
+        setTimeout(patchTriggerDash, 100);
+        return;
+      }
+      
       const orig_triggerDash = window.triggerDash;
+
       window.triggerDash = function(entity, ...rest) {
-        const now = Date.now();
-        if (!entity || entity.isDashing || now - entity.lastDashTime < entity.dashCooldown) {
-            return orig_triggerDash.apply(this, [entity, ...rest]);
+        if (!entity) {
+            return orig_triggerDash.apply(this, arguments);
         }
-        const result = orig_triggerDash.apply(this, [entity, ...rest]);
-        try {
-          if (entity === window.player && window.player._isSkull) {
-            createSkullNova();
+        
+        // Note the player's state *before* attempting a dash.
+        const wasDashing = entity.isDashing;
+
+        // Call the original dash function.
+        orig_triggerDash.apply(this, arguments);
+
+        // Now, check if the state changed from "not dashing" to "dashing".
+        // This confirms the dash was successful and not on cooldown.
+        const isNowDashing = entity.isDashing;
+
+        if (!wasDashing && isNowDashing) {
+          // The dash was successful! Fire the nova if it's the skull character.
+          try {
+            if (entity === window.player && window.player._isSkull) {
+              createSkullNova();
+            }
+          } catch (e) {
+            console.error('[SkullPlugin] Dash trigger interception error:', e);
           }
-        } catch (e) { console.error('[SkullPlugin] Dash trigger interception error:', e); }
-        return result;
+        }
       };
       log('triggerDash patched successfully for Skull Nova.');
     })();
