@@ -1,4 +1,4 @@
-// skullCharacter.js - Fixed for zoom compatibility
+// skullCharacter.js - V-spread bones + 6-bone dash nova
 (function() {
   'use strict';
 
@@ -34,20 +34,20 @@
     const SKULL_EMOJI = '💀';
     const BONE_EMOJI = '🦴';
     const BONE_SPIN_SPEED = 0.25;
-    const NOVA_COUNT = 16,
-      NOVA_SPEED = 6.0,
-      NOVA_SIZE = 10,
-      NOVA_LIFE = 1000;
+    const NOVA_COUNT = 6;
+    const NOVA_SPEED = 6.0;
+    const NOVA_SIZE = 12;
+    const NOVA_LIFE = 2000;
     
     const SKULL_RENDER_SIZE = 28;
-    const BONE_RENDER_SIZE = 12; // Half size bones
+    const BONE_RENDER_SIZE = 12;
 
     if (!CHARACTERS[SKULL_ID]) {
       CHARACTERS[SKULL_ID] = {
         id: SKULL_ID,
         name: 'Skull',
         emoji: SKULL_EMOJI,
-        perk: 'Bone bullets + dodge nova',
+        perk: 'V-spread bones + 6-bone dash',
         unlockCondition: {
           type: 'achievement',
           id: SKULL_ACH_ID
@@ -59,12 +59,13 @@
         id: SKULL_ACH_ID
       };
       CHARACTERS[SKULL_ID].emoji = SKULL_EMOJI;
+      CHARACTERS[SKULL_ID].perk = 'V-spread bones + 6-bone dash';
     }
 
     if (!UNLOCKABLE_PICKUPS[SKULL_ID]) {
       UNLOCKABLE_PICKUPS[SKULL_ID] = {
         name: 'Skull Character',
-        desc: 'Unlock the Skull (bone bullets)',
+        desc: 'V-spread bones (0.5x dmg), dash shoots 6 bones',
         cost: 1000,
         icon: SKULL_EMOJI
       };
@@ -95,30 +96,47 @@
     function applySkullToPlayer() {
       if (!player) return;
       player._isSkull = true;
+      
       if (!player._skull_speed_backup) player._skull_speed_backup = player.speed;
-      player.speed = player.originalPlayerSpeed * 0.95;
       if (!player._skull_damage_backup) player._skull_damage_backup = player.damageMultiplier;
-      player.damageMultiplier = 1.25;
-      player._dodge_override = function() {
-        createSkullNova();
-      };
+      if (!player._skull_vshape_backup) player._skull_vshape_backup = window.vShapeProjectileLevel || 0;
+      
+      player.speed = player.originalPlayerSpeed * 0.95;
+      player.damageMultiplier = player._skull_damage_backup * 0.5;
+      
+      if (typeof window.vShapeProjectileLevel !== 'undefined') {
+        window.vShapeProjectileLevel = Math.max(1, window.vShapeProjectileLevel);
+      }
+      
+      log('Skull stats applied: 0.5x damage, V-spread enabled, 6-bone dash');
     }
 
     function resetSkullFromPlayer() {
       if (!player) return;
       player._isSkull = false;
+      
       if (sprites._backup_bullet) {
         sprites.bullet = sprites._backup_bullet;
       }
+      
       if (player._skull_speed_backup) {
         player.speed = player._skull_speed_backup;
         delete player._skull_speed_backup;
       }
+      
       if (player._skull_damage_backup) {
         player.damageMultiplier = player._skull_damage_backup;
         delete player._skull_damage_backup;
       }
-      if (player._dodge_override) delete player._dodge_override;
+      
+      if (player._skull_vshape_backup !== undefined) {
+        if (typeof window.vShapeProjectileLevel !== 'undefined') {
+          window.vShapeProjectileLevel = player._skull_vshape_backup;
+        }
+        delete player._skull_vshape_backup;
+      }
+      
+      log('Skull stats removed');
     }
 
     (function patchBuyUnlockable() {
@@ -165,7 +183,6 @@
       }
     } catch (e) {}
 
-    // FIXED: Patched draw function with proper zoom support
     (function patchDraw() {
       if (typeof draw !== 'function') {
         setTimeout(patchDraw, 100);
@@ -179,22 +196,16 @@
           return;
         }
 
-        // SKULL MODE: Temporarily disable weapons so original draw doesn't render them
         const activeWeapons = weaponPool.filter(w => w.active);
         const weaponStates = activeWeapons.map(w => ({ weapon: w, active: w.active }));
         activeWeapons.forEach(w => w.active = false);
 
-        // Call original draw - this renders EVERYTHING except weapons (which we disabled)
         origDraw.apply(this, args);
         
-        // Restore weapon states
         weaponStates.forEach(state => state.weapon.active = state.active);
 
-        // Now we manually render AFTER everything else
-        // IMPORTANT: We need to apply the same transformations as the main draw function
         const now = Date.now();
         
-        // Get current camera shake if active
         let currentHitShakeX = 0, currentHitShakeY = 0;
         if (typeof isPlayerHitShaking !== 'undefined' && isPlayerHitShaking) {
           const elapsedTime = now - playerHitShakeStartTime;
@@ -210,15 +221,12 @@
 
         ctx.save();
         
-        // Apply the same zoom transformation as main draw
         ctx.translate(canvas.width / 2, canvas.height / 2);
         ctx.scale(cameraZoom, cameraZoom);
         ctx.translate(-canvas.width / 2, -canvas.height / 2);
         
-        // Now apply camera offset
         ctx.translate(-finalCameraOffsetX, -finalCameraOffsetY);
 
-        // Draw skull on top of player position
         try {
             const pre = preRenderedEntities && preRenderedEntities[SKULL_EMOJI];
             if (pre) {
@@ -227,7 +235,6 @@
             }
         } catch (e) { console.error('[SkullPlugin] skull draw error', e); }
 
-        // Draw small spinning bones
         const boneCanvas = preRenderedEntities[BONE_EMOJI];
         if (boneCanvas) {
             for (const proj of activeWeapons) {
@@ -235,7 +242,6 @@
                 ctx.save();
                 ctx.translate(proj.x, proj.y);
                 ctx.rotate(proj.spinAngle);
-                // Force draw at small size
                 ctx.drawImage(boneCanvas, -BONE_RENDER_SIZE / 2, -BONE_RENDER_SIZE / 2, BONE_RENDER_SIZE, BONE_RENDER_SIZE);
                 ctx.restore();
             }
@@ -247,18 +253,29 @@
 
     function createSkullNova() {
       try {
-        if (!window.weaponPool) return;
+        log('Firing skull bone nova!');
+        
+        if (!window.weaponPool) {
+          log('weaponPool not found');
+          return;
+        }
+        
+        // Create visual nova ring effect
         if (Array.isArray(window.vengeanceNovas)) {
           vengeanceNovas.push({
             x: player.x,
             y: player.y,
             startTime: Date.now(),
-            duration: 500,
-            maxRadius: 120
+            duration: 400,
+            maxRadius: 100
           });
         }
+        
+        // Fire 6 bones in all directions
+        let bonesCreated = 0;
         for (let i = 0; i < NOVA_COUNT; i++) {
           const angle = (i / NOVA_COUNT) * Math.PI * 2;
+          
           for (const w of weaponPool) {
             if (!w.active) {
               w.x = player.x;
@@ -273,16 +290,24 @@
               w.hitEnemies = w.hitEnemies || [];
               w.hitEnemies.length = 0;
               w.active = true;
+              w.spinAngle = angle;
+              bonesCreated++;
               break;
             }
           }
         }
-        if (typeof playSound === 'function') playSound('dodge');
+        
+        log(`Created ${bonesCreated} nova bones`);
+        
+        if (typeof playSound === 'function') {
+          playSound('dodge');
+        }
       } catch (e) {
-        console.error(e);
+        console.error('[SkullPlugin] Nova error:', e);
       }
     }
 
+    // SIMPLIFIED: Just patch triggerDash to fire nova when skull dashes
     (function patchTriggerDash() {
       if (typeof triggerDash !== 'function') {
         setTimeout(patchTriggerDash, 100);
@@ -290,16 +315,21 @@
       }
       const orig = triggerDash;
       window.triggerDash = function(entity, ...rest) {
-        const r = orig.apply(this, [entity, ...rest]);
+        // Call original dash first
+        const result = orig.apply(this, [entity, ...rest]);
+        
+        // Then fire bone nova if it's the skull player
         try {
           if (entity === player && player._isSkull) {
             createSkullNova();
           }
         } catch (e) {
-          console.error(e);
+          console.error('[SkullPlugin] Dash trigger error:', e);
         }
-        return r;
+        
+        return result;
       };
+      log('triggerDash patched successfully');
     })();
 
     setInterval(() => {
@@ -312,6 +342,6 @@
       } catch (e) {}
     }, 1000);
 
-    log('Skull plugin ready - zoom compatible!');
+    log('Skull plugin ready - 6-bone dash nova enabled!');
   }
 })();
