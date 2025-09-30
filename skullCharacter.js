@@ -1,4 +1,4 @@
-// skullCharacter.js - V-spread bones + 6-bone dash nova (FIXED)
+// skullCharacter.js - V-spread bones + 6-bone dash nova
 (function() {
   'use strict';
 
@@ -31,16 +31,16 @@
 
     const SKULL_ID = 'skull';
     const SKULL_ACH_ID = 'skull_unlocked';
-    const SKULL_EMOJI = 'ðŸ'€';
-    const BONE_EMOJI = 'ðŸ¦´';
+    const SKULL_EMOJI = '💀';
+    const BONE_EMOJI = '🦴';
     const BONE_SPIN_SPEED = 0.25;
     const NOVA_COUNT = 6;
     const NOVA_SPEED = 6.0;
-    const NOVA_SIZE = 18; // Made bigger so it's more visible
-    const NOVA_LIFE = 2500;
+    const NOVA_SIZE = 12;
+    const NOVA_LIFE = 2000;
     
     const SKULL_RENDER_SIZE = 28;
-    const BONE_RENDER_SIZE = 16; // Made bigger
+    const BONE_RENDER_SIZE = 12;
 
     if (!CHARACTERS[SKULL_ID]) {
       CHARACTERS[SKULL_ID] = {
@@ -96,7 +96,6 @@
     function applySkullToPlayer() {
       if (!player) return;
       player._isSkull = true;
-      player._skullNovaReady = true; // Track if nova can fire
       
       if (!player._skull_speed_backup) player._skull_speed_backup = player.speed;
       if (!player._skull_damage_backup) player._skull_damage_backup = player.damageMultiplier;
@@ -105,9 +104,8 @@
       player.speed = player.originalPlayerSpeed * 0.95;
       player.damageMultiplier = player._skull_damage_backup * 0.5;
       
-      // Force V-shape to be active for skull
       if (typeof window.vShapeProjectileLevel !== 'undefined') {
-        window.vShapeProjectileLevel = Math.max(2, window.vShapeProjectileLevel);
+        window.vShapeProjectileLevel = Math.max(1, window.vShapeProjectileLevel);
       }
       
       log('Skull stats applied: 0.5x damage, V-spread enabled, 6-bone dash');
@@ -116,7 +114,6 @@
     function resetSkullFromPlayer() {
       if (!player) return;
       player._isSkull = false;
-      player._skullNovaReady = false;
       
       if (sprites._backup_bullet) {
         sprites.bullet = sprites._backup_bullet;
@@ -256,31 +253,25 @@
 
     function createSkullNova() {
       try {
-        if (!player || !player._isSkull || !player._skullNovaReady) {
-          log('Nova conditions not met');
+        log('Firing skull bone nova!');
+        
+        if (!window.weaponPool) {
+          log('weaponPool not found');
           return;
         }
         
-        // Prevent multiple novas from firing at once
-        player._skullNovaReady = false;
-        setTimeout(() => {
-          if (player) player._skullNovaReady = true;
-        }, 500); // Half second cooldown
-        
-        log('Firing skull bone nova!');
-        
-        // Create visual effect
+        // Create visual nova ring effect
         if (Array.isArray(window.vengeanceNovas)) {
           vengeanceNovas.push({
             x: player.x,
             y: player.y,
             startTime: Date.now(),
-            duration: 600,
-            maxRadius: 120
+            duration: 400,
+            maxRadius: 100
           });
         }
         
-        // Fire 6 bones in a circle
+        // Fire 6 bones in all directions
         let bonesCreated = 0;
         for (let i = 0; i < NOVA_COUNT; i++) {
           const angle = (i / NOVA_COUNT) * Math.PI * 2;
@@ -300,28 +291,23 @@
               w.hitEnemies.length = 0;
               w.active = true;
               w.spinAngle = angle;
-              w._isNovaBone = true; // Mark as nova bone
               bonesCreated++;
               break;
             }
           }
         }
         
-        log(`Created ${bonesCreated}/${NOVA_COUNT} nova bones`);
+        log(`Created ${bonesCreated} nova bones`);
         
-        // Play sound and vibrate
         if (typeof playSound === 'function') {
           playSound('dodge');
-        }
-        if (typeof vibrate === 'function') {
-          vibrate(30);
         }
       } catch (e) {
         console.error('[SkullPlugin] Nova error:', e);
       }
     }
 
-    // Patch triggerDash - CRITICAL FIX: Use setTimeout to fire nova AFTER dash animation starts
+    // SIMPLIFIED: Just patch triggerDash to fire nova when skull dashes
     (function patchTriggerDash() {
       if (typeof triggerDash !== 'function') {
         setTimeout(patchTriggerDash, 100);
@@ -329,14 +315,13 @@
       }
       const orig = triggerDash;
       window.triggerDash = function(entity, ...rest) {
+        // Call original dash first
         const result = orig.apply(this, [entity, ...rest]);
         
-        // Fire nova AFTER dash starts (100ms delay ensures dash animation begins first)
+        // Then fire bone nova if it's the skull player
         try {
-          if (entity === player && player._isSkull && player._skullNovaReady) {
-            setTimeout(() => {
-              createSkullNova();
-            }, 100);
+          if (entity === player && player._isSkull) {
+            createSkullNova();
           }
         } catch (e) {
           console.error('[SkullPlugin] Dash trigger error:', e);
