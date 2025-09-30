@@ -307,30 +307,49 @@
       }
     }
 
-    // SIMPLIFIED: Just patch triggerDash to fire nova when skull dashes
+    // === MODIFIED SECTION START ===
+    // This function patches the original triggerDash to add the bone nova effect.
     (function patchTriggerDash() {
+      // Wait until the original triggerDash function is available.
       if (typeof triggerDash !== 'function') {
         setTimeout(patchTriggerDash, 100);
         return;
       }
+
+      // Store a reference to the original function.
       const orig = triggerDash;
+
+      // Overwrite the global triggerDash function with our new version.
       window.triggerDash = function(entity, ...rest) {
-        // Call original dash first
-        const result = orig.apply(this, [entity, ...rest]);
         
-        // Then fire bone nova if it's the skull player
+        // First, check if the dash should be successful. We need to do this here
+        // because the original function doesn't return a "success" value.
+        // We replicate the conditions from script.js: an entity must exist,
+        // it can't already be dashing, and the cooldown must be over.
+        const now = Date.now();
+        const isDashSuccessful = entity && !entity.isDashing && now - entity.lastDashTime >= entity.dashCooldown;
+
+        // Now, call the original function. It will handle all the normal dash logic.
+        const result = orig.apply(this, [entity, ...rest]); 
+        
         try {
-          if (entity === player && player._isSkull) {
+          // After the original function runs, we check our flag.
+          // If the dash was successful AND it's the skull player, then fire the nova.
+          if (isDashSuccessful && entity === player && player._isSkull) {
             createSkullNova();
           }
         } catch (e) {
+          // Log any errors that happen during the nova creation.
           console.error('[SkullPlugin] Dash trigger error:', e);
         }
         
+        // Return whatever the original function returned.
         return result;
       };
-      log('triggerDash patched successfully');
+      
+      log('triggerDash has been patched to include the skull nova effect!');
     })();
+    // === MODIFIED SECTION END ===
 
     setInterval(() => {
       try {
