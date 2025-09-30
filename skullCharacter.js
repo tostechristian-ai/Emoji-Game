@@ -1,4 +1,4 @@
-// skullCharacter.js - Final fix for small skull + small bones
+// skullCharacter.js - Fixed for zoom compatibility
 (function() {
   'use strict';
 
@@ -165,7 +165,7 @@
       }
     } catch (e) {}
 
-    // This is the KEY FIX - we completely override draw() to skip weapon rendering
+    // FIXED: Patched draw function with proper zoom support
     (function patchDraw() {
       if (typeof draw !== 'function') {
         setTimeout(patchDraw, 100);
@@ -191,9 +191,32 @@
         weaponStates.forEach(state => state.weapon.active = state.active);
 
         // Now we manually render AFTER everything else
+        // IMPORTANT: We need to apply the same transformations as the main draw function
         const now = Date.now();
+        
+        // Get current camera shake if active
+        let currentHitShakeX = 0, currentHitShakeY = 0;
+        if (typeof isPlayerHitShaking !== 'undefined' && isPlayerHitShaking) {
+          const elapsedTime = now - playerHitShakeStartTime;
+          if (elapsedTime < PLAYER_HIT_SHAKE_DURATION) {
+            const shakeIntensity = MAX_PLAYER_HIT_SHAKE_OFFSET * (1 - (elapsedTime / PLAYER_HIT_SHAKE_DURATION));
+            currentHitShakeX = (Math.random() - 0.5) * 2 * shakeIntensity;
+            currentHitShakeY = (Math.random() - 0.5) * 2 * shakeIntensity;
+          }
+        }
+        
+        let finalCameraOffsetX = cameraOffsetX - currentHitShakeX;
+        let finalCameraOffsetY = cameraOffsetY - currentHitShakeY;
+
         ctx.save();
-        ctx.translate(-cameraOffsetX, -cameraOffsetY);
+        
+        // Apply the same zoom transformation as main draw
+        ctx.translate(canvas.width / 2, canvas.height / 2);
+        ctx.scale(cameraZoom, cameraZoom);
+        ctx.translate(-canvas.width / 2, -canvas.height / 2);
+        
+        // Now apply camera offset
+        ctx.translate(-finalCameraOffsetX, -finalCameraOffsetY);
 
         // Draw skull on top of player position
         try {
@@ -289,6 +312,6 @@
       } catch (e) {}
     }, 1000);
 
-    log('Skull plugin ready - small skull & small bones');
+    log('Skull plugin ready - zoom compatible!');
   }
 })();
