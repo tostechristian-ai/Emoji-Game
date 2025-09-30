@@ -1996,3 +1996,691 @@ function draw() {
         }
         if (enemy.isFrozen) ctx.filter = 'saturate(0.5) brightness(1.5) hue-rotate(180deg)';
         if (enemy.isSlowedByPuddle) ctx.filter = 'saturate(2) brightness(0.8)';
+        
+        const emojiToDraw = enemy.isBoss ? enemy.mimics : enemy.emoji;
+        const preRenderedImage = preRenderedEntities[emojiToDraw];
+        if(preRenderedImage) {
+            ctx.drawImage(preRenderedImage, enemy.x - preRenderedImage.width / 2, enemy.y - preRenderedImage.height / 2 + (enemy.bobOffset || 0));
+        }
+
+        if (enemy.isIgnited) {
+            if (Math.random() < 0.1) {
+                smokeParticles.push({ 
+                    x: enemy.x + (Math.random() - 0.5) * enemy.size, 
+                    y: enemy.y, 
+                    dx: (Math.random() - 0.5) * 0.5, 
+                    dy: -Math.random() * 1, 
+                    size: 10 + Math.random() * 5, 
+                    alpha: 0.7 
+                });
+            }
+            ctx.globalAlpha = Math.min(ctx.globalAlpha, 0.8);
+            ctx.font = `${enemy.size * 0.8}px sans-serif`;
+            ctx.fillText('🔥', enemy.x, enemy.y + (enemy.bobOffset || 0));
+        }
+        ctx.restore();
+    });
+
+    // Draw explosions
+    explosions.forEach(explosion => {
+        const age = now - explosion.startTime;
+        if (age < explosion.duration) {
+            const lifeRatio = age / explosion.duration;
+            const currentRadius = explosion.radius * lifeRatio;
+            const alpha = 1 - lifeRatio;
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(explosion.x, explosion.y, currentRadius, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(255, 165, 0, ${alpha * 0.7})`;
+            ctx.fill();
+            ctx.strokeStyle = `rgba(255, 255, 255, ${alpha})`;
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            ctx.restore();
+        }
+    });
+
+    // Draw vengeance novas
+    vengeanceNovas.forEach(nova => {
+        const age = now - nova.startTime;
+        if (age < nova.duration) {
+            const lifeRatio = age / nova.duration;
+            const currentRadius = nova.maxRadius * lifeRatio;
+            const alpha = 1 - lifeRatio;
+            ctx.save();
+            ctx.strokeStyle = `rgba(255, 0, 0, ${alpha})`;
+            ctx.lineWidth = 5;
+            ctx.beginPath();
+            ctx.arc(nova.x, nova.y, currentRadius, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.restore();
+        }
+    });
+
+    // Draw weapons
+    for(const weapon of weaponPool) {
+        if(!weapon.active) continue;
+        ctx.save();
+        ctx.translate(weapon.x, weapon.y);
+        ctx.rotate(weapon.angle);
+        if (flamingBulletsActive) ctx.filter = 'hue-rotate(30deg) saturate(5) brightness(1.5)';
+        else if (magneticProjectileActive && iceProjectileActive) ctx.filter = 'hue-rotate(270deg) saturate(2)';
+        else if (magneticProjectileActive) ctx.filter = 'hue-rotate(0deg) saturate(5) brightness(1.5)';
+        else if (iceProjectileActive) ctx.filter = 'hue-rotate(180deg) saturate(2)';
+        ctx.drawImage(sprites.bullet, -weapon.size / 2, -weapon.size / 2, weapon.size, weapon.size * 0.5);
+        ctx.restore();
+    }
+
+    // Draw dog homing shots
+    dogHomingShots.forEach(shot => {
+        ctx.save();
+        ctx.translate(shot.x, shot.y);
+        ctx.rotate(shot.angle);
+        ctx.filter = 'hue-rotate(0deg) saturate(5) brightness(1.5)';
+        ctx.drawImage(sprites.bullet, -shot.size / 2, -shot.size / 2, shot.size, shot.size * 0.5);
+        ctx.restore();
+    });
+
+    // Draw lightning bolts
+    lightningBolts.forEach(bolt => {
+        const preRendered = preRenderedEntities[bolt.emoji];
+        if(preRendered) {
+            ctx.save();
+            ctx.translate(bolt.x, bolt.y);
+            ctx.rotate(bolt.angle + Math.PI / 2);
+            ctx.drawImage(preRendered, -preRendered.width/2, -preRendered.height/2);
+            ctx.restore();
+        }
+    });
+
+    // Draw bombs
+    bombs.forEach(bomb => {
+        const preRendered = preRenderedEntities['💣'];
+        if(preRendered) ctx.drawImage(preRendered, bomb.x - preRendered.width/2, bomb.y - preRendered.height/2);
+    });
+
+    // Draw glimmer helper function
+    const drawGlimmer = (item) => {
+        const glimmerDuration = 1000;
+        const timeSinceStart = (now - item.glimmerStartTime) % 2000;
+        if (timeSinceStart < glimmerDuration) {
+            const progress = timeSinceStart / glimmerDuration;
+            const alpha = Math.sin(progress * Math.PI);
+            const size = item.size * (1 + progress * 0.5);
+            ctx.save();
+            ctx.globalAlpha = alpha * 0.5;
+            ctx.fillStyle = 'white';
+            ctx.beginPath();
+            ctx.arc(item.x, item.y, size / 2, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+        }
+    };
+
+    // Draw pickup items
+    pickupItems.forEach(item => {
+        drawGlimmer(item);
+        if (item.type === 'box') { 
+            ctx.drawImage(sprites.pickupBox, item.x - item.size / 2, item.y - item.size / 2, item.size, item.size); 
+        } else {
+            const preRendered = preRenderedEntities[item.type];
+            if(preRendered) ctx.drawImage(preRendered, item.x - preRendered.width/2, item.y - preRendered.height/2);
+        }
+    });
+    
+    // Draw apple items
+    appleItems.forEach(item => { 
+        drawGlimmer(item);
+        const preRendered = preRenderedEntities['🎃'];
+        if(preRendered) ctx.drawImage(preRendered, item.x - preRendered.width/2, item.y - preRendered.height/2);
+    });
+
+    // Draw eye projectiles
+    eyeProjectiles.forEach(proj => { 
+        const preRendered = preRenderedEntities[proj.emoji];
+        if(preRendered) ctx.drawImage(preRendered, proj.x - preRendered.width/2, proj.y - preRendered.height/2);
+    });
+    
+    // Draw merchants
+    merchants.forEach(m => {
+        ctx.save();
+        ctx.font = `${m.size}px serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('🧙‍♂️', m.x, m.y);
+        ctx.restore();
+    });
+    
+    // Draw player
+    const bobOffset = player.isDashing ? 0 : Math.sin(player.stepPhase) * BOB_AMPLITUDE;
+    const spinDuration = 500;
+
+    const FOOT_SIZE = 8; 
+    const FOOT_OFFSET_X = 2; 
+    const FOOT_OFFSET_Y = 2;
+    const STEP_LENGTH = 10; 
+    const stepOffset = Math.sin(player.stepPhase) * STEP_LENGTH;
+    
+    const isSpinning = player.spinStartTime && now < player.spinStartTime + spinDuration;
+    if(!player.isDashing && !isSpinning){
+        ctx.save();
+        ctx.translate(player.x, player.y + bobOffset);
+        ctx.rotate(player.rotationAngle - Math.PI / 2);
+        ctx.fillStyle = '#322110';
+        ctx.beginPath(); 
+        ctx.arc(-FOOT_OFFSET_X, FOOT_OFFSET_Y + stepOffset, FOOT_SIZE, 0, Math.PI * 2); 
+        ctx.fill();
+        ctx.beginPath(); 
+        ctx.arc(FOOT_OFFSET_X, FOOT_OFFSET_Y - stepOffset, FOOT_SIZE, 0, Math.PI * 2); 
+        ctx.fill();
+        ctx.restore();
+    }
+
+    let playerSprite;
+    switch (player.facing) {
+        case 'up': playerSprite = sprites.playerUp; break;
+        case 'down': playerSprite = sprites.playerDown; break;
+        case 'left': playerSprite = sprites.playerLeft; break;
+        case 'right': playerSprite = sprites.playerRight; break;
+        default: playerSprite = sprites.playerDown;
+    }
+    
+    ctx.save();
+    ctx.translate(player.x, player.y + bobOffset);
+    if (isSpinning) {
+        const spinProgress = (now - player.spinStartTime) / spinDuration;
+        const rotation = spinProgress * 2.1 * Math.PI * player.spinDirection;
+        ctx.rotate(rotation);
+    }
+    ctx.drawImage(playerSprite, -player.size / 2, -player.size / 2, player.size, player.size);
+    ctx.restore();
+
+    // Draw dash cooldown bar
+    const dashCharge = Math.min(1, (now - player.lastDashTime) / player.dashCooldown);
+    if (dashCharge < 1) {
+        const barWidth = player.size * 0.8;
+        const barX = player.x - barWidth / 2;
+        const barY = player.y + player.size / 2 + 4;
+        ctx.fillStyle = '#444';
+        ctx.fillRect(barX, barY, barWidth, 4);
+        ctx.fillStyle = '#00FFFF';
+        ctx.fillRect(barX, barY, barWidth * dashCharge, 4);
+    }
+
+    // Draw dash invincibility shield
+    if (player.isInvincible) {
+        ctx.save();
+        ctx.globalAlpha = 0.5;
+        ctx.fillStyle = '#007BFF';
+        ctx.beginPath();
+        ctx.arc(player.x, player.y, player.size / 2 + 5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    }
+
+    // Draw gun
+    if (aimDx !== 0 || aimDy !== 0 || autoAimActive) {
+        const aimAngle = player.rotationAngle;
+        ctx.save();
+        ctx.translate(player.x, player.y + bobOffset);
+        ctx.rotate(aimAngle);
+        if (aimAngle > Math.PI / 2 || aimAngle < -Math.PI / 2) { ctx.scale(1, -1); }
+        const gunWidth = player.size * 0.8;
+        const gunHeight = gunWidth * (sprites.gun.height / sprites.gun.width);
+        const gunXOffset = player.size / 4;
+        const gunYOffset = -gunHeight / 2;
+        ctx.drawImage(sprites.gun, gunXOffset, gunYOffset, gunWidth, gunHeight);
+        if (dualGunActive) { 
+            ctx.save(); 
+            ctx.scale(-1, 1); 
+            ctx.drawImage(sprites.gun, -gunXOffset, gunYOffset, gunWidth, gunHeight); 
+            ctx.restore(); 
+        }
+        if (laserPointerActive) {
+            ctx.save(); 
+            ctx.beginPath();
+            const startX = gunXOffset + gunWidth * 0.9; 
+            const startY = gunYOffset + gunHeight / 2;
+            ctx.moveTo(startX, startY); 
+            const isMobile = document.body.classList.contains('is-mobile');
+            if (isMobile) { 
+                ctx.lineTo(1000, startY); 
+            } else {
+                const worldMouseX = mouseX / cameraZoom + finalCameraOffsetX; 
+                const worldMouseY = mouseY / cameraZoom + finalCameraOffsetY;
+                const rotatedMouseX = (worldMouseX - (player.x)) * Math.cos(-aimAngle) - (worldMouseY - (player.y + bobOffset)) * Math.sin(-aimAngle);
+                ctx.lineTo(rotatedMouseX, startY);
+            }
+            ctx.strokeStyle = 'rgba(255, 0, 0, 0.4)'; 
+            ctx.lineWidth = 1; 
+            ctx.stroke();
+            ctx.restore();
+        }
+        ctx.restore();
+    }
+    
+    // Draw doppelganger
+    if (doppelganger) {
+        ctx.save();
+        ctx.globalAlpha = 0.6; 
+        ctx.filter = 'hue-rotate(180deg)';
+        ctx.drawImage(playerSprite, doppelganger.x - doppelganger.size / 2, doppelganger.y - doppelganger.size / 2, doppelganger.size, doppelganger.size);
+        const gunWidth = doppelganger.size * 0.8; 
+        const gunHeight = gunWidth * (sprites.gun.height / sprites.gun.width);
+        const gunXOffset = doppelganger.size / 4; 
+        const gunYOffset = -gunHeight / 2;
+        ctx.translate(doppelganger.x, doppelganger.y); 
+        ctx.rotate(doppelganger.rotationAngle);
+        if (doppelganger.rotationAngle > Math.PI / 2 || doppelganger.rotationAngle < -Math.PI / 2) { ctx.scale(1, -1); }
+        ctx.drawImage(sprites.gun, gunXOffset, gunYOffset, gunWidth, gunHeight);
+        ctx.restore();
+    }
+
+    // Draw orbiting powerup
+    if (orbitingPowerUpActive && sprites.spinninglight) {
+        const orbitX = player.x + ORBIT_RADIUS * Math.cos(player.orbitAngle);
+        const orbitY = player.y + ORBIT_RADIUS * Math.sin(player.orbitAngle);
+        orbitingImageAngle -= 0.2;
+        ctx.save();
+        ctx.translate(orbitX, orbitY);
+        ctx.rotate(orbitingImageAngle);
+        ctx.drawImage(sprites.spinninglight, -ORBIT_POWER_UP_SIZE / 2, -ORBIT_POWER_UP_SIZE / 2, ORBIT_POWER_UP_SIZE, ORBIT_POWER_UP_SIZE);
+        ctx.restore();
+    }
+
+    // Draw sword swing
+    if (player.swordActive && player.currentSwordSwing) {
+        const SWORD_THRUST_DISTANCE = player.size * 0.7;
+        const swingProgress = (now - player.currentSwordSwing.startTime) / SWORD_SWING_DURATION;
+        let currentOffset = player.size / 2 + (swingProgress >= 0 && swingProgress <= 1 ? SWORD_THRUST_DISTANCE * Math.sin(swingProgress * Math.PI) : 0);
+        ctx.save();
+        ctx.translate(player.currentSwordSwing.x, player.currentSwordSwing.y);
+        ctx.rotate(player.currentSwordSwing.angle);
+        ctx.fillStyle = '#c0c0c0';
+        ctx.fillRect(currentOffset, -2, 20, 4);
+        ctx.restore();
+    }
+
+    // Draw dog companion
+    if (dogCompanionActive) {
+        const preRendered = preRenderedEntities['🐶'];
+        if(preRendered) ctx.drawImage(preRendered, dog.x - preRendered.width/2, dog.y - preRendered.height/2);
+    }
+    
+    // Draw player 2
+    if (player2 && player2.active) {
+        ctx.fillStyle = 'rgba(255, 255, 0, 0.5)';
+        ctx.beginPath(); 
+        ctx.arc(player2.x, player2.y, player2.size / 2, 0, Math.PI * 2); 
+        ctx.fill();
+        
+        let p2Sprite;
+        switch (player2.facing) {
+            case 'up': p2Sprite = sprites.playerUp; break;
+            case 'down': p2Sprite = sprites.playerDown; break;
+            case 'left': p2Sprite = sprites.playerLeft; break;
+            case 'right': p2Sprite = sprites.playerRight; break;
+            default: p2Sprite = sprites.playerDown;
+        }
+
+        const isP2Spinning = player2.spinStartTime && now < player2.spinStartTime + spinDuration;
+        
+        ctx.save();
+        ctx.translate(player2.x, player2.y);
+        if(isP2Spinning) {
+            const spinProgress = (now - player2.spinStartTime) / spinDuration;
+            const rotation = spinProgress * 2 * Math.PI * player2.spinDirection;
+            ctx.rotate(rotation);
+        }
+        ctx.drawImage(p2Sprite, -player2.size / 2, -player2.size / 2, player2.size, player2.size);
+        ctx.restore();
+        
+        ctx.save();
+        ctx.translate(player2.x, player2.y);
+        ctx.rotate(player2.gunAngle);
+        if (player2.gunAngle > Math.PI / 2 || player2.gunAngle < -Math.PI / 2) { ctx.scale(1, -1); }
+        const gunWidth = player2.size * 0.8; 
+        const gunHeight = gunWidth * (sprites.gun.height / sprites.gun.width);
+        ctx.drawImage(sprites.gun, player2.size / 4, -gunHeight / 2, gunWidth, gunHeight);
+        ctx.restore();
+        
+        const p2DashCharge = Math.min(1, (now - player2.lastDashTime) / player2.dashCooldown);
+        if (p2DashCharge < 1) {
+            const barWidth = player2.size * 0.8;
+            const barX = player2.x - barWidth / 2;
+            const barY = player2.y + player2.size / 2 + 4;
+            ctx.fillStyle = '#444';
+            ctx.fillRect(barX, barY, barWidth, 4);
+            ctx.fillStyle = '#00FFFF';
+            ctx.fillRect(barX, barY, barWidth * p2DashCharge, 4);
+        }
+    }
+
+    // Draw flies
+    flies.forEach(fly => {
+        const color = Math.floor(now / 100) % 2 === 0 ? 'red' : 'black';
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.arc(fly.x, fly.y, FLY_SIZE / 2, 0, Math.PI * 2);
+        ctx.fill();
+    });
+
+    // Draw owl and owl projectiles
+    if (nightOwlActive && owl) {
+        const preRendered = preRenderedEntities['🦉'];
+        if(preRendered) ctx.drawImage(preRendered, owl.x - preRendered.width/2, owl.y - preRendered.height/2);
+        
+        owlProjectiles.forEach(proj => {
+            ctx.save();
+            ctx.translate(proj.x, proj.y); 
+            ctx.rotate(proj.angle);
+            ctx.fillStyle = '#FFFACD';
+            ctx.beginPath(); 
+            ctx.arc(0, 0, proj.size / 2, 0, Math.PI * 2); 
+            ctx.fill();
+            ctx.restore();
+        });
+    }
+
+    // Draw whirlwind axe
+    if (whirlwindAxeActive) {
+        const axeX = player.x + WHIRLWIND_AXE_RADIUS * Math.cos(whirlwindAxeAngle);
+        const axeY = player.y + WHIRLWIND_AXE_RADIUS * Math.sin(whirlwindAxeAngle);
+        ctx.save();
+        ctx.translate(axeX, axeY);
+        ctx.rotate(whirlwindAxeAngle + Math.PI / 2);
+        const preRendered = preRenderedEntities['🪓'];
+        if(preRendered) ctx.drawImage(preRendered, -preRendered.width/2, -preRendered.height/2);
+        ctx.restore();
+    }
+
+    // Draw lightning strikes
+    lightningStrikes.forEach(strike => {
+        const age = now - strike.startTime;
+        const lifeRatio = age / strike.duration;
+        const alpha = Math.sin(lifeRatio * Math.PI);
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = 'yellow';
+        ctx.fillRect(strike.x - 5, 0, 10, WORLD_HEIGHT);
+        ctx.font = `40px sans-serif`; 
+        ctx.textAlign = 'center'; 
+        ctx.textBaseline = 'middle';
+        ctx.fillText('⚡', strike.x, strike.y);
+        ctx.restore();
+    });
+
+    // Draw floating texts
+    floatingTexts.forEach(ft => {
+        const elapsed = now - ft.startTime;
+        const alpha = 1.0 - (elapsed / ft.duration);
+        const yOffset = (elapsed / ft.duration) * 20; 
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, alpha);
+        ctx.font = 'bold 14px "Press Start 2P"';
+        ctx.fillStyle = ft.color || '#FFFFFF';
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = 3;
+        ctx.textAlign = 'center';
+        ctx.strokeText(ft.text, ft.x, ft.y - yOffset);
+        ctx.fillText(ft.text, ft.x, ft.y - yOffset);
+        ctx.restore();
+    });
+
+    ctx.restore();
+    ctx.restore();
+    
+    // Draw time stop overlay
+    if (isTimeStopped) {
+        const timeLeft = timeStopEndTime - now;
+        const duration = 2000;
+        let alpha = 0;
+        if (timeLeft > duration - 250) { 
+            alpha = 1 - (timeLeft - (duration - 250)) / 250; 
+        } else if (timeLeft < 500) { 
+            alpha = timeLeft / 500; 
+        } else { 
+            alpha = 1; 
+        }
+        alpha = Math.max(0, Math.min(alpha, 1)); 
+        ctx.save();
+        ctx.fillStyle = `rgba(0, 100, 255, ${alpha * 0.4})`;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.restore();
+    }
+
+    // Draw crosshair
+    if (isMouseInCanvas && gameActive && sprites.crosshair) {
+        const reticleSize = 16;
+        ctx.drawImage(sprites.crosshair, mouseX - reticleSize / 2, mouseY - reticleSize / 2, reticleSize, reticleSize);
+    }
+}
+
+// --- MAIN GAME LOOP ---
+
+function gameLoop() {
+    update();
+    handleGamepadInput();
+    draw();
+    updateUIStats();
+    if (!gameOver && gameActive) animationFrameId = requestAnimationFrame(gameLoop);
+}
+
+// --- WINDOW LOAD EVENT ---
+
+window.onload = function() {
+    if (isMobileDevice) { document.body.classList.add('is-mobile'); }
+    
+    loadPlayerData();
+    loadPlayerStats();
+    loadCheats();
+    displayHighScores();
+
+    resizeCanvas();
+    gameContainer.style.display = 'none'; 
+    difficultyContainer.style.display = 'none';
+    mapSelectContainer.style.display = 'none'; 
+    characterSelectContainer.style.display = 'none';
+    movementStickBase.style.display = 'none';
+    firestickBase.style.display = 'none'; 
+    upgradeMenu.style.display = 'none';
+    gameOverlay.style.display = 'none'; 
+    gameGuideModal.style.display = 'none';
+    achievementsModal.style.display = 'none'; 
+    cheatsModal.style.display = 'none';
+    pauseButton.style.display = 'none';
+
+    startButton.addEventListener('click', () => {
+        Tone.start().then(() => {
+            console.log("AudioContext started by user.");
+            showInitialScreen();
+        });
+    }, { once: true });
+    
+    [gameGuideModal, achievementsModal, cheatsModal, merchantShop].forEach(modal => {
+        if(modal){
+            const content = modal.querySelector('.content-wrapper') || modal.querySelector('.merchant-options-container');
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) { 
+                    if(modal.id === 'merchantShop') closeMerchantShop();
+                    else modal.style.display = 'none';
+                }
+            });
+            if(content) {
+                content.addEventListener('click', (e) => e.stopPropagation());
+                content.addEventListener('touchstart', (e) => e.stopPropagation());
+            }
+        }
+    });
+
+    difficultyButtons.forEach(button => {
+        button.addEventListener('click', (e) => {
+            vibrate(10);
+            playUISound('uiClick');
+            currentDifficulty = e.target.dataset.difficulty;
+            if (playerData.unlockedPickups.map_select) {
+                showMapSelectScreen();
+            } else {
+                selectedMapIndex = -1;
+                startGame();
+            }
+        });
+        button.addEventListener('mouseover', () => playUISound('uiClick'));
+    });
+
+    if (howToPlayButton) {
+        howToPlayButton.addEventListener('click', async () => { 
+            vibrate(10);
+            if (difficultyContainer) difficultyContainer.style.display = 'none';
+            if (gameGuideModal) gameGuideModal.style.display = 'flex';
+        });
+        howToPlayButton.addEventListener('mouseover', () => playUISound('uiClick'));
+    }
+
+    if (backToDifficultyButton) {
+        backToDifficultyButton.addEventListener('click', () => {
+            vibrate(10);
+            if (gameGuideModal) gameGuideModal.style.display = 'none';
+            if (difficultyContainer) difficultyContainer.style.display = 'block';
+        });
+    }
+    
+    backToDifficultySelectButton.addEventListener('click', () => {
+        vibrate(10); 
+        playUISound('uiClick');
+        selectedMapIndex = -1;
+        mapSelectContainer.style.display = 'none'; 
+        difficultyContainer.style.display = 'block';
+    });
+    
+    characterSelectButton.addEventListener('click', () => {
+        vibrate(10); 
+        playUISound('uiClick');
+        showCharacterSelectScreen();
+    });
+
+    backToMenuFromCharsButton.addEventListener('click', () => {
+        vibrate(10); 
+        playUISound('uiClick');
+        characterSelectContainer.style.display = 'none';
+        difficultyContainer.style.display = 'block';
+    });
+
+    const openShopAction = () => { 
+        vibrate(10); 
+        playUISound('uiClick'); 
+        openUpgradeShop(); 
+    };
+    desktopUpgradesButton.addEventListener('click', openShopAction);
+    if (mobileMenuUpgradesButton) mobileMenuUpgradesButton.addEventListener('click', openShopAction);
+
+    backToMenuButton.addEventListener('click', () => { 
+        vibrate(10); 
+        playUISound('uiClick'); 
+        showDifficultyScreen(); 
+    });
+    
+    const resetAction = () => { 
+        vibrate(20); 
+        resetAllData(); 
+    };
+    desktopResetButton.addEventListener('click', resetAction);
+    mobileResetButton.addEventListener('click', resetAction);
+    
+    const achievementsAction = () => {
+        vibrate(10); 
+        playUISound('uiClick');
+        difficultyContainer.style.display = 'none';
+        displayAchievements();
+        achievementsModal.style.display = 'flex';
+    };
+    desktopAchievementsButton.addEventListener('click', achievementsAction);
+    if(mobileMenuTrophiesButton) mobileMenuTrophiesButton.addEventListener('click', achievementsAction);
+    
+    const cheatsAction = () => {
+        vibrate(10); 
+        playUISound('uiClick');
+        achievementsModal.style.display = 'none';
+        displayCheats();
+        cheatsModal.style.display = 'flex';
+    };
+    cheatsMenuButton.addEventListener('click', cheatsAction);
+    if(mobileMenuCheatsButton) mobileMenuCheatsButton.addEventListener('click', cheatsAction);
+    
+    backToMenuFromAchievements.addEventListener('click', () => {
+        vibrate(10); 
+        playUISound('uiClick');
+        achievementsModal.style.display = 'none';
+        difficultyContainer.style.display = 'block';
+    });
+
+    backToAchievementsButton.addEventListener('click', () => {
+        vibrate(10); 
+        playUISound('uiClick');
+        cheatsModal.style.display = 'none';
+        displayAchievements();
+        achievementsModal.style.display = 'flex';
+    });
+
+    if(pauseButton) {
+        pauseButton.addEventListener('click', togglePause);
+        pauseButton.addEventListener('touchstart', (e) => { 
+            e.preventDefault(); 
+            vibrate(10); 
+            togglePause(); 
+        });
+    }
+
+    if(resumeButton) {
+        const resumeAction = (e) => { 
+            e.preventDefault(); 
+            vibrate(10); 
+            playUISound('uiClick'); 
+            togglePause(); 
+        };
+        resumeButton.addEventListener('click', resumeAction);
+        resumeButton.addEventListener('touchstart', resumeAction);
+    }
+    
+    leaveMerchantButton.addEventListener('click', () => {
+        vibrate(10);
+        playUISound('uiClick');
+        closeMerchantShop();
+    });
+
+    musicVolumeSlider.addEventListener('input', (e) => { 
+        if (currentBGMPlayer) { 
+            currentBGMPlayer.volume.value = e.target.value; 
+        } 
+    });
+
+    effectsVolumeSlider.addEventListener('input', (e) => {
+        const newVolume = parseFloat(e.target.value);
+        for (const key in audioPlayers) { 
+            if (audioPlayers.hasOwnProperty(key)) { 
+                audioPlayers[key].volume.value = newVolume; 
+            } 
+        }
+        swordSwingSynth.volume.value = newVolume; 
+        eyeProjectileHitSynth.volume.value = newVolume; 
+        bombExplosionSynth.volume.value = newVolume;
+    });
+
+    zoomToggle.addEventListener('change', (e) => { 
+        cameraZoom = e.target.checked ? 1.4 : 1.0; 
+    });
+
+    pauseRestartButton.addEventListener('click', () => {
+        playUISound('uiClick'); 
+        vibrate(10); 
+        togglePause(); 
+        endGame(); 
+        showDifficultyScreen();
+    });
+
+    restartButton.addEventListener('click', () => {
+        vibrate(10);
+        playUISound('uiClick');
+        showDifficultyScreen();
+    });
+};
