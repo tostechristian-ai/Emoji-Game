@@ -24,7 +24,8 @@
     } catch (e) {}
   }
 
-  waitFor(() => (typeof CHARACTERS !== 'undefined' && typeof UNLOCKABLE_PICKUPS !== 'undefined' && typeof ACHIEVEMENTS !== 'undefined' && typeof playerData !== 'undefined' && typeof sprites !== 'undefined' && typeof preRenderEmoji !== 'undefined' && typeof preRenderedEntities !== 'undefined' && typeof draw !== 'undefined' && typeof triggerDash !== 'undefined'), init, 8000);
+  // Wait for all necessary game variables to be defined before initializing the plugin
+  waitFor(() => (typeof CHARACTERS !== 'undefined' && typeof UNLOCKABLE_PICKUPS !== 'undefined' && typeof ACHIEVEMENTS !== 'undefined' && typeof playerData !== 'undefined' && typeof sprites !== 'undefined' && typeof preRenderEmoji !== 'undefined' && typeof preRenderedEntities !== 'undefined' && typeof draw !== 'undefined' && typeof triggerDash !== 'undefined' && typeof update !== 'undefined'), init, 8000);
 
   function init() {
     log('Initializing skull character plugin...');
@@ -42,6 +43,7 @@
     const SKULL_RENDER_SIZE = 28;
     const BONE_RENDER_SIZE = 12;
 
+    // Define or update the character in the main game's character list
     if (!CHARACTERS[SKULL_ID]) {
       CHARACTERS[SKULL_ID] = {
         id: SKULL_ID,
@@ -57,6 +59,7 @@
         CHARACTERS[SKULL_ID].perk = 'V-spread bones (0.5x dmg) + 6-bone dash nova.';
     }
 
+    // Add the character as an unlockable item in the permanent upgrade shop
     if (!UNLOCKABLE_PICKUPS[SKULL_ID]) {
         UNLOCKABLE_PICKUPS[SKULL_ID] = {
             name: 'The Skeleton',
@@ -66,6 +69,7 @@
         };
     }
     
+    // Pre-render emojis for performance
     try {
       preRenderEmoji(BONE_EMOJI, BONE_RENDER_SIZE);
       preRenderEmoji(SKULL_EMOJI, SKULL_RENDER_SIZE);
@@ -80,17 +84,21 @@
       player._isSkull = true;
       if (player._skull_damage_backup === undefined) player._skull_damage_backup = player.damageMultiplier;
       if (player._skull_vshape_backup === undefined) player._skull_vshape_backup = window.vShapeProjectileLevel || 0;
+      
+      // Apply skull-specific modifiers
       player.damageMultiplier = player._skull_damage_backup * 0.5;
       if (typeof window.vShapeProjectileLevel !== 'undefined') {
         window.vShapeProjectileLevel = Math.max(1, player._skull_vshape_backup);
       }
-      log('Skull stats applied: 0.5x damage, V-spread enabled, 6-bone dash nova.');
+      log('Skull stats applied: 0.5x damage, V-spread enabled.');
     }
 
     function resetSkullFromPlayer() {
       if (!player || !player._isSkull) return;
       player._isSkull = false;
       if (sprites._backup_bullet) sprites.bullet = sprites._backup_bullet;
+      
+      // Restore original stats
       if (player._skull_damage_backup !== undefined) {
         player.damageMultiplier = player._skull_damage_backup;
         delete player._skull_damage_backup;
@@ -104,6 +112,7 @@
       log('Skull stats removed.');
     }
 
+    // Patch the unlock function to also unlock the achievement if bought
     (function patchBuyUnlockable() {
       if (typeof buyUnlockable !== 'function') { setTimeout(patchBuyUnlockable, 100); return; }
       const orig = buyUnlockable;
@@ -113,6 +122,7 @@
       };
     })();
 
+    // Hook the character selection screen to apply/reset stats immediately
     (function hookCharacterTiles() {
       const container = document.getElementById('characterTilesContainer');
       if (!container) { setTimeout(hookCharacterTiles, 100); return; }
@@ -129,12 +139,52 @@
       });
     })();
     
+    // Initial check in case the character is already equipped on load
     try {
       if (typeof equippedCharacterID !== 'undefined' && equippedCharacterID === SKULL_ID) {
         applySkullToPlayer();
       }
     } catch (e) {}
 
+    // ================================================================================= //
+    // ============================= START: THE FIX ==================================== //
+    // ================================================================================= //
+    // This new function patches the main `update` loop. It constantly checks if the
+    // skull character's properties need to be applied or removed, fixing the issue
+    // where `startGame()` would wipe them out.
+    (function patchUpdate() {
+        if (typeof update !== 'function') { setTimeout(patchUpdate, 100); return; }
+        const origUpdate = window.update;
+
+        window.update = function(...args) {
+            try {
+                // Only run this logic when the game is active
+                if (gameActive && typeof equippedCharacterID !== 'undefined' && typeof player !== 'undefined') {
+                    // IF: The skull character is selected but its special property is missing...
+                    if (equippedCharacterID === SKULL_ID && !player._isSkull) {
+                        // THEN: Re-apply the skull stats.
+                        applySkullToPlayer();
+                    } 
+                    // IF: Another character is selected but the skull property still exists...
+                    else if (equippedCharacterID !== SKULL_ID && player._isSkull) {
+                        // THEN: Remove the skull stats to return to normal.
+                        resetSkullFromPlayer();
+                    }
+                }
+            } catch (e) {
+                console.error('[SkullPlugin] Error in update patch:', e);
+            }
+
+            // Finally, call the original game update function to let the game run normally
+            return origUpdate.apply(this, args);
+        };
+        log('update() function patched to ensure Skull state persistence.');
+    })();
+    // ================================================================================= //
+    // ============================== END: THE FIX ===================================== //
+    // ================================================================================= //
+
+    // Patch the drawing function to render the skull and bones instead of the player and bullets
     (function patchDraw() {
       if (typeof draw !== 'function') { setTimeout(patchDraw, 100); return; }
       const origDraw = window.draw;
@@ -238,7 +288,7 @@
       }
     }
 
-    // === FIXED DASH NOVA TRIGGER ===
+    // Patch the main game's triggerDash function to add our nova effect
     (function patchTriggerDash() {
       if (typeof triggerDash !== 'function') {
         setTimeout(patchTriggerDash, 100);
@@ -248,10 +298,17 @@
       const orig_triggerDash = window.triggerDash;
       
       window.triggerDash = function(entity, ...rest) {
-        // Call the original dash function first
+        // First, check if a dash is even possible for the entity *before* calling the original.
+        // This prevents the nova from firing on a failed dash attempt.
+        const now = Date.now();
+        if (!entity || entity.isDashing || now - entity.lastDashTime < entity.dashCooldown) {
+            return; // Dash is on cooldown or entity is already dashing, do nothing.
+        }
+
+        // Call the original dash function to perform the dash movement and effects
         const result = orig_triggerDash.call(this, entity, ...rest);
         
-        // If this is the player AND they're the skull character, fire the nova
+        // If the dash was for the main player AND they're the skull character, fire the nova
         if (entity === player && player._isSkull) {
           log('Dash triggered for skull character - firing nova!');
           createSkullNova();
