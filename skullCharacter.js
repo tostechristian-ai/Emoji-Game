@@ -61,7 +61,7 @@
         UNLOCKABLE_PICKUPS[SKULL_ID] = {
             name: 'The Skeleton',
             desc: 'Unlocks the Skeleton character.',
-            cost: 1000,
+            cost: 500,
             icon: SKULL_EMOJI
         };
     }
