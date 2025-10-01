@@ -1,4 +1,4 @@
-// skullCharacter.js - V-spread bones + 6-bone dash nova (FIXED)
+// skullCharacter.js - V-spread bones + 6-bone dash nova (FIXED v2)
 (function() {
   'use strict';
 
@@ -25,10 +25,10 @@
   }
 
   // Wait for all necessary game variables to be defined before initializing the plugin
-  waitFor(() => (typeof CHARACTERS !== 'undefined' && typeof UNLOCKABLE_PICKUPS !== 'undefined' && typeof ACHIEVEMENTS !== 'undefined' && typeof playerData !== 'undefined' && typeof sprites !== 'undefined' && typeof preRenderEmoji !== 'undefined' && typeof preRenderedEntities !== 'undefined' && typeof draw !== 'undefined' && typeof triggerDash !== 'undefined' && typeof update !== 'undefined'), init, 8000);
+  waitFor(() => (typeof CHARACTERS !== 'undefined' && typeof UNLOCKABLE_PICKUPS !== 'undefined' && typeof ACHIEVEMENTS !== 'undefined' && typeof startGame !== 'undefined' && typeof sprites !== 'undefined' && typeof preRenderEmoji !== 'undefined' && typeof preRenderedEntities !== 'undefined' && typeof draw !== 'undefined' && typeof triggerDash !== 'undefined'), init, 8000);
 
   function init() {
-    log('Initializing skull character plugin...');
+    log('Initializing skull character plugin v2...');
 
     const SKULL_ID = 'skull';
     const SKULL_ACH_ID = 'slayer';
@@ -112,6 +112,38 @@
       log('Skull stats removed.');
     }
 
+    // ================================================================================= //
+    // ============================= START: THE NEW FIX ================================ //
+    // ================================================================================= //
+    // This function patches the main `startGame` function. It lets the original
+    // function run first (which resets the player object), and then it immediately
+    // re-applies our skull properties if the character is equipped. This is the
+    // most reliable way to ensure the character works correctly at the start of a run.
+    (function patchStartGame() {
+        if (typeof startGame !== 'function') { setTimeout(patchStartGame, 100); return; }
+        const orig_startGame = window.startGame;
+
+        window.startGame = async function(...args) {
+            // Run the original startGame function first.
+            await orig_startGame.apply(this, args);
+
+            // Now that the game is started and the player object is reset,
+            // check if we need to apply our skull logic.
+            try {
+                if (typeof equippedCharacterID !== 'undefined' && equippedCharacterID === SKULL_ID) {
+                    log('Game started with Skull. Re-applying custom stats...');
+                    applySkullToPlayer();
+                }
+            } catch (e) {
+                console.error('[SkullPlugin] Error in startGame patch:', e);
+            }
+        };
+        log('startGame() patched to apply Skull stats after player reset.');
+    })();
+    // ================================================================================= //
+    // ============================== END: THE NEW FIX ================================= //
+    // ================================================================================= //
+    
     // Patch the unlock function to also unlock the achievement if bought
     (function patchBuyUnlockable() {
       if (typeof buyUnlockable !== 'function') { setTimeout(patchBuyUnlockable, 100); return; }
@@ -145,44 +177,6 @@
         applySkullToPlayer();
       }
     } catch (e) {}
-
-    // ================================================================================= //
-    // ============================= START: THE FIX ==================================== //
-    // ================================================================================= //
-    // This new function patches the main `update` loop. It constantly checks if the
-    // skull character's properties need to be applied or removed, fixing the issue
-    // where `startGame()` would wipe them out.
-    (function patchUpdate() {
-        if (typeof update !== 'function') { setTimeout(patchUpdate, 100); return; }
-        const origUpdate = window.update;
-
-        window.update = function(...args) {
-            try {
-                // Only run this logic when the game is active
-                if (gameActive && typeof equippedCharacterID !== 'undefined' && typeof player !== 'undefined') {
-                    // IF: The skull character is selected but its special property is missing...
-                    if (equippedCharacterID === SKULL_ID && !player._isSkull) {
-                        // THEN: Re-apply the skull stats.
-                        applySkullToPlayer();
-                    } 
-                    // IF: Another character is selected but the skull property still exists...
-                    else if (equippedCharacterID !== SKULL_ID && player._isSkull) {
-                        // THEN: Remove the skull stats to return to normal.
-                        resetSkullFromPlayer();
-                    }
-                }
-            } catch (e) {
-                console.error('[SkullPlugin] Error in update patch:', e);
-            }
-
-            // Finally, call the original game update function to let the game run normally
-            return origUpdate.apply(this, args);
-        };
-        log('update() function patched to ensure Skull state persistence.');
-    })();
-    // ================================================================================= //
-    // ============================== END: THE FIX ===================================== //
-    // ================================================================================= //
 
     // Patch the drawing function to render the skull and bones instead of the player and bullets
     (function patchDraw() {
@@ -298,8 +292,8 @@
       const orig_triggerDash = window.triggerDash;
       
       window.triggerDash = function(entity, ...rest) {
-        // First, check if a dash is even possible for the entity *before* calling the original.
-        // This prevents the nova from firing on a failed dash attempt.
+        // First, check if a dash is even possible for the entity.
+        // This prevents the nova from firing on a failed (cooldown) dash attempt.
         const now = Date.now();
         if (!entity || entity.isDashing || now - entity.lastDashTime < entity.dashCooldown) {
             return; // Dash is on cooldown or entity is already dashing, do nothing.
