@@ -1673,7 +1673,7 @@ if (firstCard) {
             if(oldScore !== newScore.toString()){ currentScoreSpan.textContent = newScore; }
             
             if (appleCounterSpan) appleCounterSpan.textContent = player.appleCount;
-            if (coinCounterSpan) coinCounterSpan.textContent = enemiesDefeatedCount;
+            if (coinCounterSpan) coinCounterSpan.textContent = player.coins;
             if (xpBar) xpBar.style.width = `${(player.xp / player.xpToNextLevel) * 100}%`;
         }
 
