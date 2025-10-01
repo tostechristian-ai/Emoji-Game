@@ -1,4 +1,4 @@
-// skullCharacter.js - V-spread bones + 6-bone dash nova (FIXED v2)
+// skullCharacter.js - V-spread bones + 6-bone dash nova (TIMER-BASED)
 (function() {
   'use strict';
 
@@ -24,11 +24,10 @@
     } catch (e) {}
   }
 
-  // Wait for all necessary game variables to be defined before initializing the plugin
-  waitFor(() => (typeof CHARACTERS !== 'undefined' && typeof UNLOCKABLE_PICKUPS !== 'undefined' && typeof ACHIEVEMENTS !== 'undefined' && typeof startGame !== 'undefined' && typeof sprites !== 'undefined' && typeof preRenderEmoji !== 'undefined' && typeof preRenderedEntities !== 'undefined' && typeof draw !== 'undefined' && typeof triggerDash !== 'undefined'), init, 8000);
+  waitFor(() => (typeof CHARACTERS !== 'undefined' && typeof UNLOCKABLE_PICKUPS !== 'undefined' && typeof ACHIEVEMENTS !== 'undefined' && typeof startGame !== 'undefined' && typeof playerData !== 'undefined' && typeof sprites !== 'undefined' && typeof preRenderEmoji !== 'undefined' && typeof preRenderedEntities !== 'undefined' && typeof draw !== 'undefined' && typeof handleGamepadInput !== 'undefined'), init, 8000);
 
   function init() {
-    log('Initializing skull character plugin v2...');
+    log('Initializing skull character plugin (Timer-Based Nova)...');
 
     const SKULL_ID = 'skull';
     const SKULL_ACH_ID = 'slayer';
@@ -42,8 +41,11 @@
     
     const SKULL_RENDER_SIZE = 28;
     const BONE_RENDER_SIZE = 12;
+    
+    // ================== NEW MECHANIC STATE ==================
+    let lastNovaTime = 0;
+    // ========================================================
 
-    // Define or update the character in the main game's character list
     if (!CHARACTERS[SKULL_ID]) {
       CHARACTERS[SKULL_ID] = {
         id: SKULL_ID,
@@ -59,7 +61,6 @@
         CHARACTERS[SKULL_ID].perk = 'V-spread bones (0.5x dmg) + 6-bone dash nova.';
     }
 
-    // Add the character as an unlockable item in the permanent upgrade shop
     if (!UNLOCKABLE_PICKUPS[SKULL_ID]) {
         UNLOCKABLE_PICKUPS[SKULL_ID] = {
             name: 'The Skeleton',
@@ -69,7 +70,6 @@
         };
     }
     
-    // Pre-render emojis for performance
     try {
       preRenderEmoji(BONE_EMOJI, BONE_RENDER_SIZE);
       preRenderEmoji(SKULL_EMOJI, SKULL_RENDER_SIZE);
@@ -84,8 +84,6 @@
       player._isSkull = true;
       if (player._skull_damage_backup === undefined) player._skull_damage_backup = player.damageMultiplier;
       if (player._skull_vshape_backup === undefined) player._skull_vshape_backup = window.vShapeProjectileLevel || 0;
-      
-      // Apply skull-specific modifiers
       player.damageMultiplier = player._skull_damage_backup * 0.5;
       if (typeof window.vShapeProjectileLevel !== 'undefined') {
         window.vShapeProjectileLevel = Math.max(1, player._skull_vshape_backup);
@@ -97,8 +95,6 @@
       if (!player || !player._isSkull) return;
       player._isSkull = false;
       if (sprites._backup_bullet) sprites.bullet = sprites._backup_bullet;
-      
-      // Restore original stats
       if (player._skull_damage_backup !== undefined) {
         player.damageMultiplier = player._skull_damage_backup;
         delete player._skull_damage_backup;
@@ -112,23 +108,11 @@
       log('Skull stats removed.');
     }
 
-    // ================================================================================= //
-    // ============================= START: THE NEW FIX ================================ //
-    // ================================================================================= //
-    // This function patches the main `startGame` function. It lets the original
-    // function run first (which resets the player object), and then it immediately
-    // re-applies our skull properties if the character is equipped. This is the
-    // most reliable way to ensure the character works correctly at the start of a run.
     (function patchStartGame() {
         if (typeof startGame !== 'function') { setTimeout(patchStartGame, 100); return; }
         const orig_startGame = window.startGame;
-
         window.startGame = async function(...args) {
-            // Run the original startGame function first.
             await orig_startGame.apply(this, args);
-
-            // Now that the game is started and the player object is reset,
-            // check if we need to apply our skull logic.
             try {
                 if (typeof equippedCharacterID !== 'undefined' && equippedCharacterID === SKULL_ID) {
                     log('Game started with Skull. Re-applying custom stats...');
@@ -140,11 +124,7 @@
         };
         log('startGame() patched to apply Skull stats after player reset.');
     })();
-    // ================================================================================= //
-    // ============================== END: THE NEW FIX ================================= //
-    // ================================================================================= //
     
-    // Patch the unlock function to also unlock the achievement if bought
     (function patchBuyUnlockable() {
       if (typeof buyUnlockable !== 'function') { setTimeout(patchBuyUnlockable, 100); return; }
       const orig = buyUnlockable;
@@ -154,7 +134,6 @@
       };
     })();
 
-    // Hook the character selection screen to apply/reset stats immediately
     (function hookCharacterTiles() {
       const container = document.getElementById('characterTilesContainer');
       if (!container) { setTimeout(hookCharacterTiles, 100); return; }
@@ -171,14 +150,12 @@
       });
     })();
     
-    // Initial check in case the character is already equipped on load
     try {
       if (typeof equippedCharacterID !== 'undefined' && equippedCharacterID === SKULL_ID) {
         applySkullToPlayer();
       }
     } catch (e) {}
 
-    // Patch the drawing function to render the skull and bones instead of the player and bullets
     (function patchDraw() {
       if (typeof draw !== 'function') { setTimeout(patchDraw, 100); return; }
       const origDraw = window.draw;
@@ -245,7 +222,6 @@
 
     function createSkullNova() {
       try {
-        log('Creating skull nova...');
         if (!window.weaponPool || !window.player) {
           log('Nova failed: weaponPool or player not found.');
           return;
@@ -272,7 +248,7 @@
           }
         }
         if (bonesCreated > 0) {
-          log(`✓ Created ${bonesCreated}/${NOVA_COUNT} nova bones.`);
+          log(`✓ Fired ${bonesCreated}/${NOVA_COUNT} nova bones.`);
           if (typeof playSound === 'function') playSound('playerShoot');
         } else {
           log('✗ No inactive weapons available for nova.');
@@ -282,36 +258,85 @@
       }
     }
 
-    // Patch the main game's triggerDash function to add our nova effect
-    (function patchTriggerDash() {
-      if (typeof triggerDash !== 'function') {
-        setTimeout(patchTriggerDash, 100);
-        return;
-      }
+    // ================================================================================= //
+    // ====================== NEW NOVA TRIGGER LOGIC (TIMER-BASED) ===================== //
+    // ================================================================================= //
 
-      const orig_triggerDash = window.triggerDash;
-      
-      window.triggerDash = function(entity, ...rest) {
-        // First, check if a dash is even possible for the entity.
-        // This prevents the nova from firing on a failed (cooldown) dash attempt.
+    // This is the central function for the new nova mechanic. It checks the cooldown and fires.
+    function tryFireSkullNova() {
+        if (!gameActive || !player || !player._isSkull) return; // Safety checks
+
         const now = Date.now();
-        if (!entity || entity.isDashing || now - entity.lastDashTime < entity.dashCooldown) {
-            return; // Dash is on cooldown or entity is already dashing, do nothing.
-        }
+        // Check for the dash cooldown upgrade and adjust the nova cooldown accordingly.
+        const cooldown = (playerData && playerData.hasReducedDashCooldown) ? 1500 : 3000;
 
-        // Call the original dash function to perform the dash movement and effects
-        const result = orig_triggerDash.call(this, entity, ...rest);
-        
-        // If the dash was for the main player AND they're the skull character, fire the nova
-        if (entity === player && player._isSkull) {
-          log('Dash triggered for skull character - firing nova!');
-          createSkullNova();
+        if (now - lastNovaTime >= cooldown) {
+            log('Nova cooldown ready. Firing!');
+            createSkullNova();
+            lastNovaTime = now;
+        } else {
+            log('Nova on cooldown.');
         }
-        
-        return result;
-      };
-      
-      log('triggerDash() successfully patched for Skull Nova.');
+    }
+
+    // 1. Hook for Mouse Clicks
+    (function hookCanvasClick() {
+        const canvas = document.getElementById('gameCanvas');
+        if (!canvas) { setTimeout(hookCanvasClick, 100); return; }
+        canvas.addEventListener('mousedown', (e) => {
+            if (e.button === 0) { // Only for left click
+                tryFireSkullNova();
+            }
+        });
+        log('Canvas mousedown hooked for Skull Nova.');
+    })();
+
+    // 2. Hook for Mobile Double-Taps
+    (function hookTouch() {
+        let lastTapTime = 0;
+        const firestickBase = document.getElementById('fire-stick-base');
+        if (!firestickBase) { setTimeout(hookTouch, 100); return; }
+
+        document.body.addEventListener('touchstart', (e) => {
+            if (!gameActive || gamePaused || gameOver) return;
+            for (let i = 0; i < e.changedTouches.length; i++) {
+                const touch = e.changedTouches[i];
+                const fireRect = firestickBase.getBoundingClientRect();
+                if (touch.clientX > fireRect.left && touch.clientX < fireRect.right && touch.clientY > fireRect.top && touch.clientY < fireRect.bottom) {
+                    const now = Date.now();
+                    if (now - lastTapTime < 300) { // Double tap detection
+                        tryFireSkullNova();
+                    }
+                    lastTapTime = now;
+                }
+            }
+        }, { passive: false });
+        log('Body touchstart hooked for Skull Nova.');
+    })();
+
+    // 3. Hook for Gamepad Input
+    (function patchGamepadInput() {
+        if (typeof handleGamepadInput !== 'function') { setTimeout(patchGamepadInput, 100); return; }
+        const orig_handleGamepadInput = window.handleGamepadInput;
+
+        window.handleGamepadInput = function(...args) {
+            orig_handleGamepadInput.apply(this, args); // Run original logic first
+
+            try {
+                if (gamepadIndex == null) return;
+                const gp = navigator.getGamepads?.()[gamepadIndex];
+                if (!gp) return;
+
+                const pressed = (i) => !!gp.buttons?.[i]?.pressed;
+                if (pressed(7) && !gp._skullNovaLatch) { // Right Trigger
+                    gp._skullNovaLatch = true; // Use our own latch to fire only once per press
+                    tryFireSkullNova();
+                } else if (!pressed(7)) {
+                    gp._skullNovaLatch = false;
+                }
+            } catch(e) { /* ignore errors */ }
+        };
+        log('handleGamepadInput() patched for Skull Nova.');
     })();
 
     log('Skull plugin ready - All features enabled!');
