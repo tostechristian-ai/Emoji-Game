@@ -1,4 +1,4 @@
-// skullCharacter.js - V-spread bones + 6-bone dash nova
+// skullCharacter.js - V-spread bones + 6-bone dash nova (FIXED)
 (function() {
   'use strict';
 
@@ -24,7 +24,7 @@
     } catch (e) {}
   }
 
-  waitFor(() => (typeof CHARACTERS !== 'undefined' && typeof UNLOCKABLE_PICKUPS !== 'undefined' && typeof ACHIEVEMENTS !== 'undefined' && typeof playerData !== 'undefined' && typeof sprites !== 'undefined' && typeof preRenderEmoji !== 'undefined' && typeof preRenderedEntities !== 'undefined' && typeof draw !== 'undefined' && typeof update !== 'undefined'), init, 8000);
+  waitFor(() => (typeof CHARACTERS !== 'undefined' && typeof UNLOCKABLE_PICKUPS !== 'undefined' && typeof ACHIEVEMENTS !== 'undefined' && typeof playerData !== 'undefined' && typeof sprites !== 'undefined' && typeof preRenderEmoji !== 'undefined' && typeof preRenderedEntities !== 'undefined' && typeof draw !== 'undefined' && typeof triggerDash !== 'undefined'), init, 8000);
 
   function init() {
     log('Initializing skull character plugin...');
@@ -201,7 +201,7 @@
 
     function createSkullNova() {
       try {
-        log('Attempting to create skull nova...');
+        log('Creating skull nova...');
         if (!window.weaponPool || !window.player) {
           log('Nova failed: weaponPool or player not found.');
           return;
@@ -228,53 +228,39 @@
           }
         }
         if (bonesCreated > 0) {
-          log(`SUCCESS: Created ${bonesCreated}/${NOVA_COUNT} nova bones.`);
+          log(`✓ Created ${bonesCreated}/${NOVA_COUNT} nova bones.`);
           if (typeof playSound === 'function') playSound('playerShoot');
         } else {
-          log('FAIL: Could not find any inactive weapons in the pool to create nova bones.');
+          log('✗ No inactive weapons available for nova.');
         }
       } catch (e) {
         console.error('[SkullPlugin] Nova creation error:', e);
       }
     }
 
-    // --- DODGE NOVA LOGIC (DEFINITIVE FIX) ---
-    (function patchUpdateLoop() {
-      if (typeof update !== 'function') {
-        setTimeout(patchUpdateLoop, 100);
+    // === FIXED DASH NOVA TRIGGER ===
+    (function patchTriggerDash() {
+      if (typeof triggerDash !== 'function') {
+        setTimeout(patchTriggerDash, 100);
         return;
       }
 
-      // This flag is now stored privately here, safe from the main game script.
-      let hasFiredNovaForThisDash = false;
-      const orig_update = window.update;
-
-      window.update = function(...args) {
-        // Run the original game update logic first.
-        orig_update.apply(this, args);
-
-        try {
-          // After the game state is updated, check our character.
-          if (player && player._isSkull) {
-            if (player.isDashing) {
-              // If the player is dashing and our private flag is false, fire the nova.
-              if (!hasFiredNovaForThisDash) {
-                createSkullNova();
-                hasFiredNovaForThisDash = true; // Set the flag so we don't fire again.
-              }
-            } else {
-              // If the player is not dashing, reset our flag.
-              hasFiredNovaForThisDash = false;
-            }
-          } else {
-             // If it's not the skull character, ensure the flag is reset.
-            hasFiredNovaForThisDash = false;
-          }
-        } catch (e) {
-          console.error('[SkullPlugin] Error in update patch:', e);
+      const orig_triggerDash = window.triggerDash;
+      
+      window.triggerDash = function(entity, ...rest) {
+        // Call the original dash function first
+        const result = orig_triggerDash.call(this, entity, ...rest);
+        
+        // If this is the player AND they're the skull character, fire the nova
+        if (entity === player && player._isSkull) {
+          log('Dash triggered for skull character - firing nova!');
+          createSkullNova();
         }
+        
+        return result;
       };
-      log('Game `update` loop patched successfully for Skull Nova.');
+      
+      log('triggerDash() successfully patched for Skull Nova.');
     })();
 
     log('Skull plugin ready - All features enabled!');
