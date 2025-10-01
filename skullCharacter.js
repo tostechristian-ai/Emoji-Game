@@ -1,4 +1,4 @@
-// skullCharacter.js - V-spread bones + 6-bone dash nova (TIMER-BASED)
+// skullCharacter.js - V-spread bones + 6-bone dash nova (PROPERLY INTEGRATED)
 (function() {
   'use strict';
 
@@ -24,10 +24,10 @@
     } catch (e) {}
   }
 
-  waitFor(() => (typeof CHARACTERS !== 'undefined' && typeof UNLOCKABLE_PICKUPS !== 'undefined' && typeof ACHIEVEMENTS !== 'undefined' && typeof startGame !== 'undefined' && typeof playerData !== 'undefined' && typeof sprites !== 'undefined' && typeof preRenderEmoji !== 'undefined' && typeof preRenderedEntities !== 'undefined' && typeof draw !== 'undefined' && typeof handleGamepadInput !== 'undefined'), init, 8000);
+  waitFor(() => (typeof CHARACTERS !== 'undefined' && typeof UNLOCKABLE_PICKUPS !== 'undefined' && typeof ACHIEVEMENTS !== 'undefined' && typeof startGame !== 'undefined' && typeof playerData !== 'undefined' && typeof sprites !== 'undefined' && typeof preRenderEmoji !== 'undefined' && typeof preRenderedEntities !== 'undefined' && typeof draw !== 'undefined' && typeof triggerDash !== 'undefined'), init, 8000);
 
   function init() {
-    log('Initializing skull character plugin (Timer-Based Nova)...');
+    log('Initializing skull character plugin (Dash-Integrated Nova)...');
 
     const SKULL_ID = 'skull';
     const SKULL_ACH_ID = 'slayer';
@@ -36,15 +36,11 @@
     const BONE_SPIN_SPEED = 0.25;
     const NOVA_COUNT = 6;
     const NOVA_SPEED = 6.0;
-    const NOVA_SIZE = 12;
+    const NOVA_SIZE = 20;
     const NOVA_LIFE = 1500;
     
     const SKULL_RENDER_SIZE = 28;
-    const BONE_RENDER_SIZE = 12;
-    
-    // ================== NEW MECHANIC STATE ==================
-    let lastNovaTime = 0;
-    // ========================================================
+    const BONE_RENDER_SIZE = 16;
 
     if (!CHARACTERS[SKULL_ID]) {
       CHARACTERS[SKULL_ID] = {
@@ -226,29 +222,33 @@
           log('Nova failed: weaponPool or player not found.');
           return;
         }
+        log('Creating skull nova...');
         let bonesCreated = 0;
         for (let i = 0; i < NOVA_COUNT; i++) {
           const angle = (i / NOVA_COUNT) * Math.PI * 2;
-          const weapon = weaponPool.find(w => !w.active);
-          if (weapon) {
+          
+          // Find an inactive weapon in the pool
+          for (const weapon of weaponPool) {
+            if (!weapon.active) {
               weapon.x = player.x;
               weapon.y = player.y;
-              weapon.size = NOVA_SIZE * player.projectileSizeMultiplier;
-              weapon.speed = NOVA_SPEED * player.projectileSpeedMultiplier;
+              weapon.size = NOVA_SIZE * (player.projectileSizeMultiplier || 1);
+              weapon.speed = NOVA_SPEED * (player.projectileSpeedMultiplier || 1);
               weapon.angle = angle;
               weapon.dx = Math.cos(angle) * weapon.speed;
               weapon.dy = Math.sin(angle) * weapon.speed;
               weapon.lifetime = Date.now() + NOVA_LIFE;
               weapon.hitsLeft = 1;
-              weapon.hitEnemies = weapon.hitEnemies || [];
-              weapon.hitEnemies.length = 0;
+              weapon.hitEnemies = [];
               weapon.active = true;
               weapon.spinAngle = angle;
               bonesCreated++;
+              break;
+            }
           }
         }
         if (bonesCreated > 0) {
-          log(`✓ Fired ${bonesCreated}/${NOVA_COUNT} nova bones.`);
+          log(`✔ Fired ${bonesCreated}/${NOVA_COUNT} nova bones.`);
           if (typeof playSound === 'function') playSound('playerShoot');
         } else {
           log('✗ No inactive weapons available for nova.');
@@ -259,86 +259,33 @@
     }
 
     // ================================================================================= //
-    // ====================== NEW NOVA TRIGGER LOGIC (TIMER-BASED) ===================== //
+    // ================== PROPERLY HOOK INTO THE EXISTING DASH SYSTEM ================= //
     // ================================================================================= //
 
-    // This is the central function for the new nova mechanic. It checks the cooldown and fires.
-    function tryFireSkullNova() {
-        if (!gameActive || !player || !player._isSkull) return; // Safety checks
-
-        const now = Date.now();
-        // Check for the dash cooldown upgrade and adjust the nova cooldown accordingly.
-        const cooldown = (playerData && playerData.hasReducedDashCooldown) ? 1500 : 3000;
-
-        if (now - lastNovaTime >= cooldown) {
-            log('Nova cooldown ready. Firing!');
-            createSkullNova();
-            lastNovaTime = now;
-        } else {
-            log('Nova on cooldown.');
+    // Patch the triggerDash function to add nova when skull character is active
+    (function patchTriggerDash() {
+        if (typeof triggerDash !== 'function') { 
+            setTimeout(patchTriggerDash, 100); 
+            return; 
         }
-    }
-
-    // 1. Hook for Mouse Clicks
-    (function hookCanvasClick() {
-        const canvas = document.getElementById('gameCanvas');
-        if (!canvas) { setTimeout(hookCanvasClick, 100); return; }
-        canvas.addEventListener('mousedown', (e) => {
-            if (e.button === 0) { // Only for left click
-                tryFireSkullNova();
+        
+        const orig_triggerDash = window.triggerDash;
+        window.triggerDash = function(entity, ...args) {
+            // Call the original dash function first
+            const result = orig_triggerDash.call(this, entity, ...args);
+            
+            // If it's the player dashing and skull character is active, create nova
+            if (entity === player && player._isSkull && entity.isDashing) {
+                log('Player dashed with skull character - triggering nova!');
+                createSkullNova();
             }
-        });
-        log('Canvas mousedown hooked for Skull Nova.');
-    })();
-
-    // 2. Hook for Mobile Double-Taps
-    (function hookTouch() {
-        let lastTapTime = 0;
-        const firestickBase = document.getElementById('fire-stick-base');
-        if (!firestickBase) { setTimeout(hookTouch, 100); return; }
-
-        document.body.addEventListener('touchstart', (e) => {
-            if (!gameActive || gamePaused || gameOver) return;
-            for (let i = 0; i < e.changedTouches.length; i++) {
-                const touch = e.changedTouches[i];
-                const fireRect = firestickBase.getBoundingClientRect();
-                if (touch.clientX > fireRect.left && touch.clientX < fireRect.right && touch.clientY > fireRect.top && touch.clientY < fireRect.bottom) {
-                    const now = Date.now();
-                    if (now - lastTapTime < 300) { // Double tap detection
-                        tryFireSkullNova();
-                    }
-                    lastTapTime = now;
-                }
-            }
-        }, { passive: false });
-        log('Body touchstart hooked for Skull Nova.');
-    })();
-
-    // 3. Hook for Gamepad Input
-    (function patchGamepadInput() {
-        if (typeof handleGamepadInput !== 'function') { setTimeout(patchGamepadInput, 100); return; }
-        const orig_handleGamepadInput = window.handleGamepadInput;
-
-        window.handleGamepadInput = function(...args) {
-            orig_handleGamepadInput.apply(this, args); // Run original logic first
-
-            try {
-                if (gamepadIndex == null) return;
-                const gp = navigator.getGamepads?.()[gamepadIndex];
-                if (!gp) return;
-
-                const pressed = (i) => !!gp.buttons?.[i]?.pressed;
-                if (pressed(7) && !gp._skullNovaLatch) { // Right Trigger
-                    gp._skullNovaLatch = true; // Use our own latch to fire only once per press
-                    tryFireSkullNova();
-                } else if (!pressed(7)) {
-                    gp._skullNovaLatch = false;
-                }
-            } catch(e) { /* ignore errors */ }
+            
+            return result;
         };
-        log('handleGamepadInput() patched for Skull Nova.');
+        
+        log('triggerDash() patched for Skull Nova integration.');
     })();
 
-    log('Skull plugin ready - All features enabled!');
+    log('Skull plugin ready - Bone nova will trigger on dash!');
   }
 })();
