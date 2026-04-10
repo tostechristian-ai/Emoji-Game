@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Emoji Survivor</title>
+
+  <!-- Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+
+  <!-- External CSS -->
+  <link rel="stylesheet" href="style.css">
+
+  <!-- Tone.js library -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.min.js"></script>
+</head>
+<body>
+  <!-- Start Screen -->
+  <div id="startScreen">
+    <button id="startButton">Tap to Start</button>
+  </div>
+
+  <!-- Loading Screen -->
+  <div id="loadingScreen">
+    <p id="loadingText">Loading Assets...</p>
+  </div>
+
+  <!-- Splash Screen -->
+  <div id="splashScreen">
+    <img id="splashLogo" src="sprites/toastygames.png" alt="Toasty Games Logo">
+  </div>
+
+  <!-- Difficulty Select -->
+  <div id="difficultyContainer">
+    <div id="difficultyScreen">
+      <h1 id="mainTitle">Emoji Survivor</h1>
+      <div id="highScoresContainer">
+        <h3>HIGH SCORES</h3>
+        <p>Easy: Lvl <span id="easyHighLevel">1</span> Score: <span id="easyHighScore">0</span></p>
+        <p>Medi: Lvl <span id="mediumHighLevel">1</span> Score: <span id="mediumHighScore">0</span></p>
+        <p>Hard: Lvl <span id="hardHighLevel">1</span> Score: <span id="hardHighScore">0</span></p>
+      </div>
+      <div class="emoji-container left-emoji">
+        <span class="spinning-emoji">🤠</span>
+      </div>
+      <div class="difficulty-buttons">
+        <button class="easy" data-difficulty="easy">Easy</button>
+        <button class="medium" data-difficulty="medium">Medium</button>
+        <button class="hard" data-difficulty="hard">Hard</button>
+        <button id="characterSelectButton" class="characters">Characters</button>
+        <button id="howToPlayButton">How to Play</button>
+      </div>
+      <div class="emoji-container right-emoji">
+        <span class="spinning-emoji">🤠</span>
+      </div>
+      <div class="bottom-menu-buttons">
+        <button id="desktopAchievementsButton" class="achievements">Trophies</button>
+        <button id="desktopResetButton">Reset</button>
+        <button id="desktopUpgradesButton" class="upgrades">Upgrades</button>
+      </div>
+      <div id="mobile-bottom-buttons">
+        <button id="mobileMenuTrophiesButton" class="achievements">Trophies</button>
+        <button id="mobileMenuUpgradesButton" class="upgrades">Upgrades</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Map Select -->
+  <div id="mapSelectContainer">
+    <div id="mapSelectScreen">
+      <h1>Select a Map</h1>
+      <div id="mapTilesContainer"></div>
+      <button id="backToDifficultySelectButton">Back</button>
+    </div>
+  </div>
+
+  <!-- Character Select -->
+  <div id="characterSelectContainer">
+    <div id="characterSelectScreen">
+      <h1>Choose Character</h1>
+      <div id="characterTilesContainer"></div>
+      <button id="backToMenuFromCharsButton">Back</button>
+    </div>
+  </div>
+
+  <!-- Upgrade Shop -->
+  <div id="upgradeShop">
+    <h2>Permanent Upgrades</h2>
+    <p id="currencyDisplay">Coins: 0 💰</p>
+    <div id="permanentUpgradesContainer"></div>
+
+    <h3>Unlockable Pickups</h3>
+    <div id="unlockablePickupsContainer"></div>
+
+    <button id="backToMenuButton" class="difficulty-buttons">Back</button>
+  </div>
+
+  <!-- Achievements -->
+  <div id="achievementsModal">
+    <div class="content-wrapper">
+      <h2>🏆 Achievements</h2>
+      <div id="achievementsContainer"></div>
+      <button id="cheatsMenuButton" style="background-color: #ff00ff; margin-top: 10px;">Cheats Menu</button>
+      <button id="backToMenuFromAchievements">Back</button>
+    </div>
+  </div>
+
+  <!-- Cheats -->
+  <div id="cheatsModal">
+    <div class="content-wrapper">
+      <h2>👾 Cheats Menu</h2>
+      <p style="font-size: 12px; color: #aaa; margin-bottom: 20px;">Unlock achievements to enable cheats!</p>
+      <div id="cheatsContainer"></div>
+      <button id="backToAchievementsButton">Back to Achievements</button>
+    </div>
+  </div>
+
+  <!-- Game Guide -->
+  <div id="gameGuideModal">
+    <div class="content-wrapper">
+      <h2>📜 Game Guide</h2>
+      <div class="guide-columns">
+
+        <div>
+          <h3>🎮 Controls</h3>
+          <ul>
+            <li><strong>WASD / Arrow Keys</strong> — Move</li>
+            <li><strong>Mouse</strong> — Aim &amp; fire direction</li>
+            <li><strong>Left Click</strong> — Dash (or fire if Click-to-Fire cheat on)</li>
+            <li><strong>P / Escape</strong> — Pause</li>
+            <li><strong>Insert</strong> — Spawn Player 2 (costs 1 life)</li>
+            <li><strong>Mobile</strong> — Left stick: move · Right stick: aim · Double-tap right stick: dash</li>
+            <li><strong>Gamepad</strong> — Left stick: move · Right stick: aim · RT: dash · Start/B: pause</li>
+          </ul>
+
+          <h3>⚔️ How to Play</h3>
+          <ul>
+            <li>Survive endless waves of emoji enemies.</li>
+            <li>Shoot enemies to earn XP — level up to choose a stat upgrade.</li>
+            <li>Collect 📦 boxes to unlock random power-ups.</li>
+            <li>Collect 🍎 apples (5 = +1 max heart &amp; full heal).</li>
+            <li>Find the 🧙‍♂️ Merchant to spend coins on power-ups or XP.</li>
+            <li>Shoot 🛢️ barrels to trigger a fire explosion.</li>
+            <li>Enemies get faster and tougher as you level up.</li>
+            <li>A boss spawns every 11 levels — much bigger and tougher!</li>
+          </ul>
+
+          <h3>📈 Level-Up Upgrades</h3>
+          <ul>
+            <li>🏃 <strong>Fast Runner</strong> — +8% movement speed</li>
+            <li>🔫 <strong>Rapid Fire</strong> — +8% fire rate</li>
+            <li>🧲 <strong>Magnet Field</strong> — +8% pickup radius</li>
+            <li>💥 <strong>Increased Damage</strong> — +15% bullet damage</li>
+            <li>💨 <strong>Swift Shots</strong> — +8% projectile speed</li>
+            <li>💪 <strong>Power Shot</strong> — +8% knockback</li>
+            <li>🍀 <strong>Lucky Charm</strong> — +0.5% drop rate</li>
+          </ul>
+
+          <h3>👾 Enemies</h3>
+          <ul>
+            <li>🧟 Zombie — basic pursuer (lvl 1+)</li>
+            <li>💀 Skull — faster pursuer (lvl 5+)</li>
+            <li>🌀 Snail — slow, leaves slowing puddles (lvl 4+)</li>
+            <li>🦟 Mosquito — erratic, leaves damage puddles (lvl 7+)</li>
+            <li>🦇 Bat — stop-and-dash movement (lvl 10+)</li>
+            <li>😈 Devil — moves on one axis at a time (lvl 12+)</li>
+            <li>👻 Ghost — phases in and out, can't be hit while invisible (lvl 12+)</li>
+            <li>👹 Demon — alternates chasing and random movement (lvl 15+)</li>
+            <li>👁️ Eye — keeps distance and fires projectiles (lvl 20+)</li>
+            <li>🧟‍♀️ Female Zombie — large and slow (lvl 25+)</li>
+            <li>🧛‍♀️ Vampire — dodges bullets, drops diamonds (lvl 30+)</li>
+            <li><strong>Boss</strong> — giant version of a random enemy, spawns every 11 levels</li>
+          </ul>
+        </div>
+
+        <div>
+          <h3>⚡ Power-Ups (from 📦 boxes)</h3>
+          <ul>
+            <li>🕊️ <strong>V-Shape Shots</strong> — fires multiple bullets in a spread (stacks x4)</li>
+            <li>🧲 <strong>Magnetic Shots</strong> — bullets home toward enemies</li>
+            <li>❄️ <strong>Ice Projectile</strong> — bullets briefly freeze enemies</li>
+            <li>🔄 <strong>Ricochet</strong> — bullets bounce to a second target</li>
+            <li>💥 <strong>Explosive Bullets</strong> — bullets explode on hit</li>
+            <li>💧 <strong>Puddle Trail</strong> — leaves slowing puddles as you move</li>
+            <li>🗡️ <strong>Auto-Sword</strong> — swings a sword around you every 2s</li>
+            <li>🔴 <strong>Laser Pointer</strong> — shows a targeting laser</li>
+            <li>🎯 <strong>Auto-Aim</strong> — bullets always target nearest enemy</li>
+            <li>🔫 <strong>Dual Gun</strong> — fires bullets in both directions</li>
+            <li>💣 <strong>Bomb Emitter</strong> — drops bombs that explode on contact</li>
+            <li>💫 <strong>Orbiter</strong> — a spinning light orbits and damages enemies</li>
+            <li>⭕ <strong>Damaging Circle</strong> — damages all enemies in a radius every 2s</li>
+            <li>⚡️ <strong>Lightning Bolt</strong> — fires a homing lightning bolt every 3s</li>
+            <li>🔥 <strong>Flaming Bullets</strong> — bullets ignite enemies (burn over time)</li>
+            <li>🚀 <strong>Heavy Shells</strong> — bigger, slower bullets that pierce twice</li>
+            <li>💥 <strong>Shotgun Blast</strong> — replaces bullets with an 8-pellet spread</li>
+          </ul>
+
+          <h3>🔓 Unlockable Power-Ups (buy in Upgrades shop)</h3>
+          <ul>
+            <li>👯 <strong>Doppelganger</strong> — a clone fights alongside you for 8s</li>
+            <li>⏱️ <strong>Temporal Ward</strong> — freezes time for 2s when you take damage</li>
+            <li>🐶 <strong>Dog Companion</strong> — a dog chases and kills enemies for you</li>
+            <li>🛡️ <strong>Vengeance Nova</strong> — a shockwave bursts out when you take damage</li>
+            <li>💨 <strong>Anti-Gravity</strong> — pushes all nearby enemies away every 5s</li>
+            <li>⚫ <strong>Black Hole</strong> — pulls all enemies to a point every 10s</li>
+            <li>🪓 <strong>Whirlwind Axe</strong> — an axe orbits you and damages enemies</li>
+            <li>🦉 <strong>Night Owl</strong> — an owl companion fires at enemies</li>
+            <li>🪰 <strong>Bug Swarm</strong> — sends flies to attack enemies every 9s</li>
+            <li>⚡ <strong>Lightning Strike</strong> — strikes a random enemy with lightning every 7s</li>
+            <li>🛡️💨 <strong>Dash Invincibility</strong> — you are invincible while dashing</li>
+          </ul>
+
+          <h3>🧑‍🤝‍🧑 Characters</h3>
+          <ul>
+            <li>🤠 <strong>Cowboy</strong> — default character, balanced stats</li>
+            <li>💀 <strong>Skeleton</strong> — unlock via "Slayer" trophy · shoots bones in a V-spread · dash fires a 6-bone nova</li>
+            <li>🪓 <strong>Lumberjack</strong> — buy in Upgrades shop (500 🪙) · throws spinning axes · no gun · dash fires an 8-axe nova</li>
+          </ul>
+
+          <h3>🏪 Permanent Upgrades Shop</h3>
+          <ul>
+            <li>Spend coins earned in runs to permanently boost stats.</li>
+            <li>Upgrades include: player damage, speed, magnet radius, luck, and more.</li>
+            <li>Unlockable power-ups and characters are also purchased here.</li>
+          </ul>
+
+          <h3>🏆 Trophies &amp; Cheats</h3>
+          <ul>
+            <li>Complete in-game challenges to earn trophies.</li>
+            <li>Each trophy unlocks a cheat you can toggle before a run.</li>
+            <li>Access via the Trophies button on the main menu.</li>
+          </ul>
+        </div>
+
+      </div>
+      <button id="backToDifficultyButton">Back to Difficulty Select</button>
+    </div>
+  </div>
+
+  <!-- Game Container -->
+  <div id="gameContainer">
+    <canvas id="gameCanvas"></canvas>
+    <div id="pauseButton">⏸️</div>
+    <div id="pauseOverlay">
+      <h2>Paused</h2>
+      <div class="pause-controls">
+        <label for="musicVolume">Music Volume</label>
+        <input type="range" id="musicVolume" min="-40" max="0" value="-10" step="1">
+        <label for="effectsVolume">Effects Volume</label>
+        <input type="range" id="effectsVolume" min="-40" max="0" value="0" step="1">
+        <div class="toggle-switch-container">
+          <label for="zoomToggle">Zoom</label>
+          <label class="switch">
+            <input type="checkbox" id="zoomToggle">
+            <span class="slider round"></span>
+          </label>
+        </div>
+        <div class="pause-button-group">
+          <button id="resumeButton">Resume</button>
+          <button id="pauseRestartButton">Restart</button>
+        </div>
+      </div>
+    </div>
+    <div id="gameStartOverlay">
+      <h2 id="gameStartText"></h2>
+      <p id="gameStartDifficulty"></p>
+    </div>
+  </div>
+
+  <!-- Game Stats -->
+  <div id="gameStats">
+    <p>Level: <span id="currentLevel">1</span></p>
+    <p>Score: <span id="currentScore">0</span></p>
+    <div id="xpBarContainer">
+      <div id="xpBar"></div>
+    </div>
+    <p>XP: <span id="currentXp">0</span>/<span id="requiredXp">10</span></p>
+    <p>Lives: <span id="playerLivesIcon">❤️❤️❤️</span></p>
+    <p>Apples: <span id="appleCounter">0</span>/5 🍎</p>
+    <p>Coins: <span id="coinCounter">0</span> 💰</p>
+    <div id="powerupIcons"></div>
+    <div id="upgradeStats"></div>
+  </div>
+
+  <!-- Mobile Reset -->
+  <button id="mobileResetButton" style="background-color: #808080;">Reset Game</button>
+
+  <!-- Joysticks -->
+  <div id="movement-stick-base" class="thumbstick-base">
+    <div id="movement-stick-cap" class="thumbstick-cap"></div>
+  </div>
+  <div id="fire-stick-base" class="thumbstick-base">
+    <div id="fire-stick-cap" class="thumbstick-cap"></div>
+  </div>
+
+  <!-- Upgrade Menu -->
+  <div id="upgradeMenu">
+    <img id="levelUpBox" src="" style="display: none; margin-bottom: 10px;" alt="Level Up!">
+    <h2>Level Up!</h2>
+    <div class="upgrade-options-container" id="upgradeOptionsContainer"></div>
+  </div>
+
+  <!-- Merchant -->
+  <div id="merchantShop">
+    <h2>Wandering Merchant 🧙‍♂️</h2>
+    <div class="merchant-options-container" id="merchantOptionsContainer"></div>
+    <button id="leaveMerchantButton">Leave</button>
+  </div>
+
+  <!-- Game Over -->
+  <div id="gameOverlay">
+    <h2>GAME OVER!</h2>
+    <p>Total Score: <span id="finalScore">0</span></p>
+    <p>Coins Earned: <span id="coinsEarned">0</span> 🪙</p>
+    <p>Time Played: <span id="finalTime">0s</span></p>
+    <div id="loadingStory" style="display: none;">Generating your legend...</div>
+    <div id="storytellerOutput"></div>
+    <button id="restartButton">Restart Game</button>
+  </div>
+
+  <!-- Achievement Banner -->
+  <div id="achievement-banner">
+    <div id="achievement-banner-icon" class="achievement-icon"></div>
+    <div class="achievement-details">
+      <h4 id="achievement-banner-name"></h4>
+      <p id="achievement-banner-desc"></p>
+    </div>
+  </div>
+  <script src="js/asset_loader.js"></script>
+  <script src="js/game_core.js"></script>
+  <script src="js/achievements.js"></script>
+  <script src="js/persistence_upgrades.js"></script>
+  <script src="js/game_merchant_powerups.js"></script>
+  <script src="js/game_update.js"></script>
+  <script src="js/game_render.js"></script>
+  <script src="js/game_bootstrap_ui.js"></script>
+  <script src="js/skull_character_plugin.js"></script>
+  <script src="js/lumberjack_character_plugin.js"></script>
+  <script src="js/knight_character_plugin.js"></script>
+  <script src="js/menu_effects.js"></script>
+  
+</body>
+</html>
