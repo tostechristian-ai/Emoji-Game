@@ -1519,6 +1519,16 @@
                 overflow: hidden;
             }
 
+            body.is-mobile #mobileMenuUpgradesButton {
+                background-image: url('sprites/upgrades.png');
+            }
+            body.is-mobile #mobileMenuTrophiesButton {
+                background-image: url('sprites/achievements.png');
+            }
+            body.is-mobile #mobileMenuResetButton {
+                background-image: url('sprites/reset.png');
+            }
+
             body.is-mobile #mobile-bottom-buttons button:hover {
                 transform: scale(1.05);
             }
@@ -1787,6 +1797,16 @@
         color: transparent;
         text-indent: -9999px;
         overflow: hidden;
+    }
+
+    body.is-mobile #mobileMenuUpgradesButton {
+        background-image: url('sprites/upgrades.png');
+    }
+    body.is-mobile #mobileMenuTrophiesButton {
+        background-image: url('sprites/achievements.png');
+    }
+    body.is-mobile #mobileMenuResetButton {
+        background-image: url('sprites/reset.png');
     }
 
     body.is-mobile #mobile-bottom-buttons button:hover {
