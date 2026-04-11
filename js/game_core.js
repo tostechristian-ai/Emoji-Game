@@ -257,6 +257,7 @@
         // New Mobile Menu Buttons
         const mobileMenuUpgradesButton = document.getElementById('mobileMenuUpgradesButton');
         const mobileMenuTrophiesButton = document.getElementById('mobileMenuTrophiesButton');
+        const mobileMenuResetButton = document.getElementById('mobileMenuResetButton');
         const mobileMenuCheatsButton = document.getElementById('mobileMenuCheatsButton');
 
         let quadtree; // *** OPTIMIZATION: Quadtree will be initialized here

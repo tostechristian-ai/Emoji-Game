@@ -636,7 +636,7 @@
         #desktopAchievementsButton, #mobileMenuTrophiesButton {
             background-image: url('sprites/achievements.png');
         }
-        #desktopResetButton {
+        #desktopResetButton, #mobileMenuResetButton {
             background-image: url('sprites/reset.png');
         }
         
@@ -1479,8 +1479,12 @@
             }
 
             body.is-mobile #difficultyScreen {
-                transform: scale(0.8);
+                transform: scale(0.75);
                 transform-origin: center center;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                align-items: center;
             }
 
             /* Hide desktop bottom buttons, show mobile ones */
@@ -1489,11 +1493,34 @@
             }
 
             body.is-mobile #mobile-bottom-buttons {
-                display: flex;
+                display: flex !important;
                 flex-direction: row;
                 gap: 15px;
                 justify-content: center;
                 margin-top: 10px;
+                flex-wrap: wrap;
+            }
+
+            /* Ensure mobile buttons use PNG backgrounds in landscape */
+            body.is-mobile #mobile-bottom-buttons button {
+                all: unset;
+                display: inline-block;
+                cursor: pointer;
+                width: 140px;
+                height: 45px;
+                background-size: contain;
+                background-repeat: no-repeat;
+                background-position: center;
+                transition: transform 0.2s;
+                box-sizing: border-box;
+                font-size: 0;
+                color: transparent;
+                text-indent: -9999px;
+                overflow: hidden;
+            }
+
+            body.is-mobile #mobile-bottom-buttons button:hover {
+                transform: scale(1.05);
             }
 
             body.is-mobile #gameContainer {
@@ -1697,7 +1724,7 @@
         display: none !important;
     }
 
-    /* Scale down the entire main menu to fit on screen */
+    /* Center and scale the main menu properly */
     body.is-mobile #difficultyContainer {
         width: 100vw;
         height: 100vh;
@@ -1709,15 +1736,14 @@
     }
 
     body.is-mobile #difficultyScreen {
-        transform: scale(0.75);
+        transform: scale(0.7);
         transform-origin: center center;
-        width: 133.33%; /* Compensate for scale */
-        height: 133.33%; /* Compensate for scale */
         display: flex;
         flex-direction: column;
         justify-content: center;
         align-items: center;
         gap: 15px;
+        padding: 20px;
     }
 
     body.is-mobile #highScoresContainer {
@@ -1734,13 +1760,36 @@
         display: none;
     }
 
-    /* Show mobile bottom buttons */
+    /* Show mobile bottom buttons with PNG backgrounds */
     body.is-mobile #mobile-bottom-buttons {
-        display: flex;
+        display: flex !important;
         flex-direction: row;
         gap: 15px;
         justify-content: center;
         margin-top: 10px;
+        flex-wrap: wrap;
+    }
+
+    /* Ensure mobile buttons use PNG backgrounds */
+    body.is-mobile #mobile-bottom-buttons button {
+        all: unset;
+        display: inline-block;
+        cursor: pointer;
+        width: 150px;
+        height: 50px;
+        background-size: contain;
+        background-repeat: no-repeat;
+        background-position: center;
+        transition: transform 0.2s;
+        box-sizing: border-box;
+        font-size: 0;
+        color: transparent;
+        text-indent: -9999px;
+        overflow: hidden;
+    }
+
+    body.is-mobile #mobile-bottom-buttons button:hover {
+        transform: scale(1.05);
     }
     
     #mobileCheatsButton {
