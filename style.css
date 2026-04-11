@@ -1476,7 +1476,6 @@
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                overflow: visible;
             }
 
             body.is-mobile #difficultyScreen {
@@ -1486,6 +1485,7 @@
                 flex-direction: column;
                 justify-content: center;
                 align-items: center;
+                position: relative;
             }
 
             /* Hide desktop bottom buttons, show mobile ones */
@@ -1501,9 +1501,9 @@
                 flex-wrap: wrap;
                 position: absolute;
                 bottom: 10px;
-                left: 0;
-                width: 100%;
-                z-index: 3002;
+                left: 50%;
+                transform: translateX(-50%);
+                z-index: 3001;
             }
 
             /* Ensure mobile buttons use PNG backgrounds in landscape */
@@ -1526,12 +1526,15 @@
 
             body.is-mobile #mobileMenuUpgradesButton {
                 background-image: url('sprites/upgrades.png');
+                border: 2px solid red !important;
             }
             body.is-mobile #mobileMenuTrophiesButton {
                 background-image: url('sprites/achievements.png');
+                border: 2px solid green !important;
             }
             body.is-mobile #mobileMenuResetButton {
                 background-image: url('sprites/reset.png');
+                border: 2px solid blue !important;
             }
 
             body.is-mobile #mobile-bottom-buttons button:hover {
@@ -1747,7 +1750,7 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        overflow: visible;
+        overflow: hidden;
         position: relative;
     }
 
@@ -1760,6 +1763,7 @@
         align-items: center;
         gap: 15px;
         padding: 20px;
+        position: relative;
     }
 
     body.is-mobile #highScoresContainer {
@@ -1784,10 +1788,10 @@
         justify-content: center;
         flex-wrap: wrap;
         position: absolute;
-        bottom: 18px;
-        left: 0;
-        width: 100%;
-        z-index: 3002;
+        bottom: 10px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 3001;
     }
 
     /* Ensure mobile buttons use PNG backgrounds */
@@ -1810,12 +1814,15 @@
 
     body.is-mobile #mobileMenuUpgradesButton {
         background-image: url('sprites/upgrades.png');
+        border: 2px solid red !important;
     }
     body.is-mobile #mobileMenuTrophiesButton {
         background-image: url('sprites/achievements.png');
+        border: 2px solid green !important;
     }
     body.is-mobile #mobileMenuResetButton {
         background-image: url('sprites/reset.png');
+        border: 2px solid blue !important;
     }
 
     body.is-mobile #mobile-bottom-buttons button:hover {
