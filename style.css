@@ -1498,12 +1498,7 @@
                 gap: 15px;
                 justify-content: center;
                 flex-wrap: wrap;
-                position: absolute;
-                bottom: 10px;
-                left: 50%;
-                transform: translateX(-50%);
-                z-index: 3001;
-                width: 100%;
+                margin-top: 10px;
             }
 
             /* Ensure mobile buttons use PNG backgrounds in landscape */
@@ -1737,7 +1732,7 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        overflow: visible;
+        overflow: hidden;
         position: relative;
     }
 
@@ -1773,12 +1768,7 @@
         gap: 15px;
         justify-content: center;
         flex-wrap: wrap;
-        position: absolute;
-        bottom: 10px;
-        left: 50%;
-        transform: translateX(-50%);
-        z-index: 3001;
-        width: 100%;
+        margin-top: 10px;
     }
 
     /* Ensure mobile buttons use PNG backgrounds */
