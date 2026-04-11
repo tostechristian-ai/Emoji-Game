@@ -69,23 +69,14 @@
     { id: 'cheatsModal',       count: 20, color: whiteColor, z: 1  },
     { id: 'gameGuideModal',    count: 20, color: whiteColor, z: 1  },
     { id: 'gameOverlay',       count: 20, color: whiteColor, z: 1  },
-    { id: 'upgradeMenu',       count: 25, color: warmColor,  z: 1  },
-    { id: 'merchantShop',      count: 25, color: warmColor,  z: 1  },
-    { id: 'mapSelectScreen',   count: 30, color: warmColor,  z: 1  },
-    { id: 'characterSelectScreen', count: 30, color: warmColor, z: 1 },
   ];
 
   // Track whether the main menu was visible last tick so we can detect re-entry
   let menuWasVisible = false;
 
   function tick() {
-    // Don't run during active gameplay (but DO run during pause and level-up menus)
-    const upgradeMenuEl = document.getElementById('upgradeMenu');
-    const pauseOverlayEl = document.getElementById('pauseOverlay');
-    const isUpgradeMenuOpen = upgradeMenuEl && window.getComputedStyle(upgradeMenuEl).display !== 'none';
-    const isPauseMenuOpen = pauseOverlayEl && window.getComputedStyle(pauseOverlayEl).display !== 'none';
-    
-    if (typeof gameActive !== 'undefined' && gameActive && !isUpgradeMenuOpen && !isPauseMenuOpen) {
+    // Don't run during active gameplay — zero cost
+    if (typeof gameActive !== 'undefined' && gameActive) {
       requestAnimationFrame(tick);
       return;
     }
@@ -95,10 +86,7 @@
     for (const cfg of ONCE_SCREENS) {
       const el = document.getElementById(cfg.id);
       if (!el) continue;
-      // Check if element is visible using computed style
-      const computedStyle = window.getComputedStyle(el);
-      const isVisible = computedStyle.display !== 'none';
-      if (isVisible) {
+      if (el.style.display !== 'none' && el.style.display !== '') {
         buildDust(el, cfg.count, cfg.color, cfg.z);
       }
     }

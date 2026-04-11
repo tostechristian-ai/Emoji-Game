@@ -121,7 +121,7 @@ for (let i = merchants.length - 1; i >= 0; i--) {
 
 
             if(player.isDashing) {
-                currentPlayerSpeed *= 2.625; // Reduced from 3.5 (25% less distance)
+                currentPlayerSpeed *= 3.5;
                 if(now > player.dashEndTime) {
                     player.isDashing = false;
                     player.isInvincible = false;
@@ -272,8 +272,8 @@ for (let i = merchants.length - 1; i >= 0; i--) {
 
                 // Apply dash speed multiplier
                 if(player2.isDashing){
-                    p2VelX *= 2.625; // Reduced from 3.5 (25% less distance)
-                    p2VelY *= 2.625; // Reduced from 3.5 (25% less distance)
+                    p2VelX *= 3.5;
+                    p2VelY *= 3.5;
                     if(now > player2.dashEndTime) player2.isDashing = false;
                 }
                 

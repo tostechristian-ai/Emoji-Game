@@ -163,7 +163,7 @@
 
         function handleBrickDestruction(brick) {
             playSound('enemyDeath');
-            // Light pink debris particles to match wall color
+            // White debris particles instead of red blood
             const particleCount = 8;
             const speed = 2.5 + Math.random() * 2;
             for (let i = 0; i < particleCount; i++) {
@@ -174,7 +174,7 @@
                     dy: Math.sin(angle) * speed + (Math.random() - 0.5),
                     size: 3 + Math.random() * 4,
                     spawnTime: Date.now(), lifetime: 900 + Math.random() * 400,
-                    isPink: true
+                    isWhite: true
                 });
             }
         }

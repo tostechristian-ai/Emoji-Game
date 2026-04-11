@@ -257,7 +257,6 @@
         // New Mobile Menu Buttons
         const mobileMenuUpgradesButton = document.getElementById('mobileMenuUpgradesButton');
         const mobileMenuTrophiesButton = document.getElementById('mobileMenuTrophiesButton');
-        const mobileMenuResetButton = document.getElementById('mobileMenuResetButton');
         const mobileMenuCheatsButton = document.getElementById('mobileMenuCheatsButton');
 
         let quadtree; // *** OPTIMIZATION: Quadtree will be initialized here
@@ -325,7 +324,7 @@
             spinDirection: 0, // For spin animation
 
             upgradeLevels: {
-                speed: 0, fireRate: 0, magnetRadius: 0, damage: 0, projectileSpeed: 0, knockback: 0, luck: 0, weaponSize: 0, dashCooldown: 0
+                speed: 0, fireRate: 0, magnetRadius: 0, damage: 0, projectileSpeed: 0, knockback: 0, luck: 0, weaponSize: 0
             }
         };
 
@@ -526,7 +525,6 @@ let doppelganger = null;
             { name: "Power Shot",        desc: "Projectiles knock enemies back by 8%",  type: "knockback",      value: 0.08,  icon: '💪' },
             { name: "Lucky Charm",       desc: "Increase pickup drop rate by 0.5%",     type: "luck",           value: 0.005, icon: '🍀' },
             { name: "Heavy Arsenal",     desc: "Weapons & effects grow 6% larger",      type: "weaponSize",     value: 0.06,  icon: '⚔️' },
-            { name: "Quick Dodge",       desc: "Reduce dash cooldown by 4%",            type: "dashCooldown",   value: 0.04,  icon: '💨' },
         ];
 
         let enemies = [];
@@ -1263,7 +1261,7 @@ document.body.addEventListener('touchstart', (e) => {
         const ENEMY_CONFIGS = {
             '🧟': { size: 17, baseHealth: 1, speedMultiplier: 1, type: 'pursuer', minLevel: 1 },
             '💀': { size: 20, baseHealth: 2, speedMultiplier: 1.15, type: 'pursuer', minLevel: 5 },
-            '🐌': { size: 22, baseHealth: 3, speedMultiplier: 1.2, type: 'snail', minLevel: 4, spawnWeight: 0.02, initialProps: () => ({ lastPuddleSpawnTime: Date.now(), directionAngle: Math.random() * 2 * Math.PI, lastDirChange: Date.now() }) },
+            '🐌': { size: 22, baseHealth: 3, speedMultiplier: 0.6, type: 'snail', minLevel: 4, spawnWeight: 0.5, initialProps: () => ({ lastPuddleSpawnTime: Date.now(), directionAngle: Math.random() * 2 * Math.PI, lastDirChange: Date.now() }) },
             '🦟': { size: 15, baseHealth: 2, speedMultiplier: 1.5, type: 'mosquito', minLevel: 7, initialProps: () => ({ lastDirectionUpdateTime: Date.now(), currentMosquitoDirection: null, lastPuddleSpawnTime: Date.now() }) },
             '🦇': { size: 25 * 0.85, baseHealth: 3, speedMultiplier: 2, type: 'bat', minLevel: 10, initialProps: () => ({ isPaused: false, pauseTimer: 0, pauseDuration: 30, moveDuration: 30 }) },
             '😈': { size: 20 * 0.8, baseHealth: 3, speedMultiplier: 1.84, type: 'devil', minLevel: 12, initialProps: () => ({ moveAxis: 'x', lastAxisSwapTime: Date.now() }) }, 
@@ -1296,20 +1294,7 @@ document.body.addEventListener('touchstart', (e) => {
                 }
                 const eligibleEnemyEmojis = Object.keys(ENEMY_CONFIGS).filter(emoji => ENEMY_CONFIGS[emoji].minLevel <= player.level);
                 if (eligibleEnemyEmojis.length === 0) return;
-                
-                // Weighted random selection based on spawnWeight (default 1.0 if not specified)
-                const weights = eligibleEnemyEmojis.map(emoji => ENEMY_CONFIGS[emoji].spawnWeight || 1.0);
-                const totalWeight = weights.reduce((sum, w) => sum + w, 0);
-                let random = Math.random() * totalWeight;
-                let selectedIndex = 0;
-                for (let i = 0; i < weights.length; i++) {
-                    random -= weights[i];
-                    if (random <= 0) {
-                        selectedIndex = i;
-                        break;
-                    }
-                }
-                enemyEmoji = eligibleEnemyEmojis[selectedIndex];
+                enemyEmoji = eligibleEnemyEmojis[Math.floor(Math.random() * eligibleEnemyEmojis.length)];
             }
             
             let difficultySpeedMultiplier = (currentDifficulty === 'easy') ? 0.9 : (currentDifficulty === 'medium') ? 1.35 : 1.75; 
@@ -1694,10 +1679,6 @@ if (firstCard) {
                 // Cap at 1.5× so weapons never become screen-filling at high levels
                 player.projectileSizeMultiplier = Math.min(1.5, player.projectileSizeMultiplier * (1 + upgrade.value));
             }
-            else if (upgrade.type === "dashCooldown") {
-                // Reduce dash cooldown, minimum 1 second (1000ms)
-                player.dashCooldown = Math.max(1000, player.dashCooldown * (1 - upgrade.value));
-            }
             
             if (player.upgradeLevels.hasOwnProperty(upgrade.type)) { player.upgradeLevels[upgrade.type]++; }
             updateUpgradeStatsUI(); 
@@ -2021,7 +2002,7 @@ async function startGame() {
                 dashCooldown: playerData.hasReducedDashCooldown ? 3000: 6000,
                 isInvincible: false,
                 spinStartTime: null, spinDirection: 0,
-                upgradeLevels: { speed: 0, fireRate: 0, magnetRadius: 0, damage: 0, projectileSpeed: 0, knockback: 0, luck: 0, weaponSize: 0, dashCooldown: 0 }
+                upgradeLevels: { speed: 0, fireRate: 0, magnetRadius: 0, damage: 0, projectileSpeed: 0, knockback: 0, luck: 0, weaponSize: 0 }
             });
             player.originalPlayerSpeed = player.speed;
             boxDropChance = BASE_BOX_DROP_CHANCE; appleDropChance = 0.05;

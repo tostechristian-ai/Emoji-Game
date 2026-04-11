@@ -203,7 +203,6 @@ window.onload = function() {
   const resetAction = () => { vibrate(20); resetAllData(); };
   desktopResetButton.addEventListener('click', resetAction);
   mobileResetButton.addEventListener('click', resetAction);
-  if (mobileMenuResetButton) mobileMenuResetButton.addEventListener('click', resetAction);
 
   const achievementsAction = () => {
     vibrate(10); playUISound('uiClick');
