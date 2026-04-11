@@ -1476,6 +1476,7 @@
                 display: flex;
                 align-items: center;
                 justify-content: center;
+                overflow: visible;
             }
 
             body.is-mobile #difficultyScreen {
@@ -1498,7 +1499,11 @@
                 gap: 15px;
                 justify-content: center;
                 flex-wrap: wrap;
-                margin-top: 10px;
+                position: absolute;
+                bottom: 10px;
+                left: 0;
+                width: 100%;
+                z-index: 3002;
             }
 
             /* Ensure mobile buttons use PNG backgrounds in landscape */
@@ -1742,7 +1747,7 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        overflow: hidden;
+        overflow: visible;
         position: relative;
     }
 
@@ -1778,7 +1783,11 @@
         gap: 15px;
         justify-content: center;
         flex-wrap: wrap;
-        margin-top: 10px;
+        position: absolute;
+        bottom: 18px;
+        left: 0;
+        width: 100%;
+        z-index: 3002;
     }
 
     /* Ensure mobile buttons use PNG backgrounds */
