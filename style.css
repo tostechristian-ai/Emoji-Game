@@ -1497,8 +1497,13 @@
                 flex-direction: row;
                 gap: 15px;
                 justify-content: center;
-                margin-top: 10px;
                 flex-wrap: wrap;
+                position: absolute;
+                bottom: 10px;
+                left: 50%;
+                transform: translateX(-50%);
+                z-index: 3001;
+                width: 100%;
             }
 
             /* Ensure mobile buttons use PNG backgrounds in landscape */
@@ -1732,7 +1737,8 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        overflow: hidden;
+        overflow: visible;
+        position: relative;
     }
 
     body.is-mobile #difficultyScreen {
@@ -1766,8 +1772,13 @@
         flex-direction: row;
         gap: 15px;
         justify-content: center;
-        margin-top: 10px;
         flex-wrap: wrap;
+        position: absolute;
+        bottom: 10px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 3001;
+        width: 100%;
     }
 
     /* Ensure mobile buttons use PNG backgrounds */
