@@ -1500,7 +1500,7 @@
                 justify-content: center;
                 flex-wrap: wrap;
                 position: absolute;
-                bottom: 10px;
+                bottom: -60px;
                 left: 50%;
                 transform: translateX(-50%);
                 z-index: 3001;
@@ -1508,7 +1508,6 @@
 
             /* Ensure mobile buttons use PNG backgrounds in landscape */
             body.is-mobile #mobile-bottom-buttons button {
-                all: unset;
                 display: inline-block;
                 cursor: pointer;
                 width: 140px;
@@ -1522,19 +1521,19 @@
                 color: transparent;
                 text-indent: -9999px;
                 overflow: hidden;
+                border: none;
+                padding: 0;
+                margin: 0;
             }
 
             body.is-mobile #mobileMenuUpgradesButton {
                 background-image: url('sprites/upgrades.png');
-                border: 2px solid red !important;
             }
             body.is-mobile #mobileMenuTrophiesButton {
                 background-image: url('sprites/achievements.png');
-                border: 2px solid green !important;
             }
             body.is-mobile #mobileMenuResetButton {
                 background-image: url('sprites/reset.png');
-                border: 2px solid blue !important;
             }
 
             body.is-mobile #mobile-bottom-buttons button:hover {
@@ -1788,7 +1787,7 @@
         justify-content: center;
         flex-wrap: wrap;
         position: absolute;
-        bottom: 10px;
+        bottom: -80px;
         left: 50%;
         transform: translateX(-50%);
         z-index: 3001;
@@ -1796,7 +1795,6 @@
 
     /* Ensure mobile buttons use PNG backgrounds */
     body.is-mobile #mobile-bottom-buttons button {
-        all: unset;
         display: inline-block;
         cursor: pointer;
         width: 150px;
@@ -1810,19 +1808,19 @@
         color: transparent;
         text-indent: -9999px;
         overflow: hidden;
+        border: none;
+        padding: 0;
+        margin: 0;
     }
 
     body.is-mobile #mobileMenuUpgradesButton {
         background-image: url('sprites/upgrades.png');
-        border: 2px solid red !important;
     }
     body.is-mobile #mobileMenuTrophiesButton {
         background-image: url('sprites/achievements.png');
-        border: 2px solid green !important;
     }
     body.is-mobile #mobileMenuResetButton {
         background-image: url('sprites/reset.png');
-        border: 2px solid blue !important;
     }
 
     body.is-mobile #mobile-bottom-buttons button:hover {
