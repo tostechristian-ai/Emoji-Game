@@ -1496,23 +1496,23 @@
             body.is-mobile #mobile-bottom-buttons {
                 display: flex !important;
                 flex-direction: row;
-                gap: 10px;
+                gap: 8px;
                 justify-content: center;
                 flex-wrap: wrap;
                 position: absolute;
-                bottom: 50px;
+                bottom: -32px;
                 left: 50%;
                 transform: translateX(-50%);
                 z-index: 3001;
-                max-width: 90%;
+                max-width: 100%;
             }
 
             /* Ensure mobile buttons use PNG backgrounds in landscape */
             body.is-mobile #mobile-bottom-buttons button {
                 display: inline-block;
                 cursor: pointer;
-                width: 120px;
-                height: 38px;
+                width: 95px;
+                height: 30px;
                 background-size: contain;
                 background-repeat: no-repeat;
                 background-position: center;
@@ -1784,23 +1784,23 @@
     body.is-mobile #mobile-bottom-buttons {
         display: flex !important;
         flex-direction: row;
-        gap: 10px;
+        gap: 8px;
         justify-content: center;
         flex-wrap: wrap;
         position: absolute;
-        bottom: 60px;
+        bottom: -36px;
         left: 50%;
         transform: translateX(-50%);
         z-index: 3001;
-        max-width: 90%;
+        max-width: 100%;
     }
 
     /* Ensure mobile buttons use PNG backgrounds */
     body.is-mobile #mobile-bottom-buttons button {
         display: inline-block;
         cursor: pointer;
-        width: 130px;
-        height: 42px;
+        width: 105px;
+        height: 34px;
         background-size: contain;
         background-repeat: no-repeat;
         background-position: center;
