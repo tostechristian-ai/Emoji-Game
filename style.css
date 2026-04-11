@@ -1500,7 +1500,7 @@
                 justify-content: center;
                 flex-wrap: wrap;
                 position: absolute;
-                bottom: -8px;
+                bottom: 2px;
                 left: 50%;
                 transform: translateX(-50%);
                 z-index: 3001;
@@ -1788,7 +1788,7 @@
         justify-content: center;
         flex-wrap: wrap;
         position: absolute;
-        bottom: -10px;
+        bottom: 0px;
         left: 50%;
         transform: translateX(-50%);
         z-index: 3001;
