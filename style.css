@@ -64,9 +64,9 @@
         body {
     display: flex;
     flex-direction: column;
-    justify-content: center; /* CHANGED from flex-start to center */
+    justify-content: center;
     align-items: center;
-    min-height: 100vh; /* CHANGED from 10vh to 100vh */
+    min-height: 100vh;
     margin: 0;
     background-color: #1a1a1a;
     color: #e0e0e0;
@@ -78,6 +78,9 @@
     user-select: none;
     touch-action: none;
     overflow: hidden;
+    position: relative;
+    width: 100vw;
+    max-width: 100%;
 }
 
         #gameContainer {
@@ -91,12 +94,13 @@
     width: clamp(320px, 95vw, 1125px);
     height: auto;
     max-width: 1125px;
-    max-height: 95vh; /* CHANGED THIS LINE */
+    max-height: 95vh;
     aspect-ratio: auto;
     box-shadow: 0 0 20px rgba(0, 255, 0, 0.5);
     border-radius: 10px;
     object-fit: contain;
-    display: block; 
+    display: block;
+    margin: 0 auto;
 }
         .thumbstick-base {
             position: fixed;
@@ -632,7 +636,7 @@
         #desktopAchievementsButton, #mobileMenuTrophiesButton {
             background-image: url('sprites/achievements.png');
         }
-        #desktopResetButton {
+        #desktopResetButton, #mobileMenuResetButton {
             background-image: url('sprites/reset.png');
         }
         
@@ -1465,6 +1469,60 @@
                 min-height: 100vh;
             }
 
+            /* Scale down main menu in landscape to fit all buttons */
+            body.is-mobile #difficultyContainer {
+                width: 100vw;
+                height: 100vh;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+            body.is-mobile #difficultyScreen {
+                transform: scale(0.75);
+                transform-origin: center center;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                align-items: center;
+            }
+
+            /* Hide desktop bottom buttons, show mobile ones */
+            body.is-mobile .bottom-menu-buttons {
+                display: none !important;
+            }
+
+            body.is-mobile #mobile-bottom-buttons {
+                display: flex !important;
+                flex-direction: row;
+                gap: 15px;
+                justify-content: center;
+                flex-wrap: wrap;
+                margin-top: 10px;
+            }
+
+            /* Ensure mobile buttons use PNG backgrounds in landscape */
+            body.is-mobile #mobile-bottom-buttons button {
+                all: unset;
+                display: inline-block;
+                cursor: pointer;
+                width: 140px;
+                height: 45px;
+                background-size: contain;
+                background-repeat: no-repeat;
+                background-position: center;
+                transition: transform 0.2s;
+                box-sizing: border-box;
+                font-size: 0;
+                color: transparent;
+                text-indent: -9999px;
+                overflow: hidden;
+            }
+
+            body.is-mobile #mobile-bottom-buttons button:hover {
+                transform: scale(1.05);
+            }
+
             body.is-mobile #gameContainer {
                 width: 100vw;
             }
@@ -1658,30 +1716,41 @@
 @media (max-width: 600px) and (orientation: portrait) {
     body.is-mobile {
         min-height: 100vh;
+        overflow: hidden;
     }
 
-    body.is-mobile #highScoresContainer {
-    display: none;
+    /* Hide desktop bottom buttons on mobile portrait */
+    body.is-mobile .bottom-menu-buttons {
+        display: none !important;
     }
 
-    /* FIX: Prevents the main menu from stretching vertically */
+    /* Center and scale the main menu properly */
     body.is-mobile #difficultyContainer {
         width: 100vw;
-        /* height: 100vh; <-- This was removed to preserve the aspect ratio */
+        height: 100vh;
         border-radius: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        position: relative;
     }
 
     body.is-mobile #difficultyScreen {
-        justify-content: space-around;
-        padding-bottom: 20px; /* Reduced padding since fixed buttons are gone */
+        transform: scale(0.7);
+        transform-origin: center center;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        gap: 15px;
+        padding: 20px;
     }
 
     body.is-mobile #highScoresContainer {
-        position: relative;
-        top: auto;
-        left: auto;
-        margin: 10px 0;
-        align-self: center;
+        position: absolute;
+        top: 10px;
+        left: 10px;
     }
 
     body.is-mobile .emoji-container {
@@ -1692,31 +1761,38 @@
         display: none;
     }
 
-    /* FIX: Hide the redundant mobile button bar */
-    #mobile-bottom-buttons {
-        display: none; /* Changed from flex */
-        position: fixed;
-        bottom: 20px;
-        left: 50%;
-        transform: translateX(-50%);
+    /* Show mobile bottom buttons with PNG backgrounds */
+    body.is-mobile #mobile-bottom-buttons {
+        display: flex !important;
+        flex-direction: row;
         gap: 15px;
-        z-index: 3001;
-    }
-    
-    /* FIX: Make the desktop buttons stack in the normal layout flow */
-    .bottom-menu-buttons {
-        position: static;
-        transform: none;
+        justify-content: center;
+        flex-wrap: wrap;
         margin-top: 10px;
     }
 
-    /* FIX: Make all buttons smaller to fit the screen */
-    .difficulty-buttons button,
-    .bottom-menu-buttons button {
-        width: 120px;
-        height: 40px;
+    /* Ensure mobile buttons use PNG backgrounds */
+    body.is-mobile #mobile-bottom-buttons button {
+        all: unset;
+        display: inline-block;
+        cursor: pointer;
+        width: 150px;
+        height: 50px;
+        background-size: contain;
+        background-repeat: no-repeat;
+        background-position: center;
+        transition: transform 0.2s;
+        box-sizing: border-box;
+        font-size: 0;
+        color: transparent;
+        text-indent: -9999px;
+        overflow: hidden;
     }
 
+    body.is-mobile #mobile-bottom-buttons button:hover {
+        transform: scale(1.05);
+    }
+    
     #mobileCheatsButton {
         display: none;
     }
@@ -1831,6 +1907,84 @@
     body.is-mobile .upgrade-card p {
         font-size: 10px;
         margin-bottom: 8px;
+    }
+
+    /* Character Select Screen fixes for mobile portrait */
+    body.is-mobile #characterSelectContainer {
+        width: 100vw;
+        max-height: 100vh;
+        height: auto;
+        border-radius: 0;
+    }
+
+    body.is-mobile #characterSelectScreen {
+        padding: 15px;
+        justify-content: flex-start;
+        overflow-y: auto;
+    }
+
+    body.is-mobile #characterSelectScreen h1 {
+        font-size: 28px;
+        margin-bottom: 15px;
+    }
+
+    body.is-mobile #characterTilesContainer {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 15px;
+        justify-content: center;
+        max-width: 100%;
+    }
+
+    body.is-mobile .character-tile {
+        width: 140px;
+        padding: 12px;
+    }
+
+    body.is-mobile .character-tile .char-emoji {
+        font-size: 40px;
+    }
+
+    body.is-mobile .character-tile .char-name {
+        font-size: 12px;
+    }
+
+    body.is-mobile .character-tile .char-perk {
+        font-size: 10px;
+    }
+
+    /* Map Select Screen fixes */
+    body.is-mobile #mapSelectContainer {
+        width: 100vw;
+        max-height: 100vh;
+        height: auto;
+        border-radius: 0;
+    }
+
+    body.is-mobile #mapSelectScreen {
+        padding: 15px;
+        justify-content: flex-start;
+        overflow-y: auto;
+    }
+
+    body.is-mobile #mapSelectScreen h1 {
+        font-size: 28px;
+        margin-bottom: 15px;
+    }
+
+    /* Canvas and game container fixes */
+    body.is-mobile #gameContainer {
+        width: 100vw;
+        height: auto;
+        max-height: 100vh;
+    }
+
+    body.is-mobile canvas {
+        width: 100vw !important;
+        height: auto !important;
+        max-height: 100vh !important;
+        border-radius: 0;
+        border: none;
     }
 }
 
