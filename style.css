@@ -668,16 +668,6 @@
             }
         }
 
-        /* Override for portrait mode - smaller buttons to fit everything */
-        @media (max-width: 600px) and (orientation: portrait) {
-            .difficulty-buttons button,
-            .bottom-menu-buttons button,
-            #mobile-bottom-buttons button {
-                width: clamp(110px, 28vw, 130px);
-                height: clamp(36px, 9vw, 42px);
-            }
-        }
-
         /* --- Positioning for the button containers --- */
         .difficulty-buttons {
             display: flex;
@@ -1479,6 +1469,33 @@
                 min-height: 100vh;
             }
 
+            /* Scale down main menu in landscape to fit all buttons */
+            body.is-mobile #difficultyContainer {
+                width: 100vw;
+                height: 100vh;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+            body.is-mobile #difficultyScreen {
+                transform: scale(0.8);
+                transform-origin: center center;
+            }
+
+            /* Hide desktop bottom buttons, show mobile ones */
+            body.is-mobile .bottom-menu-buttons {
+                display: none !important;
+            }
+
+            body.is-mobile #mobile-bottom-buttons {
+                display: flex;
+                flex-direction: row;
+                gap: 15px;
+                justify-content: center;
+                margin-top: 10px;
+            }
+
             body.is-mobile #gameContainer {
                 width: 100vw;
             }
@@ -1680,10 +1697,9 @@
         display: none !important;
     }
 
-    /* FIX: Prevents the main menu from stretching vertically and bleeding off screen */
+    /* Scale down the entire main menu to fit on screen */
     body.is-mobile #difficultyContainer {
         width: 100vw;
-        max-height: 100vh;
         height: 100vh;
         border-radius: 0;
         display: flex;
@@ -1693,35 +1709,21 @@
     }
 
     body.is-mobile #difficultyScreen {
+        transform: scale(0.75);
+        transform-origin: center center;
+        width: 133.33%; /* Compensate for scale */
+        height: 133.33%; /* Compensate for scale */
         display: flex;
         flex-direction: column;
-        justify-content: space-evenly;
+        justify-content: center;
         align-items: center;
-        padding: 5px 10px;
-        gap: 8px;
-        overflow-y: auto;
-        max-height: 100vh;
-        width: 100%;
-    }
-
-    body.is-mobile #difficultyScreen h1 {
-        font-size: clamp(24px, 6vw, 32px);
-        margin-bottom: 5px;
-        margin-top: 5px;
+        gap: 15px;
     }
 
     body.is-mobile #highScoresContainer {
-        position: relative;
-        top: auto;
-        left: auto;
-        margin: 3px auto;
-        font-size: 8px;
-        padding: 6px 10px;
-    }
-
-    body.is-mobile #highScoresContainer h3 {
-        font-size: 10px;
-        margin-bottom: 3px;
+        position: absolute;
+        top: 10px;
+        left: 10px;
     }
 
     body.is-mobile .emoji-container {
@@ -1732,41 +1734,13 @@
         display: none;
     }
 
-    /* Adjust difficulty buttons for mobile - make them smaller and tighter */
-    body.is-mobile .difficulty-buttons {
-        width: 95%;
-        max-width: 100%;
-        gap: 8px;
-        margin: 5px auto;
-        display: flex;
-        flex-wrap: wrap;
-        justify-content: center;
-    }
-
-    body.is-mobile .difficulty-buttons button {
-        width: clamp(110px, 28vw, 130px) !important;
-        height: clamp(36px, 9vw, 42px) !important;
-        flex-shrink: 0;
-    }
-
-    /* Show mobile bottom buttons in portrait */
+    /* Show mobile bottom buttons */
     body.is-mobile #mobile-bottom-buttons {
         display: flex;
         flex-direction: row;
-        gap: 10px;
+        gap: 15px;
         justify-content: center;
-        margin-top: 5px;
-        margin-bottom: 5px;
-        position: relative;
-        bottom: auto;
-        left: auto;
-        transform: none;
-        z-index: 3001;
-    }
-
-    body.is-mobile #mobile-bottom-buttons button {
-        width: clamp(110px, 28vw, 130px) !important;
-        height: clamp(36px, 9vw, 42px) !important;
+        margin-top: 10px;
     }
     
     #mobileCheatsButton {
