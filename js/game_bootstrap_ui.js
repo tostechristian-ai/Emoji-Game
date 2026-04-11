@@ -32,7 +32,8 @@ const ALWAYS_AVAILABLE_PICKUPS = {
   sword: { id: 'sword', name: 'Auto-Sword' }, laser_pointer: { id: 'laser_pointer', name: 'Laser Pointer' },
   auto_aim: { id: 'auto_aim', name: 'Auto Aim' }, dual_gun: { id: 'dual_gun', name: 'Dual Gun' },
   bomb: { id: 'bomb', name: 'Bomb Emitter' }, orbiter: { id: 'orbiter', name: 'Spinning Orbiter' },
-  lightning_projectile: { id: 'lightning_projectile', name: 'Lightning Projectile' }
+  lightning_projectile: { id: 'lightning_projectile', name: 'Lightning Projectile' },
+  ice_shard_cannon: { id: 'ice_shard_cannon', name: 'Ice Shard Cannon' }
 };
 
 const UNLOCKABLE_PICKUPS = {

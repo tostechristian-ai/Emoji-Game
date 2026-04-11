@@ -205,6 +205,7 @@ function activatePowerup(id) {
   else if (id === 'night_owl') { nightOwlActive = true; }
   else if (id === 'whirlwind_axe') { whirlwindAxeActive = true; }
   else if (id === 'lightning_strike') { lightningStrikeActive = true; lastLightningStrikeTime = Date.now(); }
+  else if (id === 'ice_shard_cannon') { iceShardCannonActive = true; lastIceShardTime = Date.now(); }
 
   // Achievement tracking for powerups (count + unique).
   if (typeof runStats !== 'undefined') {

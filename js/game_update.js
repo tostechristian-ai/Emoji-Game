@@ -121,7 +121,7 @@ for (let i = merchants.length - 1; i >= 0; i--) {
 
 
             if(player.isDashing) {
-                currentPlayerSpeed *= 3.5;
+                currentPlayerSpeed *= 2.625; // Reduced from 3.5 (25% less distance)
                 if(now > player.dashEndTime) {
                     player.isDashing = false;
                     player.isInvincible = false;
@@ -272,8 +272,8 @@ for (let i = merchants.length - 1; i >= 0; i--) {
 
                 // Apply dash speed multiplier
                 if(player2.isDashing){
-                    p2VelX *= 3.5;
-                    p2VelY *= 3.5;
+                    p2VelX *= 2.625; // Reduced from 3.5 (25% less distance)
+                    p2VelY *= 2.625; // Reduced from 3.5 (25% less distance)
                     if(now > player2.dashEndTime) player2.isDashing = false;
                 }
                 
@@ -368,6 +368,44 @@ for (let i = merchants.length - 1; i >= 0; i--) {
                 }
             }
 
+            // Ice Shard Cannon — fires 3 snowflake shards in a spread, freezes on hit
+            if (iceShardCannonActive && !isTimeStopped && now - lastIceShardTime > ICE_SHARD_INTERVAL) {
+                let shardTarget = null; let minDist = Infinity;
+                for (let si = 0; si < enemies.length; si++) {
+                    const e = enemies[si];
+                    if (!e.isHit && !e.isFrozen) {
+                        const d = (player.x - e.x)**2 + (player.y - e.y)**2;
+                        if (d < minDist) { minDist = d; shardTarget = e; }
+                    }
+                }
+                if (shardTarget) {
+                    const baseAngle = Math.atan2(shardTarget.y - player.y, shardTarget.x - player.x);
+                    const spread = Math.PI / 10;
+                    for (let si = -1; si <= 1; si++) {
+                        const angle = baseAngle + si * spread;
+                        for (const w of weaponPool) {
+                            if (!w.active) {
+                                w.x = player.x; w.y = player.y;
+                                w.size = 20 * player.projectileSizeMultiplier;
+                                w.speed = 6 * player.projectileSpeedMultiplier;
+                                w.angle = angle;
+                                w.dx = Math.cos(angle) * w.speed;
+                                w.dy = Math.sin(angle) * w.speed;
+                                w.lifetime = now + 2000;
+                                w.hitsLeft = 1;
+                                w.hitEnemies.length = 0;
+                                w.owner = 'player';
+                                w.active = true;
+                                w._isIceShard = true;
+                                break;
+                            }
+                        }
+                    }
+                    playSound('playerShoot');
+                    lastIceShardTime = now;
+                }
+            }
+
 
             // Enemy cap: scales with difficulty. Hard allows up to 150, medium 120, easy 80.
             // Also scales slightly with powerups collected to keep challenge proportional.
@@ -427,9 +465,9 @@ for (let i = merchants.length - 1; i >= 0; i--) {
                 lastEnemySpawnTime = now;
             }
             
-            const enemyMovements = new Map();
             enemies.forEach((enemy, enemyIdx) => {
                 if (isTimeStopped) return;
+
                 if (enemy.isIgnited) {
                     if (now > enemy.ignitionEndTime) { enemy.isIgnited = false; }
                     else {
@@ -496,17 +534,29 @@ for (let i = merchants.length - 1; i >= 0; i--) {
                 }
                 if (enemy.isSlowedByPuddle) effectiveEnemySpeed *= PLAYER_PUDDLE_SLOW_FACTOR;
                 if (enemy.isFrozen && now < enemy.freezeEndTime) {
-                    enemyMovements.set(enemy, {moveX: 0, moveY: 0});
+                    enemy._pendingMoveX = 0;
+                    enemy._pendingMoveY = 0;
                     return;
                 } else if (enemy.isFrozen && now >= enemy.freezeEndTime) enemy.isFrozen = false;
                 
                 const enemyBehaviorType = enemy.isBoss ? ENEMY_CONFIGS[enemy.mimics].type : ENEMY_CONFIGS[enemy.emoji].type;
                 switch (enemyBehaviorType) {
-                    case 'bat':
-                        enemy.pauseTimer++;
-                        if (enemy.isPaused) { if (enemy.pauseTimer >= enemy.pauseDuration) { enemy.isPaused = false; enemy.pauseTimer = 0; } }
-                        else { moveX += Math.cos(angleToTarget) * effectiveEnemySpeed; moveY += Math.sin(angleToTarget) * effectiveEnemySpeed; if (enemy.pauseTimer >= enemy.moveDuration) { enemy.isPaused = true; enemy.pauseTimer = 0; } }
+                    case 'bat': {
+                        // Time-based pause/move cycle
+                        if (!enemy._batLastStateChange) enemy._batLastStateChange = now;
+                        const batStateDur = enemy.isPaused ? 500 : 600;
+                        if (now - enemy._batLastStateChange > batStateDur) {
+                            enemy.isPaused = !enemy.isPaused;
+                            enemy._batLastStateChange = now;
+                        }
+                        // Always move if far from player (prevents border-hanging on spawn)
+                        const batDistSq = (player.x - enemy.x)**2 + (player.y - enemy.y)**2;
+                        if (!enemy.isPaused || batDistSq > 400*400) {
+                            moveX += Math.cos(angleToTarget) * effectiveEnemySpeed;
+                            moveY += Math.sin(angleToTarget) * effectiveEnemySpeed;
+                        }
                         break;
+                    }
                     case 'devil': 
                         if (now - enemy.lastAxisSwapTime > 500) {
                             enemy.moveAxis = enemy.moveAxis === 'x' ? 'y' : 'x';
@@ -531,12 +581,13 @@ for (let i = merchants.length - 1; i >= 0; i--) {
                            moveY += Math.sin(angleToTarget) * effectiveEnemySpeed;
                         }
                         break;
-                    case 'eye':
+                    case 'eye': {
                         const distanceToTarget = Math.sqrt(minTargetDistSq);
                         if (distanceToTarget < EYE_SAFE_DISTANCE) { moveX -= Math.cos(angleToTarget) * effectiveEnemySpeed; moveY -= Math.sin(angleToTarget) * effectiveEnemySpeed; }
                         else if (distanceToTarget > EYE_TOO_FAR_DISTANCE) { moveX += Math.cos(angleToTarget) * effectiveEnemySpeed; moveY += Math.sin(angleToTarget) * effectiveEnemySpeed; }
                         else { if (now - enemy.lastEyeProjectileTime > EYE_PROJECTILE_INTERVAL) { eyeProjectiles.push({ x: enemy.x, y: enemy.y, size: EYE_PROJECTILE_SIZE, emoji: EYE_PROJECTILE_EMOJI, speed: EYE_PROJECTILE_SPEED, dx: Math.cos(angleToTarget) * EYE_PROJECTILE_SPEED, dy: Math.sin(angleToTarget) * EYE_PROJECTILE_SPEED, lifetime: now + EYE_PROJECTILE_LIFETIME }); enemy.lastEyeProjectileTime = now; playSound('playerShoot'); } }
                         break;
+                    }
                     case 'vampire':
                         // Throttle dodge detection to every 4 frames
                         if (!enemy._dodgeVX) { enemy._dodgeVX = 0; enemy._dodgeVY = 0; }
@@ -568,34 +619,48 @@ for (let i = merchants.length - 1; i >= 0; i--) {
                         moveY += enemy.currentMosquitoDirection.dy * effectiveEnemySpeed;
                         if (now - enemy.lastPuddleSpawnTime > MOSQUITO_PUDDLE_SPAWN_INTERVAL) { mosquitoPuddles.push({ x: enemy.x, y: enemy.y, size: MOSQUITO_PUDDLE_SIZE, spawnTime: now, lifetime: MOSQUITO_PUDDLE_LIFETIME }); enemy.lastPuddleSpawnTime = now; }
                         break;
-                    case 'snail':
+                    case 'snail': {
+                        // Change direction every 3-5 seconds, biased toward player's area
+                        if (!enemy.lastDirChange) enemy.lastDirChange = now;
+                        const snailDirInterval = 3000 + Math.random() * 2000;
+                        if (now - enemy.lastDirChange > snailDirInterval || 
+                            enemy.x < 50 || enemy.x > WORLD_WIDTH - 50 ||
+                            enemy.y < 50 || enemy.y > WORLD_HEIGHT - 50) {
+                            // 60% chance to drift toward player, 40% random
+                            if (Math.random() < 0.6) {
+                                const toPlayer = Math.atan2(target.y - enemy.y, target.x - enemy.x);
+                                enemy.directionAngle = toPlayer + (Math.random() - 0.5) * Math.PI * 0.8;
+                            } else {
+                                enemy.directionAngle = Math.random() * Math.PI * 2;
+                            }
+                            enemy.lastDirChange = now;
+                        }
                         moveX += Math.cos(enemy.directionAngle) * effectiveEnemySpeed;
                         moveY += Math.sin(enemy.directionAngle) * effectiveEnemySpeed;
-                        if (enemy.x < 0 || enemy.x > WORLD_WIDTH || enemy.y < 0 || enemy.y > WORLD_HEIGHT) {
-                           enemy.directionAngle = Math.random() * 2 * Math.PI; // Change direction when off-screen
-                        }
-                        if (now - enemy.lastPuddleSpawnTime > PLAYER_PUDDLE_SPAWN_INTERVAL * 2) { // Slower than player
+                        if (now - enemy.lastPuddleSpawnTime > PLAYER_PUDDLE_SPAWN_INTERVAL * 2) {
                             snailPuddles.push({ x: enemy.x, y: enemy.y, size: PLAYER_PUDDLE_SIZE, spawnTime: now, lifetime: PLAYER_PUDDLE_LIFETIME * 2 });
                             enemy.lastPuddleSpawnTime = now;
                         }
                         break;
+                    }
                     default:
                         moveX += Math.cos(angleToTarget) * effectiveEnemySpeed;
                         moveY += Math.sin(angleToTarget) * effectiveEnemySpeed;
                         break;
                 }
-                enemyMovements.set(enemy, {moveX, moveY});
+                enemy._pendingMoveX = moveX;
+                enemy._pendingMoveY = moveY;
             });
             
-            // Apply movement + obstacle repulsion in one pass — no second Map needed
-            // Repulsion throttled to every 4 frames per enemy (staggered) to cut cost
+            // Apply movement + obstacle repulsion
             for (let ei = 0; ei < enemies.length; ei++) {
                 const enemy = enemies[ei];
-                const move = enemyMovements.get(enemy);
-                if (!move) continue;
+                // Skip enemies that had no movement calculated (time stopped etc)
+                if (enemy._pendingMoveX === undefined) continue;
 
-                let finalX = move.moveX;
-                let finalY = move.moveY;
+                let finalX = enemy._pendingMoveX;
+                let finalY = enemy._pendingMoveY;
+                enemy._pendingMoveX = undefined;
 
                 if (destructibles.length > 0 && (update._frame + ei) % 4 === 0) {
                     let repX = 0, repY = 0;
@@ -838,6 +903,7 @@ for (let i = merchants.length - 1; i >= 0; i--) {
                         if (!lightningProjectileActive) powerUpChoices.push(ALWAYS_AVAILABLE_PICKUPS.lightning_projectile);
                         if (!bugSwarmActive) powerUpChoices.push({id: 'bug_swarm', name: 'Bug Swarm'});
                         if (!lightningStrikeActive) powerUpChoices.push({id: 'lightning_strike', name: 'Lightning Strike'});
+                        if (!iceShardCannonActive) powerUpChoices.push(ALWAYS_AVAILABLE_PICKUPS.ice_shard_cannon);
                         if (!hasDashInvincibility) powerUpChoices.push({id: 'dash_invincibility', name: 'Dash Invincibility'});
                         if (!playerData.hasReducedDashCooldown) powerUpChoices.push({id: 'dash_cooldown', name: 'Dash Cooldown'});
 
@@ -1079,9 +1145,9 @@ if (!cheats.no_gun_mode && !player._isLumberjack && !player._isKnight && (aimDx 
                     enemy.x += normDx * knockbackDistance;
                     enemy.y += normDy * knockbackDistance;
                 }
-                if (iceProjectileActive) { 
-                    enemy.isFrozen = true; 
-                    enemy.freezeEndTime = Date.now() + 250;
+                if (iceProjectileActive || weapon._isIceShard) { 
+                    enemy.isFrozen = true;
+                    enemy.freezeEndTime = Date.now() + (weapon._isIceShard ? ICE_SHARD_FREEZE_DURATION : 250);
                     playerStats.totalEnemiesFrozen++;
                 }
                 if (flamingBulletsActive) {

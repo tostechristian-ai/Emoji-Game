@@ -18,7 +18,7 @@
             preRenderEmoji('🧟', 17);
             preRenderEmoji('💀', 20);
             preRenderEmoji('🦇', 25 * 0.85);
-            preRenderEmoji('🌀', 22);
+            preRenderEmoji('🐌', 22);
             preRenderEmoji('🦟', 15);
             preRenderEmoji('😈', 20 * 0.8);
             preRenderEmoji('👹', 28 * 0.7);

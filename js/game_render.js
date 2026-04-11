@@ -99,7 +99,7 @@
                 const alpha = 1 - (age / p.lifetime);
                 ctx.save();
                 ctx.globalAlpha = Math.max(0, alpha);
-                ctx.fillStyle = p.isWhite ? '#ffffff' : 'red';
+                ctx.fillStyle = p.isPink ? '#FFB6C1' : p.isWhite ? '#ffffff' : 'red';
                 ctx.beginPath();
                 ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
                 ctx.fill();
