@@ -1479,7 +1479,7 @@
             }
 
             body.is-mobile #difficultyScreen {
-                transform: scale(0.65);
+                transform: scale(0.58);
                 transform-origin: center center;
                 display: flex;
                 flex-direction: column;
@@ -1500,7 +1500,7 @@
                 justify-content: center;
                 flex-wrap: wrap;
                 position: absolute;
-                bottom: -32px;
+                bottom: -28px;
                 left: 50%;
                 transform: translateX(-50%);
                 z-index: 3001;
@@ -1755,7 +1755,7 @@
     }
 
     body.is-mobile #difficultyScreen {
-        transform: scale(0.6);
+        transform: scale(0.55);
         transform-origin: center center;
         display: flex;
         flex-direction: column;
@@ -1788,7 +1788,7 @@
         justify-content: center;
         flex-wrap: wrap;
         position: absolute;
-        bottom: -36px;
+        bottom: -30px;
         left: 50%;
         transform: translateX(-50%);
         z-index: 3001;
