@@ -173,12 +173,15 @@
             const skipBtn  = document.getElementById('skipIntroButton');
             const difficultyContainer = document.getElementById('difficultyContainer');
 
+            // Always set the correct source for this video
+            video.src = 'videos/Emoji Survivors Intro.mp4';
+            video.load();
+
             function endIntro() {
                 video.pause();
                 overlay.style.display = 'none';
                 difficultyContainer.style.display = 'block';
                 startMainMenuBGM();
-                // Clean up listeners
                 overlay.removeEventListener('click', endIntro);
                 overlay.removeEventListener('touchstart', endIntro);
                 skipBtn.removeEventListener('click', endIntroSkip);
@@ -1561,7 +1564,7 @@ document.body.addEventListener('touchstart', (e) => {
                 playerStats.totalCoins++;
             }
             if (Math.random() < boxDropChance) {
-            createPickup(enemy.x, enemy.y, '📦', BOX_SIZE, 0);
+            createPickup(enemy.x, enemy.y, 'box', BOX_SIZE, 0);
         }
             // Achievement Tracking
             runStats.killsThisRun++; // FIX 1: Corrected variable name
@@ -1686,7 +1689,7 @@ function createBoss() {
             };
             
             // Pre-assign powerup for boxes so we can show a preview
-            if (type === 'box' || type === '📦') {
+            if (type === 'box') {
                 const powerUpChoices = [];
                 if (vShapeProjectileLevel < 4 && !shotgunBlastActive) powerUpChoices.push({id: 'v_shape_projectile', name: 'V-Shape Shots', label: 'VSH'});
                 if (!magneticProjectileActive) powerUpChoices.push({id: 'magnetic_projectile', name: 'Magnetic Shots', label: 'MAG'});
@@ -2263,8 +2266,59 @@ async function tryLoadMusic(retries = 3) {
             }
         }
 
+        function playGameStartVideo() {
+            return new Promise((resolve) => {
+                const overlay = document.getElementById('introVideoOverlay');
+                const video   = document.getElementById('introVideo');
+                const skipBtn = document.getElementById('skipIntroButton');
+
+                // Stop menu BGM before the video plays
+                if (currentBGMPlayer) {
+                    currentBGMPlayer.stop();
+                }
+                stopMainMenuBGM();
+
+                // Swap source to the game-start cinematic
+                video.src = 'videos/Emoji Survivors Game Start.mp4';
+                video.load();
+
+                function finish() {
+                    video.pause();
+                    overlay.style.display = 'none';
+                    overlay.removeEventListener('click', finish);
+                    overlay.removeEventListener('touchstart', finish);
+                    skipBtn.removeEventListener('click', onSkip);
+                    video.removeEventListener('ended', finish);
+                    resolve();
+                }
+
+                function onSkip(e) { e.stopPropagation(); finish(); }
+
+                overlay.style.display = 'flex';
+                video.currentTime = 0;
+                video.volume = 1;
+                video.muted = false;
+                video.play().catch(() => { video.muted = true; video.play().catch(() => finish()); });
+
+                video.addEventListener('ended', finish);
+                overlay.addEventListener('click', finish);
+                overlay.addEventListener('touchstart', finish, { passive: true });
+                skipBtn.addEventListener('click', onSkip);
+
+                // Gamepad skip — any button press
+                (function pollGamepadSkip() {
+                    if (overlay.style.display === 'none') return;
+                    const gp = gamepadIndex !== null ? navigator.getGamepads?.()[gamepadIndex] : null;
+                    if (gp && Array.from(gp.buttons).some(b => b.pressed)) { finish(); return; }
+                    requestAnimationFrame(pollGamepadSkip);
+                })();
+            });
+        }
+
 async function startGame() {
-            stopMainMenuBGM();
+            // Play pre-game cinematic, then proceed
+            await playGameStartVideo();
+
             if (Tone.context.state !== 'running') { await Tone.start(); console.log("AudioContext started!"); }
             
             if (selectedMapIndex !== -1 && selectedMapIndex < backgroundImages.length) {

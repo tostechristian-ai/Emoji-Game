@@ -479,7 +479,7 @@
                     const preRendered = preRenderedEntities[item.type];
                     if (preRendered) {
                         // XP gems — larger + blue tint circle (no ctx.filter on mobile)
-                        const isXp = item.type !== '📦';
+                        const isXp = item.type !== 'box';
                         const scale = isXp ? 1.5 : 1;
                         const w = preRendered.width * scale;
                         const h = preRendered.height * scale;
