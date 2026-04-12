@@ -39,6 +39,7 @@
             preRenderEmoji('🦇', 25 * 0.85);       // Bat - dashing enemy
             preRenderEmoji('🐌', 22);              // Snail - leaves slowing puddles
             preRenderEmoji('🦟', 15);              // Mosquito - erratic movement
+            preRenderEmoji('🕷️', 18);              // Spider - jumps diagonally, leaves webs
             preRenderEmoji('😈', 20 * 0.8);        // Devil - axis-based movement
             preRenderEmoji('👹', 28 * 0.7);        // Demon - alternating behavior
             preRenderEmoji('👻', 22);              // Ghost - phases in/out
@@ -56,6 +57,7 @@
             preRenderEmoji('⚡️', LIGHTNING_SIZE);  // Lightning - electric attack
             preRenderEmoji('🧿', EYE_PROJECTILE_SIZE); // Eye projectile
             preRenderEmoji('🪓', WHIRLWIND_AXE_SIZE);  // Whirlwind axe powerup
+            preRenderEmoji('🕸️', 25);              // Spider web - slowing effect
             preRenderEmoji('🐶', 25);              // Dog companion
             preRenderEmoji('🦉', 30);              // Owl companion
             preRenderEmoji('🧱', 30);              // Brick wall - destructible

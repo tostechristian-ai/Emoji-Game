@@ -112,6 +112,7 @@ function showMerchantShop() {
         { id: 'flaming_bullets',      name: 'Flaming Bullets',   icon: '🔥', active: flamingBulletsActive, locked: !playerData.unlockedPickups.flaming_bullets },
         { id: 'rocket_launcher',      name: 'Heavy Shells',      icon: '🚀', active: rocketLauncherActive, locked: !playerData.unlockedPickups.rocket_launcher },
         { id: 'dual_gun',             name: 'Dual Gun',          icon: '🔫', active: dualGunActive },
+        { id: 'dual_revolvers',       name: 'Dual Revolvers',    icon: '🔫🔫', active: dualRevolversActive },
         
         // Passive effects
         { id: 'sword',                name: 'Auto-Sword',        icon: '🗡️', active: player.swordActive },
@@ -394,6 +395,9 @@ function activatePowerup(id) {
     }
     else if (id === 'dual_gun') {
         dualGunActive = true; // Fire forward and backward
+    }
+    else if (id === 'dual_revolvers') {
+        dualRevolversActive = true; // Fire a second bullet 0.2ms after each shot
     }
     else if (id === 'flaming_bullets') {
         flamingBulletsActive = true; // Bullets ignite enemies

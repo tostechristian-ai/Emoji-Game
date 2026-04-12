@@ -69,6 +69,7 @@ const ALWAYS_AVAILABLE_PICKUPS = {
   laser_pointer: { id: 'laser_pointer', name: 'Laser Pointer' },
   auto_aim: { id: 'auto_aim', name: 'Auto Aim' },
   dual_gun: { id: 'dual_gun', name: 'Dual Gun' },
+  dual_revolvers: { id: 'dual_revolvers', name: 'Dual Revolvers' },
   bomb: { id: 'bomb', name: 'Bomb Emitter' },
   orbiter: { id: 'orbiter', name: 'Spinning Orbiter' },
   lightning_projectile: { id: 'lightning_projectile', name: 'Lightning Projectile' },

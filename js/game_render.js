@@ -142,6 +142,21 @@
                     ctx.restore();
                 }
             }
+
+            // Render spider webs
+            for (const web of spiderWebs) {
+                const age = now - web.spawnTime;
+                const opacity = 1 - (age / web.lifetime);
+                if (opacity > 0) {
+                    ctx.save();
+                    ctx.globalAlpha = opacity * 0.8;
+                    const preRendered = preRenderedEntities['🕸️'];
+                    if (preRendered) {
+                        ctx.drawImage(preRendered, web.x - preRendered.width / 2, web.y - preRendered.height / 2);
+                    }
+                    ctx.restore();
+                }
+            }
             
             bloodPuddles.forEach(puddle => {
                 if (!inView(puddle.x, puddle.y, puddle.initialSize)) return;
@@ -620,12 +635,21 @@
                 } else {
                     ctx.drawImage(sprites.gun, gunXOffset, gunYOffset, gunWidth, gunHeight);
                     if (dualGunActive) { ctx.save(); ctx.scale(-1, 1); ctx.drawImage(sprites.gun, -gunXOffset, gunYOffset, gunWidth, gunHeight); ctx.restore(); }
+                    if (dualRevolversActive) { 
+                        ctx.save(); 
+                        ctx.scale(-1, -1); // Invert the sprite (flip both horizontally and vertically)
+                        ctx.drawImage(sprites.gun, -gunXOffset, -gunYOffset, gunWidth, gunHeight); 
+                        ctx.restore(); 
+                    }
                     if (laserPointerActive) {
                         ctx.save(); ctx.beginPath();
                         const startX = gunXOffset + gunWidth * 0.9; const startY = gunYOffset + gunHeight / 2;
                         ctx.moveTo(startX, startY); 
                         const isMobile = document.body.classList.contains('is-mobile');
-                        const isUsingGamepad = (aimDx !== 0 || aimDy !== 0) && (mouseX === 0 && mouseY === 0);
+                        
+                        // Better gamepad detection: check if gamepad is connected and being used
+                        const gamepadConnected = gamepadIndex !== null && navigator.getGamepads?.()[gamepadIndex];
+                        const isUsingGamepad = gamepadConnected && (aimDx !== 0 || aimDy !== 0);
                         
                         if (isMobile || isUsingGamepad) {
                             // Fixed length laser for mobile/gamepad

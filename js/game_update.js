@@ -156,6 +156,7 @@ for (let i = merchants.length - 1; i >= 0; i--) {
             }
 
             player.isSlowedByMosquitoPuddle = false;
+            player.isSlowedBySpiderWeb = false; // Add spider web slowing check
             for (const puddle of mosquitoPuddles) {
                 const dx = player.x - puddle.x;
                 const dy = player.y - puddle.y;
@@ -171,6 +172,17 @@ for (let i = merchants.length - 1; i >= 0; i--) {
                 const dy = player.y - puddle.y;
                 if (dx*dx + dy*dy < ((player.size / 2) + (puddle.size / 2))**2) {
                     currentPlayerSpeed *= PLAYER_PUDDLE_SLOW_FACTOR; 
+                    break;
+                }
+            }
+
+            // Check spider web slowing
+            for (const web of spiderWebs) {
+                const dx = player.x - web.x;
+                const dy = player.y - web.y;
+                if (dx*dx + dy*dy < ((player.size / 2) + (web.size / 2))**2) {
+                    currentPlayerSpeed *= SPIDER_WEB_SLOW_FACTOR;
+                    player.isSlowedBySpiderWeb = true;
                     break;
                 }
             }
@@ -504,8 +516,8 @@ for (let i = merchants.length - 1; i >= 0; i--) {
                             });
                             enemy._lastSmoke = now;
                         }
-                        if (now - enemy.lastIgnitionDamageTime > 3000) {
-                            const damage = 1;
+                        if (now - enemy.lastIgnitionDamageTime > 500) { // Burn damage every 0.5 seconds
+                            const damage = 0.5; // Small but frequent damage
                             enemy.health -= damage;
                             createBloodSplatter(enemy.x, enemy.y);
                             
@@ -655,6 +667,53 @@ for (let i = merchants.length - 1; i >= 0; i--) {
                         moveY += enemy.currentMosquitoDirection.dy * effectiveEnemySpeed;
                         if (now - enemy.lastPuddleSpawnTime > MOSQUITO_PUDDLE_SPAWN_INTERVAL) { mosquitoPuddles.push({ x: enemy.x, y: enemy.y, size: MOSQUITO_PUDDLE_SIZE, spawnTime: now, lifetime: MOSQUITO_PUDDLE_LIFETIME }); enemy.lastPuddleSpawnTime = now; }
                         break;
+                    case 'spider': {
+                        // Spider jumps diagonally towards player with cooldown
+                        if (!enemy.isJumping && now - enemy.lastJumpTime > enemy.jumpCooldown) {
+                            // Start jump
+                            enemy.isJumping = true;
+                            enemy.jumpStartTime = now;
+                            enemy.lastJumpTime = now;
+                            
+                            // Leave spider web at current position
+                            spiderWebs.push({
+                                x: enemy.x,
+                                y: enemy.y,
+                                size: SPIDER_WEB_SIZE,
+                                spawnTime: now,
+                                lifetime: SPIDER_WEB_LIFETIME
+                            });
+                            
+                            // Calculate diagonal jump direction towards player
+                            const dx = target.x - enemy.x;
+                            const dy = target.y - enemy.y;
+                            const distance = Math.sqrt(dx * dx + dy * dy);
+                            
+                            if (distance > 0) {
+                                enemy.jumpDx = (dx / distance) * effectiveEnemySpeed * 3; // 3x speed during jump
+                                enemy.jumpDy = (dy / distance) * effectiveEnemySpeed * 3;
+                            } else {
+                                enemy.jumpDx = 0;
+                                enemy.jumpDy = 0;
+                            }
+                        }
+                        
+                        if (enemy.isJumping) {
+                            // During jump, move at high speed
+                            if (now - enemy.jumpStartTime < enemy.jumpDuration) {
+                                moveX += enemy.jumpDx;
+                                moveY += enemy.jumpDy;
+                            } else {
+                                // End jump
+                                enemy.isJumping = false;
+                            }
+                        } else {
+                            // When not jumping, move slowly towards player
+                            moveX += Math.cos(angleToTarget) * effectiveEnemySpeed * 0.3;
+                            moveY += Math.sin(angleToTarget) * effectiveEnemySpeed * 0.3;
+                        }
+                        break;
+                    }
                     case 'snail': {
                         // Change direction every 3-5 seconds, biased toward player's area
                         if (!enemy.lastDirChange) enemy.lastDirChange = now;
@@ -1415,9 +1474,8 @@ if (!player._isLumberjack && !player._isKnight && (aimDx !== 0 || aimDy !== 0) &
                         // Ignite enemy
                         if (!enemy.isIgnited) {
                             enemy.isIgnited = true;
-                            enemy.igniteStartTime = now;
-                            enemy.igniteDuration = 3000;
-                            enemy.lastIgniteDamageTime = now;
+                            enemy.ignitionEndTime = now + 5000; // 5 seconds of burning (10 ticks of 0.5 damage = 5 total damage)
+                            enemy.lastIgnitionDamageTime = now;
                         }
                         
                         createBloodSplatter(enemy.x, enemy.y);
@@ -1661,6 +1719,7 @@ for (let i = lightningBolts.length - 1; i >= 0; i--) {
             for (let i = playerPuddles.length - 1; i >= 0; i--) { if (now - playerPuddles[i].spawnTime > playerPuddles[i].lifetime) playerPuddles.splice(i, 1); }
             for (let i = snailPuddles.length - 1; i >= 0; i--) { if (now - snailPuddles[i].spawnTime > snailPuddles[i].lifetime) snailPuddles.splice(i, 1); }
             for (let i = mosquitoPuddles.length - 1; i >= 0; i--) { if (now - mosquitoPuddles[i].spawnTime > mosquitoPuddles[i].lifetime) mosquitoPuddles.splice(i, 1); }
+            for (let i = spiderWebs.length - 1; i >= 0; i--) { if (now - spiderWebs[i].spawnTime > spiderWebs[i].lifetime) spiderWebs.splice(i, 1); }
             for (let i = bloodSplatters.length - 1; i >= 0; i--) {
                 const p = bloodSplatters[i];
                 if (now - p.spawnTime > p.lifetime) { bloodSplatters.splice(i, 1); continue; }

@@ -467,12 +467,18 @@ let doppelganger = null;
         const MOSQUITO_PUDDLE_LIFETIME = 2000;
         const MOSQUITO_PUDDLE_SLOW_FACTOR = 0.5;
 
+        // Spider web constants
+        const SPIDER_WEB_SIZE = player.size * 1.2;
+        const SPIDER_WEB_LIFETIME = 1000; // 1 second
+        const SPIDER_WEB_SLOW_FACTOR = 0.3; // Stronger slow than puddles
+
         let pickupItems = [];
         let lightningBolts = [];
         let eyeProjectiles = [];
         let playerPuddles = [];
         let snailPuddles = [];
         let mosquitoPuddles = [];
+        let spiderWebs = []; // Spider webs that slow the player
         let floatingTexts = []; 
         let visualWarnings = [];
         let explosions = [];
@@ -628,6 +634,7 @@ let doppelganger = null;
         let rocketLauncherActive = false;
         let blackHoleActive = false; let lastBlackHoleTime = 0;
         let dualGunActive = false;
+        let dualRevolversActive = false;
         let flamingBulletsActive = false;
         let shotgunBlastActive = false;
         let flamethrowerActive = false;
@@ -1463,6 +1470,7 @@ document.body.addEventListener('touchstart', (e) => {
             '💀': { size: 20, baseHealth: 2, speedMultiplier: 1.15, type: 'pursuer', minLevel: 5 },
             '🐌': { size: 22, baseHealth: 3, speedMultiplier: 0.6, type: 'snail', minLevel: 4, spawnWeight: 0.005, initialProps: () => ({ lastPuddleSpawnTime: Date.now(), directionAngle: Math.random() * 2 * Math.PI, lastDirChange: Date.now() }) },
             '🦟': { size: 15, baseHealth: 2, speedMultiplier: 1.5, type: 'mosquito', minLevel: 7, initialProps: () => ({ lastDirectionUpdateTime: Date.now(), currentMosquitoDirection: null, lastPuddleSpawnTime: Date.now() }) },
+            '🕷️': { size: 18, baseHealth: 2.5, speedMultiplier: 1.3, type: 'spider', minLevel: 7, initialProps: () => ({ lastJumpTime: Date.now(), jumpCooldown: 1500, isJumping: false, jumpStartTime: 0, jumpDuration: 300 }) },
             '🦇': { size: 25 * 0.85, baseHealth: 3, speedMultiplier: 2, type: 'bat', minLevel: 10, initialProps: () => ({ isPaused: false, pauseTimer: 0, pauseDuration: 30, moveDuration: 30 }) },
             '😈': { size: 20 * 0.8, baseHealth: 3, speedMultiplier: 1.84, type: 'devil', minLevel: 12, initialProps: () => ({ moveAxis: 'x', lastAxisSwapTime: Date.now() }) }, 
             '👹': { size: 28 * 0.7, baseHealth: 4, speedMultiplier: 1.8975, type: 'demon', minLevel: 15, initialProps: () => ({ moveState: 'following', lastStateChangeTime: Date.now(), randomDx: 0, randomDy: 0 }) },
@@ -1703,6 +1711,7 @@ function createBoss() {
                 if (!laserCannonActive) powerUpChoices.push({id: 'laser_cannon', name: 'Laser Cannon', label: 'LCN'});
                 if (!autoAimActive) powerUpChoices.push({id: 'auto_aim', name: 'Auto-Aim', label: 'AIM'});
                 if (!dualGunActive) powerUpChoices.push({id: 'dual_gun', name: 'Dual Gun', label: 'DUL'});
+                if (!dualRevolversActive) powerUpChoices.push({id: 'dual_revolvers', name: 'Dual Revolvers', label: 'REV'});
                 if (!bombEmitterActive) powerUpChoices.push({id: 'bomb', name: 'Bomb Emitter', label: 'BMB'});
                 if (!orbitingPowerUpActive) powerUpChoices.push({id: 'orbiter', name: 'Spinning Orbiter', label: 'ORB'});
                 if (!lightningProjectileActive) powerUpChoices.push({id: 'lightning_projectile', name: 'Lightning Projectile', label: 'LTN'});
@@ -1835,6 +1844,13 @@ function createBoss() {
             
             angles.forEach(angle => fireWeaponFromPool(angle));
             if(dualGunActive && shooter === player) { angles.forEach(angle => fireWeaponFromPool(angle + Math.PI)); }
+            
+            // Dual Revolvers: Fire a second bullet 0.2ms after each main bullet
+            if(dualRevolversActive && shooter === player) {
+                setTimeout(() => {
+                    angles.forEach(angle => fireWeaponFromPool(angle));
+                }, 0.2);
+            }
 
             if (shooter === player) {
                 const elementsToShake = [gameContainer, gameStats, pauseButton];
@@ -2080,6 +2096,7 @@ if (firstCard) {
             
             // Projectile weapons
             if (dualGunActive) icons.push('🔫');
+            if (dualRevolversActive) icons.push('🔫🔫');
             if (bombEmitterActive) icons.push('💣');
             if (lightningProjectileActive) icons.push('⚡️');
             if (lightningStrikeActive) icons.push('⚡');
@@ -2388,7 +2405,7 @@ async function startGame() {
                 xp: 0, level: 1, xpToNextLevel: 3, projectileSizeMultiplier: 1, projectileSpeedMultiplier: 1, 
                 speed: basePlayerSpeed * difficultyMultiplier, lives: player.maxLives, orbitAngle: 0, 
                 boxPickupsCollectedCount: 0, bgmFastModeActive: false, swordActive: false, 
-                lastSwordSwingTime: 0, currentSwordSwing: null, isSlowedByMosquitoPuddle: false, 
+                lastSwordSwingTime: 0, currentSwordSwing: null, isSlowedByMosquitoPuddle: false, isSlowedBySpiderWeb: false, 
                 facing: 'down', appleCount: 0,
                 isDashing: false, dashEndTime: 0, lastDashTime: 0 - (playerData.hasReducedDashCooldown ? 3000: 6000), 
                 dashCooldown: playerData.hasReducedDashCooldown ? 3000: 6000,
@@ -2407,7 +2424,7 @@ async function startGame() {
                 runStats.recoveredToFullAfterOneHeart = false;
             }
 
-            [enemies, pickupItems, appleItems, eyeProjectiles, playerPuddles, snailPuddles, mosquitoPuddles, bombs, floatingTexts, visualWarnings, explosions, blackHoles, bloodSplatters, bloodPuddles, antiGravityPulses, vengeanceNovas, dogHomingShots, destructibles, flameAreas, flies, owlProjectiles, lightningStrikes, smokeParticles, flameProjectiles, laserCannonBeams].forEach(arr => arr.length = 0);
+            [enemies, pickupItems, appleItems, eyeProjectiles, playerPuddles, snailPuddles, mosquitoPuddles, spiderWebs, bombs, floatingTexts, visualWarnings, explosions, blackHoles, bloodSplatters, bloodPuddles, antiGravityPulses, vengeanceNovas, dogHomingShots, destructibles, flameAreas, flies, owlProjectiles, lightningStrikes, smokeParticles, flameProjectiles, laserCannonBeams].forEach(arr => arr.length = 0);
             
             spawnInitialObstacles();
 
@@ -2418,7 +2435,7 @@ async function startGame() {
             magneticProjectileActive = false; vShapeProjectileLevel = 0; iceProjectileActive = false; puddleTrailActive = false;
             laserPointerActive = false; autoAimActive = false; explosiveBulletsActive = false; vengeanceNovaActive = false;
             dogCompanionActive = false; antiGravityActive = false; ricochetActive = false; rocketLauncherActive = false;
-            blackHoleActive = false; dualGunActive = false; flamingBulletsActive = false; flamethrowerActive = false; laserCannonActive = false; hasDashInvincibility = false;
+            blackHoleActive = false; dualGunActive = false; dualRevolversActive = false; flamingBulletsActive = false; flamethrowerActive = false; laserCannonActive = false; hasDashInvincibility = false;
             lastAntiGravityPushTime = 0; lastBlackHoleTime = 0; shotgunBlastActive = false; doppelgangerActive = false;
             doppelganger = null;
             bugSwarmActive = false; nightOwlActive = false; whirlwindAxeActive = false; lightningStrikeActive = false; owl = null;
