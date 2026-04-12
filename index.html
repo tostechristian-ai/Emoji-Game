@@ -31,8 +31,17 @@
     <img id="splashLogo" src="sprites/toastygames.png" alt="Toasty Games Logo">
   </div>
 
+  <!-- Intro Video -->
+  <div id="introVideoOverlay">
+    <video id="introVideo" playsinline preload="auto">
+      <source src="videos/Emoji Survivors Intro.mp4" type="video/mp4">
+    </video>
+    <button id="skipIntroButton">Skip ▶</button>
+  </div>
+
   <!-- Difficulty Select -->
   <div id="difficultyContainer">
+    <button id="fullscreenToggle" title="Enter Fullscreen">&#x26F6;</button>
     <div id="difficultyScreen">
       <h1 id="mainTitle">Emoji Survivor</h1>
       <div id="highScoresContainer">

@@ -531,6 +531,35 @@
             box-sizing: border-box;
         }
 
+        /* Fullscreen toggle — desktop only, top-right of menu */
+        #fullscreenToggle {
+            position: absolute;
+            top: 14px;
+            right: 16px;
+            background: rgba(0,0,0,0.45);
+            color: #fff;
+            border: 2px solid rgba(255,255,255,0.35);
+            border-radius: 8px;
+            width: 40px;
+            height: 40px;
+            font-size: 20px;
+            line-height: 1;
+            cursor: pointer;
+            z-index: 4000;
+            transition: background 0.15s, border-color 0.15s, transform 0.1s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+        }
+        #fullscreenToggle:hover {
+            background: rgba(255,255,255,0.18);
+            border-color: #fff;
+            transform: scale(1.1);
+        }
+        /* Hide on mobile */
+        body.is-mobile #fullscreenToggle { display: none !important; }
+
         #difficultyScreen h1, #mapSelectScreen h1, #characterSelectScreen h1 {
             font-size: 48px;
             color: yellow;
@@ -1059,6 +1088,44 @@
             50% { opacity: 1; transform: scale(1.05); }
             80% { opacity: 1; transform: scale(1); }
             100% { opacity: 0; transform: scale(0.9); }
+        }
+
+        /* ── Intro Video Overlay ── */
+        #introVideoOverlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: #000;
+            z-index: 5999;
+            justify-content: center;
+            align-items: center;
+        }
+        #introVideo {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            display: block;
+        }
+        #skipIntroButton {
+            position: absolute;
+            bottom: 32px;
+            right: 32px;
+            background: rgba(0,0,0,0.55);
+            color: #fff;
+            border: 2px solid rgba(255,255,255,0.4);
+            border-radius: 8px;
+            padding: 10px 22px;
+            font-family: 'Press Start 2P', monospace;
+            font-size: 11px;
+            cursor: pointer;
+            z-index: 6000;
+            transition: background 0.2s, border-color 0.2s;
+        }
+        #skipIntroButton:hover,
+        #skipIntroButton.gamepad-focus {
+            background: rgba(255,255,255,0.18);
+            border-color: #fff;
         }
 
         #startScreen {
