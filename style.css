@@ -768,6 +768,8 @@
             border-radius: 10px;
             max-width: 900px;
             width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
             box-shadow: 0 0 25px rgba(0, 255, 0, 0.6);
             text-align: left;
         }
@@ -1995,6 +1997,78 @@
     body.is-mobile .character-tile {
         width: 140px;
         padding: 12px;
+    }
+
+    /* Achievements and Cheats Modal fixes for mobile portrait */
+    body.is-mobile #achievementsModal,
+    body.is-mobile #cheatsModal,
+    body.is-mobile #gameGuideModal {
+        padding: 10px;
+        justify-content: flex-start;
+        align-items: center;
+    }
+
+    body.is-mobile #achievementsModal .content-wrapper,
+    body.is-mobile #cheatsModal .content-wrapper,
+    body.is-mobile #gameGuideModal .content-wrapper {
+        width: 95%;
+        max-height: 85vh;
+        padding: 15px;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        margin-top: 20px;
+        margin-bottom: 20px;
+    }
+
+    body.is-mobile #achievementsModal h2,
+    body.is-mobile #cheatsModal h2,
+    body.is-mobile #gameGuideModal h2 {
+        font-size: 20px;
+        margin-bottom: 15px;
+        position: sticky;
+        top: 0;
+        background-color: #222;
+        padding: 10px 0;
+        z-index: 1;
+    }
+
+    body.is-mobile #achievementsContainer,
+    body.is-mobile #cheatsContainer {
+        grid-template-columns: 1fr;
+        gap: 10px;
+        width: 100%;
+    }
+
+    body.is-mobile .achievement-card,
+    body.is-mobile .cheat-card {
+        padding: 12px;
+        font-size: 12px;
+    }
+
+    body.is-mobile .achievement-icon {
+        font-size: 28px;
+    }
+
+    body.is-mobile .achievement-details h4,
+    body.is-mobile .cheat-info h4 {
+        font-size: 12px;
+    }
+
+    body.is-mobile .achievement-details p,
+    body.is-mobile .cheat-info p {
+        font-size: 10px;
+    }
+
+    body.is-mobile #achievementsModal button,
+    body.is-mobile #cheatsModal button,
+    body.is-mobile #gameGuideModal button {
+        font-size: 16px;
+        padding: 10px 20px;
+        margin-top: 15px;
+        position: sticky;
+        bottom: 0;
+        background-color: #66bb6a;
+        z-index: 1;
     }
 
     body.is-mobile .character-tile .char-emoji {

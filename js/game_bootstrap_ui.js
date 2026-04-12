@@ -169,7 +169,12 @@ window.onload = function() {
     howToPlayButton.addEventListener('click', async () => {
       vibrate(10);
       if (difficultyContainer) difficultyContainer.style.display = 'none';
-      if (gameGuideModal) gameGuideModal.style.display = 'flex';
+      if (gameGuideModal) {
+        gameGuideModal.style.display = 'flex';
+        // Reset scroll to top
+        const contentWrapper = gameGuideModal.querySelector('.content-wrapper');
+        if (contentWrapper) contentWrapper.scrollTop = 0;
+      }
     });
     howToPlayButton.addEventListener('mouseover', () => playUISound('uiClick'));
   }
@@ -214,6 +219,9 @@ window.onload = function() {
     difficultyContainer.style.display = 'none';
     displayAchievements();
     achievementsModal.style.display = 'flex';
+    // Reset scroll to top
+    const contentWrapper = achievementsModal.querySelector('.content-wrapper');
+    if (contentWrapper) contentWrapper.scrollTop = 0;
   };
   desktopAchievementsButton.addEventListener('click', achievementsAction);
   if (mobileMenuTrophiesButton) mobileMenuTrophiesButton.addEventListener('click', achievementsAction);
@@ -223,6 +231,9 @@ window.onload = function() {
     achievementsModal.style.display = 'none';
     displayCheats();
     cheatsModal.style.display = 'flex';
+    // Reset scroll to top
+    const contentWrapper = cheatsModal.querySelector('.content-wrapper');
+    if (contentWrapper) contentWrapper.scrollTop = 0;
   };
   cheatsMenuButton.addEventListener('click', cheatsAction);
   if (mobileMenuCheatsButton) mobileMenuCheatsButton.addEventListener('click', cheatsAction);
@@ -238,6 +249,9 @@ window.onload = function() {
     cheatsModal.style.display = 'none';
     displayAchievements();
     achievementsModal.style.display = 'flex';
+    // Reset scroll to top
+    const contentWrapper = achievementsModal.querySelector('.content-wrapper');
+    if (contentWrapper) contentWrapper.scrollTop = 0;
   });
 
   if (pauseButton) {
