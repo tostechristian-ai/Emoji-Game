@@ -1228,6 +1228,11 @@
             overflow: hidden; /* Keeps overlay within the rounded corners */
         }
 
+        .map-tile:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 15px rgba(255, 193, 7, 0.7);
+        }
+
         /* This creates a dark overlay so the text is always readable */
         .map-tile::before {
             content: '';
@@ -1242,6 +1247,21 @@
 
         .map-tile:hover::before {
             background-color: rgba(0, 0, 0, 0.3); /* Lighten overlay on hover */
+        }
+
+        .map-tile.locked {
+            filter: grayscale(1) brightness(0.5);
+            cursor: not-allowed;
+            border-color: #555;
+        }
+
+        .map-tile.locked:hover {
+            transform: none;
+            box-shadow: none;
+        }
+
+        .map-tile.locked::before {
+            background-color: rgba(0, 0, 0, 0.7);
         }
 
         .map-tile p {
