@@ -194,27 +194,42 @@
                 "Desert Map 2",
                 "Ice Map 1",
                 "Grass Map 1",
-                "Ice Map 2"
+                "Ice Map 2",
+                "Junkyard",
+                "Log Cabin",
+                "Cellar"
             ];
+
+            // Define which maps require unlocks (indices 9, 10, 11 are the new maps)
+            const mapUnlockRequirements = {
+                9: 'map_junkyard',
+                10: 'map_log_cabin',
+                11: 'map_cellar'
+            };
             
             backgroundPaths.forEach((path, index) => {
+                const unlockKey = mapUnlockRequirements[index];
+                const isLocked = unlockKey && !playerData.unlockedPickups[unlockKey];
+                
                 const tile = document.createElement('div');
                 tile.className = 'map-tile';
+                if (isLocked) tile.classList.add('locked');
                 tile.style.backgroundImage = `url('${backgroundImages[index].src}')`;
                 tile.dataset.mapIndex = index;
                 
                 const label = document.createElement('p');
-                
-                label.textContent = mapNames[index] || `Map ${index + 1}`;
+                label.textContent = isLocked ? '🔒 LOCKED' : (mapNames[index] || `Map ${index + 1}`);
                 
                 tile.appendChild(label);
                 
-                tile.addEventListener('click', () => {
-                    playUISound('uiClick');
-                    vibrate(10);
-                    selectedMapIndex = index;
-                    startGame();
-                });
+                if (!isLocked) {
+                    tile.addEventListener('click', () => {
+                        playUISound('uiClick');
+                        vibrate(10);
+                        selectedMapIndex = index;
+                        startGame();
+                    });
+                }
                 mapTilesContainer.appendChild(tile);
             });
         }

@@ -362,6 +362,18 @@ for (let i = merchants.length - 1; i >= 0; i--) {
                         targetEnemy.health -= LIGHTNING_STRIKE_DAMAGE;
                         playerStats.totalEnemiesHitByLightning++;
                         createBloodSplatter(targetEnemy.x, targetEnemy.y);
+                        
+                        // Damage number
+                        if (floatingTexts.length < 30) {
+                            floatingTexts.push({
+                                text: String(LIGHTNING_STRIKE_DAMAGE),
+                                x: targetEnemy.x + (Math.random() - 0.5) * targetEnemy.size,
+                                y: targetEnemy.y - targetEnemy.size * 0.5,
+                                startTime: now, duration: 600,
+                                color: '#ffff00', fontSize: 14
+                            });
+                        }
+                        
                         if (targetEnemy.health <= 0) { handleEnemyDeath(targetEnemy); }
                         lastLightningStrikeTime = now;
                     }
@@ -412,6 +424,11 @@ for (let i = merchants.length - 1; i >= 0; i--) {
             const baseCap = currentDifficulty === 'hard' ? 50 : currentDifficulty === 'medium' ? 40 : 30;
             const powerupPressure = Math.floor(player.boxPickupsCollectedCount / 5);
             let enemySpawnCap = cheats.noSpawnCap ? Infinity : Math.min(baseCap + powerupPressure, 80);
+            
+            // Horde mode: double the spawn cap
+            if (cheats.horde_mode) {
+                enemySpawnCap = cheats.noSpawnCap ? Infinity : enemySpawnCap * 2;
+            }
 
             // Rain of bullets cheat: drop bullets from sky every second
             if (cheats.rain_of_bullets && !isTimeStopped) {
@@ -456,6 +473,12 @@ for (let i = merchants.length - 1; i >= 0; i--) {
             if (currentDifficulty === 'hard') currentEnemySpawnInterval *= 0.65;
             else if (currentDifficulty === 'medium') currentEnemySpawnInterval *= 0.82;
             currentEnemySpawnInterval = Math.max(currentDifficulty === 'hard' ? 50 : 80, currentEnemySpawnInterval);
+            
+            // Horde mode: double the spawn rate (half the interval)
+            if (cheats.horde_mode) {
+                currentEnemySpawnInterval *= 0.5;
+            }
+            
             if (player.level > 0 && player.level % BOSS_SPAWN_INTERVAL_LEVELS === 0 && player.level !== lastBossLevelSpawned) {
                 createBoss();
                 lastBossLevelSpawned = player.level;
@@ -482,8 +505,21 @@ for (let i = merchants.length - 1; i >= 0; i--) {
                             enemy._lastSmoke = now;
                         }
                         if (now - enemy.lastIgnitionDamageTime > 3000) {
-                            enemy.health -= 1;
+                            const damage = 1;
+                            enemy.health -= damage;
                             createBloodSplatter(enemy.x, enemy.y);
+                            
+                            // Damage number for burning
+                            if (floatingTexts.length < 30) {
+                                floatingTexts.push({
+                                    text: String(damage),
+                                    x: enemy.x + (Math.random() - 0.5) * enemy.size,
+                                    y: enemy.y - enemy.size * 0.5,
+                                    startTime: now, duration: 600,
+                                    color: '#ff4400', fontSize: 10
+                                });
+                            }
+                            
                             if (enemy.health <= 0) { handleEnemyDeath(enemy); }
                             enemy.lastIgnitionDamageTime = now;
                         }
@@ -637,10 +673,7 @@ for (let i = merchants.length - 1; i >= 0; i--) {
                         }
                         moveX += Math.cos(enemy.directionAngle) * effectiveEnemySpeed;
                         moveY += Math.sin(enemy.directionAngle) * effectiveEnemySpeed;
-                        if (now - enemy.lastPuddleSpawnTime > PLAYER_PUDDLE_SPAWN_INTERVAL * 2) {
-                            snailPuddles.push({ x: enemy.x, y: enemy.y, size: PLAYER_PUDDLE_SIZE, spawnTime: now, lifetime: PLAYER_PUDDLE_LIFETIME * 2 });
-                            enemy.lastPuddleSpawnTime = now;
-                        }
+                        // Snail puddle trail removed
                         break;
                     }
                     default:
@@ -886,49 +919,15 @@ for (let i = merchants.length - 1; i >= 0; i--) {
                         vibrate(20);
                         player.boxPickupsCollectedCount++;
                         playerStats.totalBoxesOpened++;
-                        const powerUpChoices = [];
-                        let powerupName = ""; 
-                        if (vShapeProjectileLevel < 4 && !shotgunBlastActive) powerUpChoices.push(ALWAYS_AVAILABLE_PICKUPS.v_shape_projectile);
-                        if (!magneticProjectileActive) powerUpChoices.push(ALWAYS_AVAILABLE_PICKUPS.magnetic_projectile);
-                        if (!iceProjectileActive) powerUpChoices.push(ALWAYS_AVAILABLE_PICKUPS.ice_projectile);
-                        if (!ricochetActive) powerUpChoices.push(ALWAYS_AVAILABLE_PICKUPS.ricochet);
-                        if (!explosiveBulletsActive) powerUpChoices.push(ALWAYS_AVAILABLE_PICKUPS.explosive_bullets);
-                        if (!puddleTrailActive) powerUpChoices.push(ALWAYS_AVAILABLE_PICKUPS.puddle_trail);
-                        if (!player.swordActive) powerUpChoices.push(ALWAYS_AVAILABLE_PICKUPS.sword);
-                        if (!laserPointerActive) powerUpChoices.push(ALWAYS_AVAILABLE_PICKUPS.laser_pointer);
-                        if (!autoAimActive) powerUpChoices.push(ALWAYS_AVAILABLE_PICKUPS.auto_aim);
-                        if (!dualGunActive) powerUpChoices.push(ALWAYS_AVAILABLE_PICKUPS.dual_gun);
-                        if (!bombEmitterActive) powerUpChoices.push(ALWAYS_AVAILABLE_PICKUPS.bomb);
-                        if (!orbitingPowerUpActive) powerUpChoices.push(ALWAYS_AVAILABLE_PICKUPS.orbiter);
-                        if (!lightningProjectileActive) powerUpChoices.push(ALWAYS_AVAILABLE_PICKUPS.lightning_projectile);
-                        if (!bugSwarmActive) powerUpChoices.push({id: 'bug_swarm', name: 'Bug Swarm'});
-                        if (!lightningStrikeActive) powerUpChoices.push({id: 'lightning_strike', name: 'Lightning Strike'});
-                        if (!iceShardCannonActive) powerUpChoices.push(ALWAYS_AVAILABLE_PICKUPS.ice_shard_cannon);
-                        if (!hasDashInvincibility) powerUpChoices.push({id: 'dash_invincibility', name: 'Dash Invincibility'});
-                        if (!playerData.hasReducedDashCooldown) powerUpChoices.push({id: 'dash_cooldown', name: 'Dash Cooldown'});
-
-                        const unlocked = playerData.unlockedPickups;
-                        if (unlocked.doppelganger && !doppelgangerActive) powerUpChoices.push({id: 'doppelganger', name: 'Doppelganger'});
-                        if (unlocked.temporal_ward && !temporalWardActive) powerUpChoices.push({id: 'temporal_ward', name: 'Temporal Ward'});
-                        if (unlocked.circle && !damagingCircleActive) powerUpChoices.push({id:'circle', name: 'Damaging Circle'});
-                        if (unlocked.vengeance_nova && !vengeanceNovaActive) powerUpChoices.push({id: 'vengeance_nova', name: 'Vengeance Nova'});
-                        if (unlocked.dog_companion && !dogCompanionActive) powerUpChoices.push({id: 'dog_companion', name: 'Dog Companion'});
-                        if (unlocked.anti_gravity && !antiGravityActive) powerUpChoices.push({id: 'anti_gravity', name: 'Anti-Gravity'});
-                        if (unlocked.rocket_launcher && !rocketLauncherActive && !shotgunBlastActive) powerUpChoices.push({id: 'rocket_launcher', name: 'Heavy Shells'});
-                        if (unlocked.black_hole && !blackHoleActive) powerUpChoices.push({id: 'black_hole', name: 'Black Hole'});
-                        if (unlocked.flaming_bullets && !flamingBulletsActive) powerUpChoices.push({id: 'flaming_bullets', name: 'Flaming Bullets'});
-                        if (unlocked.night_owl && !nightOwlActive) powerUpChoices.push({id: 'night_owl', name: 'Night Owl'});
-                        if (unlocked.whirlwind_axe && !whirlwindAxeActive) powerUpChoices.push({id: 'whirlwind_axe', name: 'Whirlwind Axe'});
-
-                        if (powerUpChoices.length > 0) {
-                            const randomChoice = powerUpChoices[Math.floor(Math.random() * powerUpChoices.length)];
-                            powerupName = randomChoice.name; 
-                            activatePowerup(randomChoice.id);
-                            
+                        
+                        // Use pre-assigned powerup if available
+                        if (item.powerupId) {
+                            activatePowerup(item.powerupId);
                             playSound('boxPickup');
-                            floatingTexts.push({ text: powerupName + "!", x: player.x, y: player.y - player.size, startTime: now, duration: 1500 });
-                            updatePowerupIconsUI(); 
+                            floatingTexts.push({ text: item.powerupName + "!", x: player.x, y: player.y - player.size, startTime: now, duration: 1500 });
+                            updatePowerupIconsUI();
                         }
+                        
                         pickupItems.splice(i, 1);
                         continue;
                     }
@@ -988,7 +987,7 @@ if(fireRateBoostActive) currentFireInterval /= 2;
 if(cheats.fastShooting) currentFireInterval /= 5;
 if(cheats.double_game_speed) currentFireInterval /= 2;
 currentFireInterval = Math.max(50, currentFireInterval);
-if (!cheats.no_gun_mode && !player._isLumberjack && !player._isKnight && (aimDx !== 0 || aimDy !== 0) && (now - lastWeaponFireTime > currentFireInterval)) {
+if (!player._isLumberjack && !player._isKnight && (aimDx !== 0 || aimDy !== 0) && (now - lastWeaponFireTime > currentFireInterval)) {
     if (!cheats.click_to_fire) {
         createWeapon();
         lastWeaponFireTime = now;
@@ -1094,6 +1093,7 @@ if (!cheats.no_gun_mode && !player._isLumberjack && !player._isKnight && (aimDx 
                     runStats.bulletsHit++;
                 }
                 enemy.health -= damageToDeal;
+                enemy.hitFlashTime = now; // Add white flash effect
                 createBloodSplatter(enemy.x, enemy.y);
                 weapon.hitEnemies.push(enemy);
 
@@ -1215,9 +1215,23 @@ if (!cheats.no_gun_mode && !player._isLumberjack && !player._isKnight && (aimDx 
                     const dy = orbitY - enemy.y;
                     if (dx*dx + dy*dy < ((ORBIT_POWER_UP_SIZE / 2) + (enemy.size / 2))**2) {
                         if (!enemy.isHit && !enemy.isHitByOrbiter) {
-                            enemy.health -= player.damageMultiplier;
+                            const damage = player.damageMultiplier;
+                            enemy.health -= damage;
                             createBloodSplatter(enemy.x, enemy.y);
                             enemy.isHitByOrbiter = true;
+                            
+                            // Damage number
+                            if (floatingTexts.length < 30) {
+                                const dmg = Math.round(damage * 10) / 10;
+                                floatingTexts.push({
+                                    text: String(dmg),
+                                    x: enemy.x + (Math.random() - 0.5) * enemy.size,
+                                    y: enemy.y - enemy.size * 0.5,
+                                    startTime: now, duration: 600,
+                                    color: '#ffff00', fontSize: 12
+                                });
+                            }
+                            
                             if (enemy.health <= 0) { handleEnemyDeath(enemy); }
                         }
                     } else { enemy.isHitByOrbiter = false; }
@@ -1241,9 +1255,22 @@ if (!cheats.no_gun_mode && !player._isLumberjack && !player._isKnight && (aimDx 
                     const dy = axeY - enemy.y;
                     if (dx*dx + dy*dy < ((WHIRLWIND_AXE_SIZE / 2) + (enemy.size / 2))**2) {
                         if (!enemy.isHit && !enemy.isHitByAxe) { 
-                            enemy.health -= 1;
+                            const damage = 1;
+                            enemy.health -= damage;
                             createBloodSplatter(enemy.x, enemy.y);
                             enemy.isHitByAxe = true;
+                            
+                            // Damage number
+                            if (floatingTexts.length < 30) {
+                                floatingTexts.push({
+                                    text: String(damage),
+                                    x: enemy.x + (Math.random() - 0.5) * enemy.size,
+                                    y: enemy.y - enemy.size * 0.5,
+                                    startTime: now, duration: 600,
+                                    color: '#ffaa00', fontSize: 12
+                                });
+                            }
+                            
                             if (enemy.health <= 0) { handleEnemyDeath(enemy); }
                         }
                     } else { enemy.isHitByAxe = false; }
@@ -1257,9 +1284,23 @@ if (!cheats.no_gun_mode && !player._isLumberjack && !player._isKnight && (aimDx 
                     const dy = player.y - enemy.y;
                     if (!enemy.isHit && (dx*dx + dy*dy) < radiusSq + (enemy.size / 2)**2) {
                         if (!enemy.isHitByCircle) {
-                            enemy.health -= player.damageMultiplier; 
+                            const damage = player.damageMultiplier;
+                            enemy.health -= damage;
                             createBloodSplatter(enemy.x, enemy.y);
                             enemy.isHitByCircle = true;
+                            
+                            // Damage number
+                            if (floatingTexts.length < 30) {
+                                const dmg = Math.round(damage * 10) / 10;
+                                floatingTexts.push({
+                                    text: String(dmg),
+                                    x: enemy.x + (Math.random() - 0.5) * enemy.size,
+                                    y: enemy.y - enemy.size * 0.5,
+                                    startTime: now, duration: 600,
+                                    color: '#ff00ff', fontSize: 12
+                                });
+                            }
+                            
                             if (enemy.health <= 0) { handleEnemyDeath(enemy); }
                         }
                     } else { enemy.isHitByCircle = false; }
@@ -1280,6 +1321,200 @@ if (!cheats.no_gun_mode && !player._isLumberjack && !player._isKnight && (aimDx 
                 }
                 lastLightningSpawnTime = now;
             }
+            
+            // Flamethrower - emits flames that damage and ignite enemies
+            if (flamethrowerActive && flameProjectiles.length < FLAMETHROWER_MAX_FLAMES) {
+                const flameInterval = FLAMETHROWER_EMIT_INTERVAL * (weaponFireInterval / 400); // Scale with fire rate
+                if (now - lastFlameEmitTime > flameInterval) {
+                    // Get aim angle (same logic as bullets)
+                    let aimAngle;
+                    if (autoAimActive && enemies.length > 0) {
+                        let closestEnemy = null; let minDistance = Infinity;
+                        enemies.forEach(enemy => {
+                            const distSq = (player.x - enemy.x) ** 2 + (player.y - enemy.y) ** 2;
+                            if (distSq < minDistance) { minDistance = distSq; closestEnemy = enemy; }
+                        });
+                        if (closestEnemy) { aimAngle = Math.atan2(closestEnemy.y - player.y, closestEnemy.x - player.x); }
+                        else { aimAngle = player.rotationAngle; }
+                    } else if (aimDx !== 0 || aimDy !== 0) {
+                        aimAngle = Math.atan2(aimDy, aimDx);
+                    } else {
+                        aimAngle = player.rotationAngle || 0;
+                    }
+                    
+                    // Calculate gun tip position (same as laser pointer)
+                    const gunWidth = player.size * 0.8;
+                    const gunXOffset = player.size / 4;
+                    const gunTipOffset = gunXOffset + gunWidth * 0.9;
+                    
+                    // Spawn flame from gun tip in world coordinates
+                    const spawnX = player.x + Math.cos(aimAngle) * gunTipOffset;
+                    const spawnY = player.y + Math.sin(aimAngle) * gunTipOffset;
+                    
+                    const spreadAngle = (Math.random() - 0.5) * 0.4; // Wider spread for flame effect
+                    const angle = aimAngle + spreadAngle;
+                    
+                    flameProjectiles.push({
+                        x: spawnX,
+                        y: spawnY,
+                        size: 14,
+                        speed: 3.0,
+                        dx: Math.cos(angle) * 3.0,
+                        dy: Math.sin(angle) * 3.0,
+                        angle: angle,
+                        damage: 0.2 * player.damageMultiplier,
+                        lifetime: now + 800,
+                        hitEnemies: []
+                    });
+                    lastFlameEmitTime = now;
+                }
+            }
+            
+            // Update flame projectiles
+            for (let i = flameProjectiles.length - 1; i >= 0; i--) {
+                const flame = flameProjectiles[i];
+                flame.x += flame.dx;
+                flame.y += flame.dy;
+                
+                // Remove expired flames
+                if (now > flame.lifetime) {
+                    flameProjectiles.splice(i, 1);
+                    continue;
+                }
+                
+                // Check collision with enemies
+                for (let j = 0; j < enemies.length; j++) {
+                    const enemy = enemies[j];
+                    if (enemy.isHit || flame.hitEnemies.includes(enemy)) continue;
+                    
+                    const dx = flame.x - enemy.x;
+                    const dy = flame.y - enemy.y;
+                    const distSq = dx * dx + dy * dy;
+                    const collisionDist = (flame.size / 2) + (enemy.size / 2);
+                    
+                    if (distSq < collisionDist * collisionDist) {
+                        enemy.health -= flame.damage;
+                        enemy.hitFlashTime = now;
+                        flame.hitEnemies.push(enemy);
+                        
+                        // Damage number
+                        if (floatingTexts.length < 30) {
+                            const dmg = Math.round(flame.damage * 10) / 10;
+                            floatingTexts.push({
+                                text: String(dmg),
+                                x: enemy.x + (Math.random() - 0.5) * enemy.size,
+                                y: enemy.y - enemy.size * 0.5,
+                                startTime: now, duration: 600,
+                                color: '#ff6600', fontSize: 12
+                            });
+                        }
+                        
+                        // Ignite enemy
+                        if (!enemy.isIgnited) {
+                            enemy.isIgnited = true;
+                            enemy.igniteStartTime = now;
+                            enemy.igniteDuration = 3000;
+                            enemy.lastIgniteDamageTime = now;
+                        }
+                        
+                        createBloodSplatter(enemy.x, enemy.y);
+                        
+                        if (enemy.health <= 0) {
+                            handleEnemyDeath(enemy);
+                        }
+                    }
+                }
+            }
+            
+            // Laser Cannon - fires a piercing beam every 5 seconds
+            if (laserCannonActive && now - lastLaserCannonFireTime > LASER_CANNON_INTERVAL) {
+                // Get aim angle (same logic as bullets)
+                let aimAngle;
+                if (autoAimActive && enemies.length > 0) {
+                    let closestEnemy = null; let minDistance = Infinity;
+                    enemies.forEach(enemy => {
+                        const distSq = (player.x - enemy.x) ** 2 + (player.y - enemy.y) ** 2;
+                        if (distSq < minDistance) { minDistance = distSq; closestEnemy = enemy; }
+                    });
+                    if (closestEnemy) { aimAngle = Math.atan2(closestEnemy.y - player.y, closestEnemy.x - player.x); }
+                    else { aimAngle = player.rotationAngle; }
+                } else if (aimDx !== 0 || aimDy !== 0) {
+                    aimAngle = Math.atan2(aimDy, aimDx);
+                } else {
+                    aimAngle = player.rotationAngle || 0;
+                }
+                
+                // Calculate gun tip position
+                const gunWidth = player.size * 0.8;
+                const gunXOffset = player.size / 4;
+                const gunTipOffset = gunXOffset + gunWidth * 0.9;
+                const startX = player.x + Math.cos(aimAngle) * gunTipOffset;
+                const startY = player.y + Math.sin(aimAngle) * gunTipOffset;
+                const endX = startX + Math.cos(aimAngle) * LASER_CANNON_RANGE;
+                const endY = startY + Math.sin(aimAngle) * LASER_CANNON_RANGE;
+                
+                // Create beam visual
+                laserCannonBeams.push({
+                    startX, startY, endX, endY,
+                    spawnTime: now,
+                    lifetime: 300 // Visual lasts 300ms
+                });
+                
+                // Damage all enemies in the beam path
+                enemies.forEach(enemy => {
+                    if (enemy.isHit) return;
+                    
+                    // Check if enemy intersects with the laser line
+                    const dx = endX - startX;
+                    const dy = endY - startY;
+                    const lineLength = Math.sqrt(dx * dx + dy * dy);
+                    const dirX = dx / lineLength;
+                    const dirY = dy / lineLength;
+                    
+                    // Project enemy position onto the line
+                    const toEnemyX = enemy.x - startX;
+                    const toEnemyY = enemy.y - startY;
+                    const projection = toEnemyX * dirX + toEnemyY * dirY;
+                    
+                    // Check if projection is within line segment
+                    if (projection >= 0 && projection <= lineLength) {
+                        const closestX = startX + dirX * projection;
+                        const closestY = startY + dirY * projection;
+                        const distToLine = Math.sqrt((enemy.x - closestX) ** 2 + (enemy.y - closestY) ** 2);
+                        
+                        // Hit if within enemy radius + beam width
+                        if (distToLine < enemy.size / 2 + 5) {
+                            const damage = LASER_CANNON_DAMAGE * player.damageMultiplier;
+                            enemy.health -= damage;
+                            enemy.hitFlashTime = now;
+                            createBloodSplatter(enemy.x, enemy.y);
+                            
+                            // Damage number
+                            if (floatingTexts.length < 30) {
+                                floatingTexts.push({
+                                    text: String(Math.round(damage * 10) / 10),
+                                    x: enemy.x,
+                                    y: enemy.y - enemy.size * 0.5,
+                                    startTime: now,
+                                    duration: 600,
+                                    color: '#00ff00',
+                                    fontSize: 12
+                                });
+                            }
+                            
+                            if (enemy.health <= 0) {
+                                handleEnemyDeath(enemy);
+                            }
+                        }
+                    }
+                });
+                
+                playSound('playerShoot'); // Use existing shoot sound
+                lastLaserCannonFireTime = now;
+            }
+            
+            // Clean up expired laser beams
+            laserCannonBeams = laserCannonBeams.filter(beam => now - beam.spawnTime < beam.lifetime);
                 
 for (let i = lightningBolts.length - 1; i >= 0; i--) {
                 const bolt = lightningBolts[i];
@@ -1290,8 +1525,23 @@ for (let i = lightningBolts.length - 1; i >= 0; i--) {
                     const dx = bolt.x - enemy.x;
                     const dy = bolt.y - enemy.y;
                     if (!enemy.isHit && !bolt.isHit && (dx*dx + dy*dy) < ((bolt.size / 2) + (enemy.size / 2))**2) {
-                        enemy.health -= player.damageMultiplier; bolt.isHit = true; 
+                        const damage = player.damageMultiplier;
+                        enemy.health -= damage;
+                        bolt.isHit = true; 
                         createBloodSplatter(enemy.x, enemy.y);
+                        
+                        // Damage number
+                        if (floatingTexts.length < 30) {
+                            const dmg = Math.round(damage * 10) / 10;
+                            floatingTexts.push({
+                                text: String(dmg),
+                                x: enemy.x + (Math.random() - 0.5) * enemy.size,
+                                y: enemy.y - enemy.size * 0.5,
+                                startTime: now, duration: 600,
+                                color: '#ffff00', fontSize: 12
+                            });
+                        }
+                        
                         if (enemy.health <= 0) { handleEnemyDeath(enemy); }
                         break;
                     }
@@ -1318,8 +1568,22 @@ for (let i = lightningBolts.length - 1; i >= 0; i--) {
                     const dx = player.x - enemy.x;
                     const dy = player.y - enemy.y;
                     if ((dx*dx + dy*dy) < swordAttackRadiusSq + (enemy.size / 2)**2 && !enemy.isHit) {
-                        enemy.health -= player.damageMultiplier; 
+                        const damage = player.damageMultiplier;
+                        enemy.health -= damage;
                         createBloodSplatter(enemy.x, enemy.y);
+                        
+                        // Damage number
+                        if (floatingTexts.length < 30) {
+                            const dmg = Math.round(damage * 10) / 10;
+                            floatingTexts.push({
+                                text: String(dmg),
+                                x: enemy.x + (Math.random() - 0.5) * enemy.size,
+                                y: enemy.y - enemy.size * 0.5,
+                                startTime: now, duration: 600,
+                                color: '#cccccc', fontSize: 12
+                            });
+                        }
+                        
                         if (enemy.health <= 0) { 
                             if (typeof runStats.killsWithSword !== 'number' || !Number.isFinite(runStats.killsWithSword)) runStats.killsWithSword = 0;
                             runStats.killsWithSword++;
@@ -1434,8 +1698,21 @@ for (let i = lightningBolts.length - 1; i >= 0; i--) {
                         const dx = shot.x - enemy.x;
                         const dy = shot.y - enemy.y;
                         if (!shot.isHit && (dx*dx + dy*dy) < ((shot.size / 2) + (enemy.size / 2))**2) {
-                            enemy.health -= 1;
+                            const damage = 1;
+                            enemy.health -= damage;
                             createBloodSplatter(enemy.x, enemy.y);
+                            
+                            // Damage number
+                            if (floatingTexts.length < 30) {
+                                floatingTexts.push({
+                                    text: String(damage),
+                                    x: enemy.x + (Math.random() - 0.5) * enemy.size,
+                                    y: enemy.y - enemy.size * 0.5,
+                                    startTime: now, duration: 600,
+                                    color: '#ff8800', fontSize: 12
+                                });
+                            }
+                            
                             if (enemy.health <= 0) handleEnemyDeath(enemy);
                             shot.isHit = true;
                         }
@@ -1496,9 +1773,23 @@ for (let i = lightningBolts.length - 1; i >= 0; i--) {
                     const dx = proj.x - enemy.x;
                     const dy = proj.y - enemy.y;
                     if (!enemy.isHit && !proj.isHit && (dx*dx + dy*dy) < ((proj.size / 2) + (enemy.size / 2))**2) {
-                        enemy.health -= player.damageMultiplier;
+                        const damage = player.damageMultiplier;
+                        enemy.health -= damage;
                         proj.isHit = true;
                         createBloodSplatter(enemy.x, enemy.y);
+                        
+                        // Damage number
+                        if (floatingTexts.length < 30) {
+                            const dmg = Math.round(damage * 10) / 10;
+                            floatingTexts.push({
+                                text: String(dmg),
+                                x: enemy.x + (Math.random() - 0.5) * enemy.size,
+                                y: enemy.y - enemy.size * 0.5,
+                                startTime: now, duration: 600,
+                                color: '#8844ff', fontSize: 12
+                            });
+                        }
+                        
                         if (enemy.health <= 0) { handleEnemyDeath(enemy); }
                         break;
                     }
@@ -1534,6 +1825,7 @@ for (let i = lightningBolts.length - 1; i >= 0; i--) {
             });
             vengeanceNovas = vengeanceNovas.filter(nova => now - nova.startTime < nova.duration);
             floatingTexts = floatingTexts.filter(ft => now - ft.startTime < ft.duration);
+            visualWarnings = visualWarnings.filter(vw => now - vw.startTime < vw.duration);
             enemies = enemies.filter(e => !e.isHit);
             eyeProjectiles = eyeProjectiles.filter(p => !p.isHit);
             dogHomingShots = dogHomingShots.filter(s => !s.isHit);

@@ -310,6 +310,9 @@
             isSlowedByMosquitoPuddle: false,
             originalPlayerSpeed: 1.4,
             damageMultiplier: 1,
+            projectileSizeMultiplier: 1,
+            projectileSpeedMultiplier: 1,
+            bulletSizeMultiplier: 1,
             knockbackStrength: 0, 
             facing: 'down',
             stepPhase: 0,
@@ -324,7 +327,7 @@
             spinDirection: 0, // For spin animation
 
             upgradeLevels: {
-                speed: 0, fireRate: 0, magnetRadius: 0, damage: 0, projectileSpeed: 0, knockback: 0, luck: 0, weaponSize: 0
+                speed: 0, fireRate: 0, magnetRadius: 0, damage: 0, projectileSpeed: 0, knockback: 0, luck: 0, bulletSize: 0, dashCooldown: 0
             }
         };
 
@@ -513,7 +516,7 @@ let doppelganger = null;
         const UPGRADE_BORDER_COLORS = {
             "speed": "#66bb6a", "fireRate": "#8B4513", "magnetRadius": "#800080",
             "damage": "#ff0000", "projectileSpeed": "#007bff", "knockback": "#808080", "luck": "#FFD700",
-            "weaponSize": "#FF8C00"
+            "bulletSize": "#FF6B35", "dashCooldown": "#4ECDC4"
         };
 
         const UPGRADE_OPTIONS = [
@@ -524,7 +527,8 @@ let doppelganger = null;
             { name: "Swift Shots",       desc: "Increase projectile speed by 8%",       type: "projectileSpeed",value: 0.08,  icon: '💨' },
             { name: "Power Shot",        desc: "Projectiles knock enemies back by 8%",  type: "knockback",      value: 0.08,  icon: '💪' },
             { name: "Lucky Charm",       desc: "Increase pickup drop rate by 0.5%",     type: "luck",           value: 0.005, icon: '🍀' },
-            { name: "Heavy Arsenal",     desc: "Weapons & effects grow 6% larger",      type: "weaponSize",     value: 0.06,  icon: '⚔️' },
+            { name: "Giant's Might",     desc: "Increase bullet & AOE size by 10%",     type: "bulletSize",     value: 0.10,  icon: '🎯', color: '#FF6B35' },
+            { name: "Swift Dodge",       desc: "Reduce dash cooldown by 8%",            type: "dashCooldown",   value: 0.08,  icon: '⚡', color: '#4ECDC4' },
         ];
 
         let enemies = [];
@@ -575,6 +579,17 @@ let doppelganger = null;
         let dualGunActive = false;
         let flamingBulletsActive = false;
         let shotgunBlastActive = false;
+        let flamethrowerActive = false;
+        let lastFlameEmitTime = 0;
+        const FLAMETHROWER_EMIT_INTERVAL = 800; // Base interval, scales with fire rate
+        const FLAMETHROWER_MAX_FLAMES = 4;
+        let flameProjectiles = [];
+        let laserCannonActive = false;
+        let lastLaserCannonFireTime = 0;
+        const LASER_CANNON_INTERVAL = 5000; // Fire every 5 seconds
+        const LASER_CANNON_DAMAGE = 1.0;
+        const LASER_CANNON_RANGE = 800;
+        let laserCannonBeams = [];
         
         let dog = { x: 0, y: 0, size: 25, state: 'returning', target: null, lastHomingShotTime: 0 };
         const DOG_HOMING_SHOT_INTERVAL = 3000;
@@ -1043,7 +1058,9 @@ function handleGamepadInput() {
             'audio/background_music.mp3',  'audio/background_music2.mp3', 
             'audio/background_music3.mp3', 'audio/background_music4.mp3', 'audio/background_music5.mp3',
             'audio/background_music6.mp3', 'audio/background_music7.mp3', 'audio/background_music8.mp3',
-            'audio/background_music9.mp3', 'audio/background_music10.mp3', 'audio/background_music11.mp3', 
+            'audio/background_music9.mp3', 'audio/background_music10.mp3', 'audio/background_music11.mp3',
+            'audio/background_music12.mp3', 'audio/background_music13.mp3', 'audio/background_music14.mp3',
+            'audio/background_music15.mp3'
         ];
         let currentBGMPlayer = null;
 
@@ -1053,11 +1070,40 @@ function handleGamepadInput() {
         function startMainMenuBGM() {
             if (Tone.context.state !== 'running') {
                 Tone.start().then(() => {
-                    if (audioPlayers['mainMenu'] && audioPlayers['mainMenu'].state !== 'started') { stopBGM(); audioPlayers['mainMenu'].start(); }
+                    playRandomMainMenuMusic();
                 });
             } else {
-                if (audioPlayers['mainMenu'] && audioPlayers['mainMenu'].state !== 'started') { stopBGM(); audioPlayers['mainMenu'].start(); }
+                playRandomMainMenuMusic();
             }
+        }
+
+        function playRandomMainMenuMusic() {
+            // Shuffle through all background music tracks for main menu
+            const randomTrack = backgroundMusicPaths[Math.floor(Math.random() * backgroundMusicPaths.length)];
+            if (currentBGMPlayer) { 
+                currentBGMPlayer.stop(); 
+                currentBGMPlayer.dispose(); 
+            }
+            currentBGMPlayer = new Tone.Player({ 
+                url: randomTrack, 
+                loop: true, 
+                autostart: false, 
+                volume: -10 
+            }).toDestination();
+            
+            currentBGMPlayer.onstop = () => {
+                // When track ends, play another random one
+                if (!gameActive) {
+                    setTimeout(() => playRandomMainMenuMusic(), 100);
+                }
+            };
+            
+            Tone.loaded().then(() => {
+                if (currentBGMPlayer && currentBGMPlayer.state !== 'started') {
+                    currentBGMPlayer.start();
+                    musicVolumeSlider.dispatchEvent(new Event('input'));
+                }
+            });
         }
 
         function stopMainMenuBGM() { if (audioPlayers['mainMenu'] && audioPlayers['mainMenu'].state === 'started') { audioPlayers['mainMenu'].stop(); } }
@@ -1261,7 +1307,7 @@ document.body.addEventListener('touchstart', (e) => {
         const ENEMY_CONFIGS = {
             '🧟': { size: 17, baseHealth: 1, speedMultiplier: 1, type: 'pursuer', minLevel: 1 },
             '💀': { size: 20, baseHealth: 2, speedMultiplier: 1.15, type: 'pursuer', minLevel: 5 },
-            '🐌': { size: 22, baseHealth: 3, speedMultiplier: 0.6, type: 'snail', minLevel: 4, spawnWeight: 0.5, initialProps: () => ({ lastPuddleSpawnTime: Date.now(), directionAngle: Math.random() * 2 * Math.PI, lastDirChange: Date.now() }) },
+            '🐌': { size: 22, baseHealth: 3, speedMultiplier: 0.6, type: 'snail', minLevel: 4, spawnWeight: 0.005, initialProps: () => ({ lastPuddleSpawnTime: Date.now(), directionAngle: Math.random() * 2 * Math.PI, lastDirChange: Date.now() }) },
             '🦟': { size: 15, baseHealth: 2, speedMultiplier: 1.5, type: 'mosquito', minLevel: 7, initialProps: () => ({ lastDirectionUpdateTime: Date.now(), currentMosquitoDirection: null, lastPuddleSpawnTime: Date.now() }) },
             '🦇': { size: 25 * 0.85, baseHealth: 3, speedMultiplier: 2, type: 'bat', minLevel: 10, initialProps: () => ({ isPaused: false, pauseTimer: 0, pauseDuration: 30, moveDuration: 30 }) },
             '😈': { size: 20 * 0.8, baseHealth: 3, speedMultiplier: 1.84, type: 'devil', minLevel: 12, initialProps: () => ({ moveAxis: 'x', lastAxisSwapTime: Date.now() }) }, 
@@ -1294,7 +1340,23 @@ document.body.addEventListener('touchstart', (e) => {
                 }
                 const eligibleEnemyEmojis = Object.keys(ENEMY_CONFIGS).filter(emoji => ENEMY_CONFIGS[emoji].minLevel <= player.level);
                 if (eligibleEnemyEmojis.length === 0) return;
-                enemyEmoji = eligibleEnemyEmojis[Math.floor(Math.random() * eligibleEnemyEmojis.length)];
+                
+                // Use spawn weights to make certain enemies rarer
+                const weightedEnemies = [];
+                eligibleEnemyEmojis.forEach(emoji => {
+                    const config = ENEMY_CONFIGS[emoji];
+                    const weight = config.spawnWeight || 1; // Default weight is 1 if not specified
+                    if (Math.random() < weight) {
+                        weightedEnemies.push(emoji);
+                    }
+                });
+                
+                // If no enemies passed the weight check, fall back to all eligible
+                if (weightedEnemies.length === 0) {
+                    enemyEmoji = eligibleEnemyEmojis[Math.floor(Math.random() * eligibleEnemyEmojis.length)];
+                } else {
+                    enemyEmoji = weightedEnemies[Math.floor(Math.random() * weightedEnemies.length)];
+                }
             }
             
             let difficultySpeedMultiplier = (currentDifficulty === 'easy') ? 0.9 : (currentDifficulty === 'medium') ? 1.35 : 1.75; 
@@ -1398,47 +1460,124 @@ document.body.addEventListener('touchstart', (e) => {
         }
 
 function createBoss() {
-            let x, y;
-            const spawnOffset = 29;
-            const edge = Math.floor(Math.random() * 4);
-            switch (edge) {
-                case 0: x = Math.random() * WORLD_WIDTH; y = -spawnOffset; break;
-                case 1: x = WORLD_WIDTH + spawnOffset; y = Math.random() * WORLD_HEIGHT; break;
-                case 2: x = Math.random() * WORLD_WIDTH; y = WORLD_HEIGHT + spawnOffset; break;
-                case 3: x = -spawnOffset; y = Math.random() * WORLD_HEIGHT; break;
-            }
+            // Show warning first
+            visualWarnings.push({ 
+                text: '⚠️ BOSS APPROACHING! ⚠️', 
+                x: player.x, 
+                y: player.y - 80, 
+                startTime: Date.now(), 
+                duration: 2000, 
+                color: '#ff0000',
+                fontSize: 24
+            });
+            playSound('levelUp'); // Warning sound
+            
+            // Delay boss spawn by 2 seconds for dramatic effect
+            setTimeout(() => {
+                let x, y;
+                const spawnOffset = 29;
+                const edge = Math.floor(Math.random() * 4);
+                switch (edge) {
+                    case 0: x = Math.random() * WORLD_WIDTH; y = -spawnOffset; break;
+                    case 1: x = WORLD_WIDTH + spawnOffset; y = Math.random() * WORLD_HEIGHT; break;
+                    case 2: x = Math.random() * WORLD_WIDTH; y = WORLD_HEIGHT + spawnOffset; break;
+                    case 3: x = -spawnOffset; y = Math.random() * WORLD_HEIGHT; break;
+                }
 
-            // Only pick enemy types that have unlocked at the current level
-            const eligible = BOSSED_ENEMY_TYPES.filter(e => ENEMY_CONFIGS[e].minLevel <= player.level);
-            const mimickedEmoji = eligible[Math.floor(Math.random() * eligible.length)];
-            const config = ENEMY_CONFIGS[mimickedEmoji];
+                // Only pick enemy types that have unlocked at the current level
+                const eligible = BOSSED_ENEMY_TYPES.filter(e => ENEMY_CONFIGS[e].minLevel <= player.level);
+                const mimickedEmoji = eligible[Math.floor(Math.random() * eligible.length)];
+                const config = ENEMY_CONFIGS[mimickedEmoji];
 
-            let difficultySpeedMultiplier = (currentDifficulty === 'easy') ? 0.9 : (currentDifficulty === 'medium') ? 1.35 : 1.75;
-            const currentBaseEnemySpeed = baseEnemySpeed * difficultySpeedMultiplier * (1 + 0.02 * (player.level - 1));
-            const bossSpeed = currentBaseEnemySpeed * config.speedMultiplier * 0.75;
+                let difficultySpeedMultiplier = (currentDifficulty === 'easy') ? 0.9 : (currentDifficulty === 'medium') ? 1.35 : 1.75;
+                const currentBaseEnemySpeed = baseEnemySpeed * difficultySpeedMultiplier * (1 + 0.02 * (player.level - 1));
+                const bossSpeed = currentBaseEnemySpeed * config.speedMultiplier * 0.75;
 
-            // Boss size: 2.5× for small enemies, 1.8× for already-large ones
-            const sizeMultiplier = config.size < 20 ? 2.5 : 2.0;
-            const bossSize = config.size * sizeMultiplier;
+                // Boss size: 2.5× for small enemies, 1.8× for already-large ones
+                const sizeMultiplier = config.size < 20 ? 2.5 : 2.0;
+                const bossSize = config.size * sizeMultiplier;
 
-            // Boss health scales with level — harder bosses as the run progresses
-            const bossHealth = Math.floor(BOSS_HEALTH + player.level * 1.5);
+                // Boss health scales with level — harder bosses as the run progresses
+                const bossHealth = Math.floor(BOSS_HEALTH + player.level * 1.5);
 
-            const boss = {
-                x, y, size: bossSize, emoji: mimickedEmoji, speed: bossSpeed,
-                health: bossHealth,
-                isBoss: true, mimics: mimickedEmoji, isHit: false, isHitByOrbiter: false, isHitByCircle: false,
-                isFrozen: false, freezeEndTime: 0, originalSpeed: bossSpeed, isSlowedByPuddle: false,
-                isHitByAxe: false, isIgnited: false, ignitionEndTime: 0, lastIgnitionDamageTime: 0
-            };
-            if (config.initialProps) Object.assign(boss, config.initialProps());
-            enemies.push(boss);
-            floatingTexts.push({ text: '⚠️ BOSS!', x: player.x, y: player.y - 60, startTime: Date.now(), duration: 2000, color: '#ff4444' });
+                const boss = {
+                    x, y, size: bossSize, emoji: mimickedEmoji, speed: bossSpeed,
+                    health: bossHealth,
+                    isBoss: true, mimics: mimickedEmoji, isHit: false, isHitByOrbiter: false, isHitByCircle: false,
+                    isFrozen: false, freezeEndTime: 0, originalSpeed: bossSpeed, isSlowedByPuddle: false,
+                    isHitByAxe: false, isIgnited: false, ignitionEndTime: 0, lastIgnitionDamageTime: 0
+                };
+                if (config.initialProps) Object.assign(boss, config.initialProps());
+                enemies.push(boss);
+                
+                // Boss arrival notification
+                floatingTexts.push({ 
+                    text: 'BOSS ARRIVED!', 
+                    x: player.x, 
+                    y: player.y - 60, 
+                    startTime: Date.now(), 
+                    duration: 1500, 
+                    color: '#ff4444',
+                    fontSize: 20
+                });
+            }, 2000);
         }
 
         function createPickup(x, y, type, size, xpValue) {
             if (x === -1 || y === -1) { x = Math.random() * WORLD_WIDTH; y = Math.random() * WORLD_HEIGHT; }
-            pickupItems.push({ x, y, size, type, xpValue, spawnTime: Date.now(), glimmerStartTime: Date.now() + Math.random() * 2000 });
+            
+            const pickup = { 
+                x, y, size, type, xpValue, 
+                spawnTime: Date.now(), 
+                glimmerStartTime: Date.now() + Math.random() * 2000 
+            };
+            
+            // Pre-assign powerup for boxes so we can show a preview
+            if (type === 'box' || type === '📦') {
+                const powerUpChoices = [];
+                if (vShapeProjectileLevel < 4 && !shotgunBlastActive) powerUpChoices.push({id: 'v_shape_projectile', name: 'V-Shape Shots', label: 'VSH'});
+                if (!magneticProjectileActive) powerUpChoices.push({id: 'magnetic_projectile', name: 'Magnetic Shots', label: 'MAG'});
+                if (!iceProjectileActive) powerUpChoices.push({id: 'ice_projectile', name: 'Ice Projectiles', label: 'ICE'});
+                if (!ricochetActive) powerUpChoices.push({id: 'ricochet', name: 'Ricochet Shots', label: 'RIC'});
+                if (!explosiveBulletsActive) powerUpChoices.push({id: 'explosive_bullets', name: 'Explosive Bullets', label: 'EXP'});
+                if (!puddleTrailActive) powerUpChoices.push({id: 'puddle_trail', name: 'Slime Trail', label: 'SLM'});
+                if (!player.swordActive) powerUpChoices.push({id: 'sword', name: 'Auto-Sword', label: 'SWD'});
+                if (!laserPointerActive) powerUpChoices.push({id: 'laser_pointer', name: 'Laser Pointer', label: 'LSR'});
+                if (!flamethrowerActive) powerUpChoices.push({id: 'flamethrower', name: 'Flamethrower', label: 'FLM'});
+                if (!laserCannonActive) powerUpChoices.push({id: 'laser_cannon', name: 'Laser Cannon', label: 'LCN'});
+                if (!autoAimActive) powerUpChoices.push({id: 'auto_aim', name: 'Auto-Aim', label: 'AIM'});
+                if (!dualGunActive) powerUpChoices.push({id: 'dual_gun', name: 'Dual Gun', label: 'DUL'});
+                if (!bombEmitterActive) powerUpChoices.push({id: 'bomb', name: 'Bomb Emitter', label: 'BMB'});
+                if (!orbitingPowerUpActive) powerUpChoices.push({id: 'orbiter', name: 'Spinning Orbiter', label: 'ORB'});
+                if (!lightningProjectileActive) powerUpChoices.push({id: 'lightning_projectile', name: 'Lightning Projectile', label: 'LTN'});
+                if (!bugSwarmActive) powerUpChoices.push({id: 'bug_swarm', name: 'Bug Swarm', label: 'BUG'});
+                if (!lightningStrikeActive) powerUpChoices.push({id: 'lightning_strike', name: 'Lightning Strike', label: 'STK'});
+                if (!iceShardCannonActive) powerUpChoices.push({id: 'ice_shard_cannon', name: 'Ice Shard Cannon', label: 'ISC'});
+                if (!hasDashInvincibility) powerUpChoices.push({id: 'dash_invincibility', name: 'Dash Invincibility', label: 'DSH'});
+                if (!playerData.hasReducedDashCooldown) powerUpChoices.push({id: 'dash_cooldown', name: 'Dash Cooldown', label: 'CDN'});
+
+                const unlocked = playerData.unlockedPickups;
+                if (unlocked.doppelganger && !doppelgangerActive) powerUpChoices.push({id: 'doppelganger', name: 'Doppelganger', label: 'DOP'});
+                if (unlocked.temporal_ward && !temporalWardActive) powerUpChoices.push({id: 'temporal_ward', name: 'Temporal Ward', label: 'TME'});
+                if (unlocked.circle && !damagingCircleActive) powerUpChoices.push({id:'circle', name: 'Damaging Circle', label: 'CIR'});
+                if (unlocked.vengeance_nova && !vengeanceNovaActive) powerUpChoices.push({id: 'vengeance_nova', name: 'Vengeance Nova', label: 'VNG'});
+                if (unlocked.dog_companion && !dogCompanionActive) powerUpChoices.push({id: 'dog_companion', name: 'Dog Companion', label: 'DOG'});
+                if (unlocked.anti_gravity && !antiGravityActive) powerUpChoices.push({id: 'anti_gravity', name: 'Anti-Gravity', label: 'AGV'});
+                if (unlocked.rocket_launcher && !rocketLauncherActive && !shotgunBlastActive) powerUpChoices.push({id: 'rocket_launcher', name: 'Heavy Shells', label: 'RKT'});
+                if (unlocked.black_hole && !blackHoleActive) powerUpChoices.push({id: 'black_hole', name: 'Black Hole', label: 'BLK'});
+                if (unlocked.flaming_bullets && !flamingBulletsActive) powerUpChoices.push({id: 'flaming_bullets', name: 'Flaming Bullets', label: 'FIR'});
+                if (unlocked.night_owl && !nightOwlActive) powerUpChoices.push({id: 'night_owl', name: 'Night Owl', label: 'OWL'});
+                if (unlocked.whirlwind_axe && !whirlwindAxeActive) powerUpChoices.push({id: 'whirlwind_axe', name: 'Whirlwind Axe', label: 'AXE'});
+
+                if (powerUpChoices.length > 0) {
+                    const randomChoice = powerUpChoices[Math.floor(Math.random() * powerUpChoices.length)];
+                    pickup.powerupId = randomChoice.id;
+                    pickup.powerupName = randomChoice.name;
+                    pickup.powerupLabel = randomChoice.label;
+                }
+            }
+            
+            pickupItems.push(pickup);
         }
         
         function spawnMerchant(x, y) {
@@ -1675,9 +1814,13 @@ if (firstCard) {
             else if (upgrade.type === "projectileSpeed") { player.projectileSpeedMultiplier *= (1 + upgrade.value); } 
             else if (upgrade.type === "knockback") { player.knockbackStrength += upgrade.value; } 
             else if (upgrade.type === "luck") { boxDropChance += upgrade.value; appleDropChance += upgrade.value; }
-            else if (upgrade.type === "weaponSize") {
-                // Cap at 1.5× so weapons never become screen-filling at high levels
-                player.projectileSizeMultiplier = Math.min(1.5, player.projectileSizeMultiplier * (1 + upgrade.value));
+            else if (upgrade.type === "bulletSize") {
+                // Increases bullet and AOE size - caps at 2× for balance
+                player.bulletSizeMultiplier = Math.min(2.0, (player.bulletSizeMultiplier || 1.0) * (1 + upgrade.value));
+            }
+            else if (upgrade.type === "dashCooldown") {
+                // Reduces dash cooldown - minimum 500ms
+                player.dashCooldown = Math.max(500, player.dashCooldown * (1 - upgrade.value));
             }
             
             if (player.upgradeLevels.hasOwnProperty(upgrade.type)) { player.upgradeLevels[upgrade.type]++; }
@@ -1748,42 +1891,73 @@ if (firstCard) {
         
         function updatePowerupIconsUI() {
             powerupIconsDiv.innerHTML = '';
-            if (shotgunBlastActive) { powerupIconsDiv.innerHTML += '<span>💥</span>';
-            } else {
-                if (rocketLauncherActive) powerupIconsDiv.innerHTML += '<span>🚀</span>';
-                if (vShapeProjectileLevel > 0) powerupIconsDiv.innerHTML += `<span>🕊️${vShapeProjectileLevel > 1 ? `x${vShapeProjectileLevel}` : ''}</span>`;
-            }
-            if (dogCompanionActive && magneticProjectileActive) { powerupIconsDiv.innerHTML += '<span>🎯🐶</span>';
-            } else {
-                if (dogCompanionActive) powerupIconsDiv.innerHTML += '<span>🐶</span>';
-                if (magneticProjectileActive) powerupIconsDiv.innerHTML += '<span>🧲</span>';
-            }
-            if (doppelgangerActive) powerupIconsDiv.innerHTML += '<span>👯</span>';
-            if (temporalWardActive) powerupIconsDiv.innerHTML += '<span>⏱️</span>';
-            if (bombEmitterActive) powerupIconsDiv.innerHTML += '<span>💣</span>';
-            if (orbitingPowerUpActive) powerupIconsDiv.innerHTML += '<span>💫</span>';
-            if (damagingCircleActive) powerupIconsDiv.innerHTML += '<span>⭕</span>';
-            if (lightningProjectileActive) powerupIconsDiv.innerHTML += '<span>⚡️</span>';
-            if (player.swordActive) powerupIconsDiv.innerHTML += '<span>🗡️</span>';
-            if (iceProjectileActive) powerupIconsDiv.innerHTML += '<span>❄️</span>';
-            if (puddleTrailActive) powerupIconsDiv.innerHTML += '<span>💧</span>';
-            if (laserPointerActive) powerupIconsDiv.innerHTML += '<span>🔴</span>';
-            if (autoAimActive) powerupIconsDiv.innerHTML += '<span>🎯</span>';
-            if (explosiveBulletsActive) powerupIconsDiv.innerHTML += '<span>💥</span>';
-            if (vengeanceNovaActive) powerupIconsDiv.innerHTML += '<span>🛡️</span>';
-            if (antiGravityActive) powerupIconsDiv.innerHTML += '<span>💨</span>';
-            if (ricochetActive) powerupIconsDiv.innerHTML += '<span>🔄</span>';
-            if (blackHoleActive) powerupIconsDiv.innerHTML += '<span>⚫</span>';
-            if (dualGunActive) powerupIconsDiv.innerHTML += '<span>🔫</span>';
-            if (flamingBulletsActive) powerupIconsDiv.innerHTML += '<span>🔥</span>';
-            if (bugSwarmActive) powerupIconsDiv.innerHTML += '<span>🪰</span>';
-            if (nightOwlActive) powerupIconsDiv.innerHTML += '<span>🦉</span>';
-            if (whirlwindAxeActive) powerupIconsDiv.innerHTML += '<span>🪓</span>';
-            if (lightningStrikeActive) powerupIconsDiv.innerHTML += '<span>⚡</span>';
-            if (hasDashInvincibility) powerupIconsDiv.innerHTML += '<span>🛡️💨</span>';
+            const icons = [];
             
-            if (powerupIconsDiv.scrollHeight > powerupIconsDiv.clientHeight) { powerupIconsDiv.classList.add('small-icons'); } 
-            else { powerupIconsDiv.classList.remove('small-icons'); }
+            // Weapon modifiers (mutually exclusive)
+            if (shotgunBlastActive) {
+                icons.push('💥');
+            } else {
+                if (rocketLauncherActive) icons.push('🚀');
+                if (vShapeProjectileLevel > 0) icons.push(`🕊️${vShapeProjectileLevel > 1 ? `x${vShapeProjectileLevel}` : ''}`);
+            }
+            
+            // Companions and targeting
+            if (dogCompanionActive && autoAimActive) {
+                icons.push('🐶🎯');
+            } else {
+                if (dogCompanionActive) icons.push('🐶');
+                if (autoAimActive) icons.push('🎯');
+            }
+            
+            // Bullet modifiers
+            if (magneticProjectileActive) icons.push('🧲');
+            if (iceProjectileActive) icons.push('❄️');
+            if (explosiveBulletsActive) icons.push('💥');
+            if (ricochetActive) icons.push('🔄');
+            if (flamingBulletsActive) icons.push('🔥');
+            if (flamethrowerActive) icons.push('🔥💨');
+            
+            // Melee weapons
+            if (player.swordActive) icons.push('🗡️');
+            if (whirlwindAxeActive) icons.push('🪓');
+            
+            // Projectile weapons
+            if (dualGunActive) icons.push('🔫');
+            if (bombEmitterActive) icons.push('💣');
+            if (lightningProjectileActive) icons.push('⚡️');
+            if (lightningStrikeActive) icons.push('⚡');
+            if (laserCannonActive) icons.push('🟢');
+            
+            // Area effects
+            if (orbitingPowerUpActive) icons.push('💫');
+            if (damagingCircleActive) icons.push('⭕');
+            if (puddleTrailActive) icons.push('💧');
+            if (blackHoleActive) icons.push('⚫');
+            if (antiGravityActive) icons.push('💨');
+            
+            // Companions
+            if (nightOwlActive) icons.push('🦉');
+            if (bugSwarmActive) icons.push('🪰');
+            
+            // Defensive/Utility
+            if (doppelgangerActive) icons.push('👯');
+            if (temporalWardActive) icons.push('⏱️');
+            if (vengeanceNovaActive) icons.push('🛡️');
+            if (hasDashInvincibility) icons.push('🛡️💨');
+            if (laserPointerActive) icons.push('🔴');
+            
+            // Render all icons
+            icons.forEach(icon => {
+                const span = document.createElement('span');
+                span.textContent = icon;
+                powerupIconsDiv.appendChild(span);
+            });
+            
+            if (powerupIconsDiv.scrollHeight > powerupIconsDiv.clientHeight) { 
+                powerupIconsDiv.classList.add('small-icons'); 
+            } else { 
+                powerupIconsDiv.classList.remove('small-icons'); 
+            }
         }
 
         
@@ -1792,7 +1966,7 @@ if (firstCard) {
             const upgradeNames = {
                 speed: 'SPD', fireRate: 'FR', magnetRadius: 'MAG',
                 damage: 'DMG', projectileSpeed: 'P.SPD', knockback: 'KB',
-                luck: 'LUCK', weaponSize: 'SIZE'
+                luck: 'LUCK', bulletSize: 'SIZE', dashCooldown: 'DASH'
             };
             for (const [type, level] of Object.entries(player.upgradeLevels)) {
                 if (level > 0) {
@@ -1940,16 +2114,26 @@ async function startGame() {
             if (Tone.context.state !== 'running') { await Tone.start(); console.log("AudioContext started!"); }
             
             if (selectedMapIndex !== -1 && selectedMapIndex < backgroundImages.length) {
-    currentBackgroundIndex = selectedMapIndex;
-    // ADD THIS LINE
-    console.log(`SUCCESS: Using selected map index: ${currentBackgroundIndex}`);
-} else {
-    if (backgroundImages.length > 0) {
-        currentBackgroundIndex = Math.floor(Math.random() * backgroundImages.length);
-        // ADD THIS LINE
-        console.log(`RANDOM: No valid map was selected. Using random index: ${currentBackgroundIndex}`);
-    }
-}
+                currentBackgroundIndex = selectedMapIndex;
+                console.log(`SUCCESS: Using selected map index: ${currentBackgroundIndex}`);
+            } else {
+                // Random map selection - only pick from unlocked maps
+                const unlockedMapIndices = [];
+                for (let i = 0; i < backgroundImages.length; i++) {
+                    // Maps 9, 10, 11 require unlocks
+                    if (i === 9 && !playerData.unlockedPickups.map_junkyard) continue;
+                    if (i === 10 && !playerData.unlockedPickups.map_log_cabin) continue;
+                    if (i === 11 && !playerData.unlockedPickups.map_cellar) continue;
+                    unlockedMapIndices.push(i);
+                }
+                
+                if (unlockedMapIndices.length > 0) {
+                    currentBackgroundIndex = unlockedMapIndices[Math.floor(Math.random() * unlockedMapIndices.length)];
+                    console.log(`RANDOM: Using random unlocked map index: ${currentBackgroundIndex}`);
+                } else {
+                    currentBackgroundIndex = 0; // Fallback to first map
+                }
+            }
 
             await tryLoadMusic();
             
@@ -2002,7 +2186,7 @@ async function startGame() {
                 dashCooldown: playerData.hasReducedDashCooldown ? 3000: 6000,
                 isInvincible: false,
                 spinStartTime: null, spinDirection: 0,
-                upgradeLevels: { speed: 0, fireRate: 0, magnetRadius: 0, damage: 0, projectileSpeed: 0, knockback: 0, luck: 0, weaponSize: 0 }
+                upgradeLevels: { speed: 0, fireRate: 0, magnetRadius: 0, damage: 0, projectileSpeed: 0, knockback: 0, luck: 0, bulletSize: 0, dashCooldown: 0 }
             });
             player.originalPlayerSpeed = player.speed;
             boxDropChance = BASE_BOX_DROP_CHANCE; appleDropChance = 0.05;
@@ -2015,7 +2199,7 @@ async function startGame() {
                 runStats.recoveredToFullAfterOneHeart = false;
             }
 
-            [enemies, pickupItems, appleItems, eyeProjectiles, playerPuddles, snailPuddles, mosquitoPuddles, bombs, floatingTexts, visualWarnings, explosions, blackHoles, bloodSplatters, bloodPuddles, antiGravityPulses, vengeanceNovas, dogHomingShots, destructibles, flameAreas, flies, owlProjectiles, lightningStrikes, smokeParticles].forEach(arr => arr.length = 0);
+            [enemies, pickupItems, appleItems, eyeProjectiles, playerPuddles, snailPuddles, mosquitoPuddles, bombs, floatingTexts, visualWarnings, explosions, blackHoles, bloodSplatters, bloodPuddles, antiGravityPulses, vengeanceNovas, dogHomingShots, destructibles, flameAreas, flies, owlProjectiles, lightningStrikes, smokeParticles, flameProjectiles, laserCannonBeams].forEach(arr => arr.length = 0);
             
             spawnInitialObstacles();
 
@@ -2026,7 +2210,7 @@ async function startGame() {
             magneticProjectileActive = false; vShapeProjectileLevel = 0; iceProjectileActive = false; puddleTrailActive = false;
             laserPointerActive = false; autoAimActive = false; explosiveBulletsActive = false; vengeanceNovaActive = false;
             dogCompanionActive = false; antiGravityActive = false; ricochetActive = false; rocketLauncherActive = false;
-            blackHoleActive = false; dualGunActive = false; flamingBulletsActive = false; hasDashInvincibility = false;
+            blackHoleActive = false; dualGunActive = false; flamingBulletsActive = false; flamethrowerActive = false; laserCannonActive = false; hasDashInvincibility = false;
             lastAntiGravityPushTime = 0; lastBlackHoleTime = 0; shotgunBlastActive = false; doppelgangerActive = false;
             doppelganger = null;
             bugSwarmActive = false; nightOwlActive = false; whirlwindAxeActive = false; lightningStrikeActive = false; owl = null;

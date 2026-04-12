@@ -71,10 +71,18 @@ function showMerchantShop() {
     { id: 'dual_gun',             name: 'Dual Gun',          icon: '🔫', active: dualGunActive },
     { id: 'bomb',                 name: 'Bomb Emitter',      icon: '💣', active: bombEmitterActive },
     { id: 'orbiter',              name: 'Spinning Orbiter',  icon: '💫', active: orbitingPowerUpActive },
+    { id: 'circle',               name: 'Damaging Circle',   icon: '⭕', active: damagingCircleActive,   locked: !playerData.unlockedPickups.circle },
     { id: 'lightning_projectile', name: 'Lightning Bolt',    icon: '⚡', active: lightningProjectileActive },
-    { id: 'flaming_bullets',      name: 'Flaming Bullets',   icon: '🔥', active: flamingBulletsActive },
+    { id: 'flaming_bullets',      name: 'Flaming Bullets',   icon: '🔥', active: flamingBulletsActive,  locked: !playerData.unlockedPickups.flaming_bullets },
     { id: 'laser_pointer',        name: 'Laser Pointer',     icon: '🔴', active: laserPointerActive },
+    { id: 'flamethrower',         name: 'Flamethrower',      icon: '🔥', active: flamethrowerActive },
+    { id: 'laser_cannon',         name: 'Laser Cannon',      icon: '🟢', active: laserCannonActive },
+    { id: 'ice_shard_cannon',     name: 'Ice Shard Cannon',  icon: '❄️', active: iceShardCannonActive },
     { id: 'v_shape_projectile',   name: 'V-Shape Shots',     icon: '🕊️', active: vShapeProjectileLevel >= 4 },
+    { id: 'rocket_launcher',      name: 'Heavy Shells',      icon: '🚀', active: rocketLauncherActive,  locked: !playerData.unlockedPickups.rocket_launcher },
+    { id: 'doppelganger',         name: 'Doppelganger',      icon: '👯', active: doppelgangerActive,    locked: !playerData.unlockedPickups.doppelganger },
+    { id: 'temporal_ward',        name: 'Temporal Ward',     icon: '⏱️', active: temporalWardActive,    locked: !playerData.unlockedPickups.temporal_ward },
+    { id: 'lightning_strike',     name: 'Lightning Strike',  icon: '⚡', active: lightningStrikeActive },
     { id: 'dog_companion',        name: 'Dog Companion',     icon: '🐶', active: dogCompanionActive,    locked: !playerData.unlockedPickups.dog_companion },
     { id: 'night_owl',            name: 'Night Owl',         icon: '🦉', active: nightOwlActive,        locked: !playerData.unlockedPickups.night_owl },
     { id: 'vengeance_nova',       name: 'Vengeance Nova',    icon: '🛡️', active: vengeanceNovaActive,   locked: !playerData.unlockedPickups.vengeance_nova },
@@ -206,6 +214,8 @@ function activatePowerup(id) {
   else if (id === 'whirlwind_axe') { whirlwindAxeActive = true; }
   else if (id === 'lightning_strike') { lightningStrikeActive = true; lastLightningStrikeTime = Date.now(); }
   else if (id === 'ice_shard_cannon') { iceShardCannonActive = true; lastIceShardTime = Date.now(); }
+  else if (id === 'flamethrower') { flamethrowerActive = true; lastFlameEmitTime = Date.now(); }
+  else if (id === 'laser_cannon') { laserCannonActive = true; lastLaserCannonFireTime = Date.now(); }
 
   // Achievement tracking for powerups (count + unique).
   if (typeof runStats !== 'undefined') {

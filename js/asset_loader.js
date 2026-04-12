@@ -89,7 +89,10 @@
             'sprites/Background8.png',  // Map 6: Orange Dirt
             'sprites/Background1.png',  // Map 7: Grey Stone
             'sprites/Background7.png', // Map 8: Other Grassy
-            'sprites/Background9.png'  // Map 9: Other Stone
+            'sprites/Background9.png',  // Map 9: Other Stone
+            'sprites/Background10.png', // Map 10: Junkyard
+            'sprites/Background12.png', // Map 11: Log Cabin
+            'sprites/Background13.png'  // Map 12: Cellar
             
         ];
         const backgroundImages = new Array(backgroundPaths.length);

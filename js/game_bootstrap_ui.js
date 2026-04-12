@@ -33,11 +33,16 @@ const ALWAYS_AVAILABLE_PICKUPS = {
   auto_aim: { id: 'auto_aim', name: 'Auto Aim' }, dual_gun: { id: 'dual_gun', name: 'Dual Gun' },
   bomb: { id: 'bomb', name: 'Bomb Emitter' }, orbiter: { id: 'orbiter', name: 'Spinning Orbiter' },
   lightning_projectile: { id: 'lightning_projectile', name: 'Lightning Projectile' },
+  flamethrower: { id: 'flamethrower', name: 'Flamethrower' },
+  laser_cannon: { id: 'laser_cannon', name: 'Laser Cannon' },
   ice_shard_cannon: { id: 'ice_shard_cannon', name: 'Ice Shard Cannon' }
 };
 
 const UNLOCKABLE_PICKUPS = {
   map_select: { name: "Map Select", desc: "Unlocks the ability to choose your map.", cost: 1500, icon: '🗺️' },
+  map_junkyard: { name: "Junkyard Map", desc: "Unlocks the Junkyard map for selection.", cost: 800, icon: '🏭' },
+  map_log_cabin: { name: "Log Cabin Map", desc: "Unlocks the Log Cabin map for selection.", cost: 800, icon: '🪵' },
+  map_cellar: { name: "Cellar Map", desc: "Unlocks the Cellar map for selection.", cost: 800, icon: '🕯️' },
   night_owl: { name: "Night Owl", desc: "Unlocks a companion that snipes enemies.", cost: 1300, icon: '🦉' },
   whirlwind_axe: { name: "Whirlwind Axe", desc: "Unlocks a large, damaging orbiting axe.", cost: 1000, icon: '🪓' },
   doppelganger: { name: "Doppelganger", desc: "Unlocks the doppelganger pickup.", cost: 1200, icon: '👯' },

@@ -99,7 +99,7 @@
                 const alpha = 1 - (age / p.lifetime);
                 ctx.save();
                 ctx.globalAlpha = Math.max(0, alpha);
-                ctx.fillStyle = p.isWhite ? '#ffffff' : 'red';
+                ctx.fillStyle = p.isWhite ? '#FFB6C1' : 'red';
                 ctx.beginPath();
                 ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
                 ctx.fill();
@@ -219,16 +219,35 @@
             enemies.forEach(enemy => {
                 if (!inView(enemy.x, enemy.y, enemy.size)) return;
                 ctx.save();
+                
+                // White flash when hit
+                const now = Date.now();
+                if (enemy.hitFlashTime && now - enemy.hitFlashTime < 100) {
+                    ctx.globalCompositeOperation = 'lighter';
+                    ctx.globalAlpha = 0.8;
+                }
+                
                 if (enemy.emoji === '👻') {
                     ctx.globalAlpha = enemy.isVisible ? 1.0 : 0.2;
                 }
-                // Frozen: blue tint via globalAlpha overlay instead of ctx.filter
-                if (enemy.isFrozen) ctx.globalAlpha = (ctx.globalAlpha || 1) * 0.7;
+                
+                // Frozen: blue tint
+                if (enemy.isFrozen) {
+                    ctx.globalAlpha = (ctx.globalAlpha || 1) * 0.7;
+                }
                 
                 const emojiToDraw = enemy.isBoss ? enemy.mimics : enemy.emoji;
                 const preRenderedImage = preRenderedEntities[emojiToDraw];
                 if(preRenderedImage) {
-                    ctx.drawImage(preRenderedImage, enemy.x - preRenderedImage.width / 2, enemy.y - preRenderedImage.height / 2 + (enemy.bobOffset || 0));
+                    // Apply blue tint for frozen enemies
+                    if (enemy.isFrozen) {
+                        ctx.save();
+                        ctx.filter = 'hue-rotate(180deg) saturate(2)';
+                        ctx.drawImage(preRenderedImage, enemy.x - preRenderedImage.width / 2, enemy.y - preRenderedImage.height / 2 + (enemy.bobOffset || 0));
+                        ctx.restore();
+                    } else {
+                        ctx.drawImage(preRenderedImage, enemy.x - preRenderedImage.width / 2, enemy.y - preRenderedImage.height / 2 + (enemy.bobOffset || 0));
+                    }
                 }
 
                 if (enemy.isIgnited) {
@@ -318,14 +337,76 @@
                 ctx.rotate(weapon.angle);
                 const bSize = weapon.size * 1.4;
                 const bH = bSize * 0.5;
-                // Yellow tint always, red when fire rate boost active
-                ctx.globalAlpha = fireRateBoostActive ? 0.3 : 0.08;
-                ctx.fillStyle = fireRateBoostActive ? '#ff3300' : '#ffee44';
-                ctx.fillRect(-bSize / 2, -bH / 2, bSize, bH);
-                ctx.globalAlpha = 1;
+                // Blue box for ice projectiles
+                if (iceProjectileActive) {
+                    ctx.globalAlpha = 0.08;
+                    ctx.fillStyle = '#00aaff';
+                    ctx.fillRect(-bSize / 2, -bH / 2, bSize, bH);
+                    ctx.globalAlpha = 1;
+                }
                 ctx.drawImage(sprites.bullet, -bSize / 2, -bH / 2, bSize, bH);
                 ctx.restore();
             }
+            
+            // Render flamethrower flames
+            flameProjectiles.forEach(flame => {
+                if (!inView(flame.x, flame.y, flame.size)) return;
+                const age = now - (flame.lifetime - 800);
+                const lifeRatio = 1 - (age / 800);
+                ctx.save();
+                ctx.globalAlpha = lifeRatio * 0.8;
+                ctx.translate(flame.x, flame.y);
+                
+                // Draw flame as gradient circle
+                const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, flame.size);
+                gradient.addColorStop(0, '#ffff00');
+                gradient.addColorStop(0.4, '#ff6600');
+                gradient.addColorStop(1, 'rgba(255, 0, 0, 0)');
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.arc(0, 0, flame.size, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Add fire emoji for effect
+                ctx.globalAlpha = lifeRatio;
+                ctx.font = `${flame.size * 1.5}px sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('🔥', 0, 0);
+                ctx.restore();
+            });
+            
+            // Render laser cannon beams
+            laserCannonBeams.forEach(beam => {
+                const age = now - beam.spawnTime;
+                const alpha = 1 - (age / beam.lifetime);
+                
+                ctx.save();
+                ctx.globalAlpha = alpha * 0.6;
+                ctx.strokeStyle = '#00ff00';
+                ctx.lineWidth = 8;
+                ctx.lineCap = 'round';
+                
+                // Draw outer glow
+                ctx.shadowColor = '#00ff00';
+                ctx.shadowBlur = 15;
+                ctx.beginPath();
+                ctx.moveTo(beam.startX, beam.startY);
+                ctx.lineTo(beam.endX, beam.endY);
+                ctx.stroke();
+                
+                // Draw inner bright line
+                ctx.shadowBlur = 0;
+                ctx.globalAlpha = alpha * 0.9;
+                ctx.strokeStyle = '#88ff88';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(beam.startX, beam.startY);
+                ctx.lineTo(beam.endX, beam.endY);
+                ctx.stroke();
+                
+                ctx.restore();
+            });
 
             dogHomingShots.forEach(shot => {
                 ctx.save();
@@ -378,6 +459,22 @@
                 drawGlimmer(item);
                 if (item.type === 'box') { 
                     ctx.drawImage(sprites.pickupBox, item.x - item.size / 2, item.y - item.size / 2, item.size, item.size); 
+                    
+                    // Draw powerup label above the box
+                    if (item.powerupLabel) {
+                        ctx.save();
+                        ctx.globalAlpha = 0.85;
+                        ctx.font = 'bold 10px sans-serif';
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'bottom';
+                        ctx.fillStyle = '#ffffff';
+                        ctx.strokeStyle = '#000000';
+                        ctx.lineWidth = 2;
+                        const labelY = item.y - item.size / 2 - 3;
+                        ctx.strokeText(item.powerupLabel, item.x, labelY);
+                        ctx.fillText(item.powerupLabel, item.x, labelY);
+                        ctx.restore();
+                    }
                 } else {
                     const preRendered = preRenderedEntities[item.type];
                     if (preRendered) {
@@ -387,9 +484,9 @@
                         const w = preRendered.width * scale;
                         const h = preRendered.height * scale;
                         if (isXp) {
-                            // Cheap blue glow: draw a circle behind the gem
+                            // Cheap blue glow: draw a circle behind the gem with reduced opacity
                             ctx.save();
-                            ctx.globalAlpha = 0.5;
+                            ctx.globalAlpha = 0.25;
                             ctx.fillStyle = '#44aaff';
                             ctx.beginPath(); ctx.arc(item.x, item.y, w * 0.6, 0, Math.PI * 2); ctx.fill();
                             ctx.restore();
@@ -528,8 +625,13 @@
                         const startX = gunXOffset + gunWidth * 0.9; const startY = gunYOffset + gunHeight / 2;
                         ctx.moveTo(startX, startY); 
                         const isMobile = document.body.classList.contains('is-mobile');
-                        if (isMobile) { ctx.lineTo(1000, startY); } 
-                        else {
+                        const isUsingGamepad = (aimDx !== 0 || aimDy !== 0) && (mouseX === 0 && mouseY === 0);
+                        
+                        if (isMobile || isUsingGamepad) {
+                            // Fixed length laser for mobile/gamepad
+                            const laserLength = 300;
+                            ctx.lineTo(startX + laserLength, startY);
+                        } else {
                             const worldMouseX = mouseX / cameraZoom + finalCameraOffsetX; const worldMouseY = mouseY / cameraZoom + finalCameraOffsetY;
                             const rotatedMouseX = (worldMouseX - (player.x)) * Math.cos(-aimAngle) - (worldMouseY - (player.y + bobOffset)) * Math.sin(-aimAngle);
                             ctx.lineTo(rotatedMouseX, startY);
@@ -712,6 +814,23 @@
                 ctx.textAlign = 'center';
                 ctx.strokeText(ft.text, ft.x, ft.y - yOffset);
                 ctx.fillText(ft.text, ft.x, ft.y - yOffset);
+                ctx.restore();
+            });
+
+            // Render visual warnings (boss warnings, etc.)
+            visualWarnings.forEach(vw => {
+                const elapsed = now - vw.startTime;
+                const alpha = 1.0 - (elapsed / vw.duration);
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, alpha);
+                ctx.font = `bold ${vw.fontSize || 24}px sans-serif`;
+                ctx.fillStyle = vw.color || '#ff0000';
+                ctx.strokeStyle = '#000000';
+                ctx.lineWidth = 3;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.strokeText(vw.text, vw.x, vw.y);
+                ctx.fillText(vw.text, vw.x, vw.y);
                 ctx.restore();
             });
 
