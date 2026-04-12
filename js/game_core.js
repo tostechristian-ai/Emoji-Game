@@ -151,7 +151,6 @@
             loadingScreen.style.display = 'none';
             startScreen.style.display = 'none';
 
-
             if (!window.hasLoadedOnce) {
                 splashScreen.style.display = 'flex';
                 playUISound('levelUp');
@@ -159,14 +158,63 @@
                 vibrate(50);
                 setTimeout(() => {
                     splashScreen.style.display = 'none';
-                    difficultyContainer.style.display = 'block';
+                    playIntroVideo();
                     window.hasLoadedOnce = true;
-                    startMainMenuBGM();
                 }, 3000);
             } else {
                 difficultyContainer.style.display = 'block';
                 startMainMenuBGM();
             }
+        }
+
+        function playIntroVideo() {
+            const overlay  = document.getElementById('introVideoOverlay');
+            const video    = document.getElementById('introVideo');
+            const skipBtn  = document.getElementById('skipIntroButton');
+            const difficultyContainer = document.getElementById('difficultyContainer');
+
+            function endIntro() {
+                video.pause();
+                overlay.style.display = 'none';
+                difficultyContainer.style.display = 'block';
+                startMainMenuBGM();
+                // Clean up listeners
+                overlay.removeEventListener('click', endIntro);
+                overlay.removeEventListener('touchstart', endIntro);
+                skipBtn.removeEventListener('click', endIntroSkip);
+                video.removeEventListener('ended', endIntro);
+            }
+
+            function endIntroSkip(e) {
+                e.stopPropagation();
+                endIntro();
+            }
+
+            overlay.style.display = 'flex';
+            video.currentTime = 0;
+            video.volume = 1;
+            video.muted = false;
+            video.play().catch(() => {
+                // Autoplay blocked — mute and retry (browser policy)
+                video.muted = true;
+                video.play().catch(() => endIntro());
+            });
+
+            video.addEventListener('ended', endIntro);
+            overlay.addEventListener('click', endIntro);
+            overlay.addEventListener('touchstart', endIntro, { passive: true });
+            skipBtn.addEventListener('click', endIntroSkip);
+
+            // Gamepad skip — poll until overlay is gone
+            (function pollGamepadSkip() {
+                if (overlay.style.display === 'none') return;
+                const gp = gamepadIndex !== null ? navigator.getGamepads?.()?.[gamepadIndex] : null;
+                if (gp) {
+                    const anyBtn = Array.from(gp.buttons).some(b => b.pressed);
+                    if (anyBtn) { endIntro(); return; }
+                }
+                requestAnimationFrame(pollGamepadSkip);
+            })();
         }
 
 
@@ -663,7 +711,7 @@ function handleGamepadInput() {
         _gpNav.menuIndex = next;
         applyFocus(items, _gpNav.menuIndex);
         playUISound('uiClick');
-        vibrate(10);
+        vibrateUI();
         lastGamepadUpdate = now;
     }
 
@@ -730,6 +778,7 @@ function handleGamepadInput() {
             if (btnA) {
                 clearFocus(btns);
                 btns[_gpNav.menuIndex]?.click();
+                vibrateUI('select');
                 _gpNav.menuIndex = 0;
                 lastGamepadUpdate = now;
                 return;
@@ -741,7 +790,7 @@ function handleGamepadInput() {
             const tiles = Array.from(mapSelectContainer.querySelectorAll('.map-tile'));
             if (btnRight || btnDown) { moveFocus(tiles, 1); return; }
             if (btnLeft  || btnUp)   { moveFocus(tiles, -1); return; }
-            if (btnA) { clearFocus(tiles); tiles[_gpNav.menuIndex]?.click(); _gpNav.menuIndex = 0; lastGamepadUpdate = now; return; }
+            if (btnA) { clearFocus(tiles); tiles[_gpNav.menuIndex]?.click(); vibrateUI('select'); _gpNav.menuIndex = 0; lastGamepadUpdate = now; return; }
             if (btnB) { clearFocus(tiles); _gpNav.menuIndex = 0; lastGamepadUpdate = now; document.getElementById('backToDifficultySelectButton')?.click(); return; }
         }
 
@@ -750,7 +799,7 @@ function handleGamepadInput() {
             const tiles = Array.from(characterSelectContainer.querySelectorAll('.character-tile:not(.locked)'));
             if (btnRight || btnDown) { moveFocus(tiles, 1); return; }
             if (btnLeft  || btnUp)   { moveFocus(tiles, -1); return; }
-            if (btnA) { clearFocus(tiles); tiles[_gpNav.menuIndex]?.click(); _gpNav.menuIndex = 0; lastGamepadUpdate = now; return; }
+            if (btnA) { clearFocus(tiles); tiles[_gpNav.menuIndex]?.click(); vibrateUI('select'); _gpNav.menuIndex = 0; lastGamepadUpdate = now; return; }
             if (btnB) { clearFocus(tiles); _gpNav.menuIndex = 0; lastGamepadUpdate = now; document.getElementById('backToMenuFromCharsButton')?.click(); return; }
         }
 
@@ -767,7 +816,7 @@ function handleGamepadInput() {
                 if (btnUp   || btnLeft)  { moveFocus(allCards, -1); return; }
                 if (btnA) {
                     const btn = allCards[_gpNav.menuIndex]?.querySelector('button:not([disabled])');
-                    if (btn) { btn.click(); lastGamepadUpdate = now; }
+                    if (btn) { btn.click(); vibrateUI('select'); lastGamepadUpdate = now; }
                     return;
                 }
             }
@@ -812,7 +861,7 @@ function handleGamepadInput() {
                 if (btnUp   || btnLeft)  { moveFocus(cheatCards, -1); return; }
                 if (btnA) {
                     const checkbox = cheatCards[_gpNav.menuIndex]?.querySelector('input[type="checkbox"]');
-                    if (checkbox) { checkbox.checked = !checkbox.checked; checkbox.dispatchEvent(new Event('change')); playUISound('uiClick'); vibrate(10); lastGamepadUpdate = now; }
+                    if (checkbox) { checkbox.checked = !checkbox.checked; checkbox.dispatchEvent(new Event('change')); playUISound('uiClick'); vibrateUI('select'); lastGamepadUpdate = now; }
                     return;
                 }
             }
@@ -862,13 +911,13 @@ function handleGamepadInput() {
                 focused?.classList.remove('gamepad-focus');
                 _gpNav.menuIndex = (_gpNav.menuIndex + 1) % pauseItems.length;
                 pauseItems[_gpNav.menuIndex]?.classList.add('gamepad-focus');
-                playUISound('uiClick'); vibrate(10); lastGamepadUpdate = now; return;
+                playUISound('uiClick'); vibrateUI(); lastGamepadUpdate = now; return;
             }
             if (btnUp) {
                 focused?.classList.remove('gamepad-focus');
                 _gpNav.menuIndex = (_gpNav.menuIndex - 1 + pauseItems.length) % pauseItems.length;
                 pauseItems[_gpNav.menuIndex]?.classList.add('gamepad-focus');
-                playUISound('uiClick'); vibrate(10); lastGamepadUpdate = now; return;
+                playUISound('uiClick'); vibrateUI(); lastGamepadUpdate = now; return;
             }
 
             // A = confirm / activate
@@ -880,10 +929,11 @@ function handleGamepadInput() {
                 } else if (focused && focused.type === 'checkbox') {
                     focused.checked = !focused.checked;
                     focused.dispatchEvent(new Event('change'));
-                    playUISound('uiClick'); vibrate(10); lastGamepadUpdate = now; return;
+                    playUISound('uiClick'); vibrateUI('select'); lastGamepadUpdate = now; return;
                 } else if (focused && focused.tagName === 'BUTTON') {
                     focused.classList.remove('gamepad-focus');
                     focused.click();
+                    vibrateUI('select');
                     _gpNav.menuIndex = 0; lastGamepadUpdate = now; return;
                 }
             }
@@ -917,12 +967,12 @@ function handleGamepadInput() {
         if (selectedUpgradeIndex !== prev) {
             document.querySelectorAll('.upgrade-card')[prev]?.classList.remove('selected');
             const newCard = document.querySelectorAll('.upgrade-card')[selectedUpgradeIndex];
-            if (newCard) { newCard.classList.add('selected'); playUISound('uiClick'); vibrate(10); }
+            if (newCard) { newCard.classList.add('selected'); playUISound('uiClick'); vibrateUI(); }
             lastGamepadUpdate = now;
         }
         if (btnA) {
             const selectedCard = document.querySelectorAll('.upgrade-card')[selectedUpgradeIndex];
-            if (selectedCard) { selectedCard.querySelector('button')?.click(); isGamepadUpgradeMode = false; lastGamepadUpdate = now; }
+            if (selectedCard) { selectedCard.querySelector('button')?.click(); vibrateUI('select'); isGamepadUpgradeMode = false; lastGamepadUpdate = now; }
         }
         return;
     }
@@ -1045,7 +1095,108 @@ function handleGamepadInput() {
     }
 });
         
-        function vibrate(duration) { if (isMobileDevice && navigator.vibrate) { navigator.vibrate(duration); } }
+        // ===== ENHANCED VIBRATION/HAPTIC FEEDBACK SYSTEM =====
+        // Supports both mobile device vibration and gamepad rumble
+
+        const VIBRATION_PATTERNS = {
+            uiClick:        { duration: 8,   weak: 0.08, strong: 0.08 },
+            uiSelect:       { duration: 15,  weak: 0.15, strong: 0.15 },
+            levelUp:        { duration: 250, weak: 1.0,  strong: 1.0  },
+            bulletFire:     { duration: 12,  weak: 0.12, strong: 0.04 },
+            bulletFireRapid:{ duration: 6,   weak: 0.05, strong: 0.02 },
+            xpCollect:      { duration: 18,  weak: 0.25, strong: 0.18 },
+            pickupCollect:  { duration: 28,  weak: 0.35, strong: 0.25 },
+            powerupCollect: { duration: 80,  weak: 0.5,  strong: 0.55 },
+            enemyHit:       { duration: 18,  weak: 0.2,  strong: 0.12 },
+            enemyKill:      { duration: 22,  weak: 0.28, strong: 0.18 },
+            playerHit:      { duration: 200, weak: 0.7,  strong: 0.85 },
+            playerDeath:    { duration: 500, weak: 0.9,  strong: 1.0  },
+            dash:           { duration: 30,  weak: 0.35, strong: 0.25 },
+            bossSpawn:      { duration: 600, weak: 0.8,  strong: 1.0  },
+            merchantSpawn:  { duration: 120, weak: 0.45, strong: 0.5  },
+            appleComplete:  { duration: 200, weak: 0.65, strong: 0.75 },
+            explosion:      { duration: 55,  weak: 0.65, strong: 0.75 },
+        };
+
+        let lastBulletVibrationTime = 0;
+        const BULLET_VIBRATION_COOLDOWN = 50;
+
+        // Core rumble — always does a fresh getGamepads() poll so it works outside the game loop
+        function rumbleGamepad(durationMs, weak, strong) {
+            if (gamepadIndex === null) return;
+            const gpads = navigator.getGamepads ? navigator.getGamepads() : [];
+            const gp = gpads[gamepadIndex];
+            if (!gp) return;
+            if (gp.vibrationActuator) {
+                gp.vibrationActuator.playEffect('dual-rumble', {
+                    startDelay: 0,
+                    duration: durationMs,
+                    weakMagnitude:   Math.min(1.0, weak),
+                    strongMagnitude: Math.min(1.0, strong)
+                }).catch(() => {});
+            }
+        }
+
+        function vibrate(pattern) {
+            const dur    = typeof pattern === 'number' ? pattern : pattern.duration;
+            const weak   = typeof pattern === 'object' ? (pattern.weak   || 0.5) : 0.5;
+            const strong = typeof pattern === 'object' ? (pattern.strong || 0.5) : 0.5;
+
+            // Mobile — 2× duration
+            if (navigator.vibrate) {
+                navigator.vibrate(typeof dur === 'number' ? dur * 2 : dur);
+            }
+
+            // Gamepad — 3× magnitude
+            rumbleGamepad(typeof dur === 'number' ? dur : 100, weak * 3, strong * 3);
+        }
+
+        function vibrateUI(type = 'click') {
+            const pattern = type === 'select' ? VIBRATION_PATTERNS.uiSelect : VIBRATION_PATTERNS.uiClick;
+            // For menu nav, bypass the wrapper and hit the gamepad directly so there's no stale-snapshot issue
+            if (navigator.vibrate) navigator.vibrate(pattern.duration * 2);
+            rumbleGamepad(pattern.duration, pattern.weak * 3, pattern.strong * 3);
+        }
+
+        function vibrateBullet() {
+            const now = Date.now();
+            const isRapidFire = fireRateBoostActive || weaponFireInterval < 200;
+            const cooldown = isRapidFire ? 120 : BULLET_VIBRATION_COOLDOWN;
+            if (now - lastBulletVibrationTime < cooldown) return;
+            lastBulletVibrationTime = now;
+            vibrate(isRapidFire ? VIBRATION_PATTERNS.bulletFireRapid : VIBRATION_PATTERNS.bulletFire);
+        }
+
+        function vibratePickup(type = 'xp') {
+            const pattern = type === 'powerup' ? VIBRATION_PATTERNS.powerupCollect :
+                            type === 'apple'   ? VIBRATION_PATTERNS.pickupCollect  :
+                            VIBRATION_PATTERNS.xpCollect;
+            vibrate(pattern);
+        }
+
+        function vibrateHit(isPlayer = false) {
+            vibrate(isPlayer ? VIBRATION_PATTERNS.playerHit : VIBRATION_PATTERNS.enemyHit);
+        }
+
+        function vibrateKill()        { vibrate(VIBRATION_PATTERNS.enemyKill);     }
+        function vibrateDash()        { vibrate(VIBRATION_PATTERNS.dash);          }
+        function vibrateExplosion()   { vibrate(VIBRATION_PATTERNS.explosion);     }
+        function vibrateBossSpawn()   { vibrate(VIBRATION_PATTERNS.bossSpawn);     }
+        function vibrateMerchant()    { vibrate(VIBRATION_PATTERNS.merchantSpawn); }
+        function vibrateAppleComplete(){ vibrate(VIBRATION_PATTERNS.appleComplete);}
+        function vibratePlayerDeath() { vibrate(VIBRATION_PATTERNS.playerDeath);  }
+
+        function vibrateLevelUp() {
+            // Mobile
+            if (navigator.vibrate) navigator.vibrate([150, 60, 250]);
+            // Gamepad — three hard pulses via setTimeout so each one is a fresh call
+            rumbleGamepad(150, 1.0, 1.0);
+            setTimeout(() => rumbleGamepad(150, 1.0, 1.0), 210);
+            setTimeout(() => rumbleGamepad(250, 1.0, 1.0), 420);
+        }
+
+        // ===== END VIBRATION SYSTEM =====
+        
         function playSound(name) { if (gameActive && !gamePaused && audioPlayers[name]) { audioPlayers[name].start(getSafeToneTime()); } }
         function playUISound(name) { if (audioPlayers[name]) { audioPlayers[name].start(getSafeToneTime()); } }
         
@@ -1398,6 +1549,7 @@ document.body.addEventListener('touchstart', (e) => {
             enemy.isHit = true;
             enemiesDefeatedCount++;
             player.coins++; // Grant one coin per kill
+            vibrateKill();
             if (typeof runStats !== 'undefined') {
                 if (typeof runStats.coinsThisRun !== 'number' || !Number.isFinite(runStats.coinsThisRun)) runStats.coinsThisRun = 0;
                 runStats.coinsThisRun++;
@@ -1471,6 +1623,7 @@ function createBoss() {
                 fontSize: 24
             });
             playSound('levelUp'); // Warning sound
+            vibrateBossSpawn();
             
             // Delay boss spawn by 2 seconds for dramatic effect
             setTimeout(() => {
@@ -1586,6 +1739,7 @@ function createBoss() {
         y: y,
         size: 40 // wizard size on screen
     });
+    vibrateMerchant();
 }
 
         function createAppleItem(x, y) {
@@ -1689,7 +1843,7 @@ function createBoss() {
                         el.addEventListener('animationend', () => { el.classList.remove('ui-shake-active'); }, { once: true });
                     }
                 });
-                 vibrate(10);
+                vibrateBullet(); // Use new vibration system with throttling
             }
            
             playSound('playerShoot');
@@ -1753,7 +1907,7 @@ function createBoss() {
             else player.xpToNextLevel += 1; 
             Tone.Transport.bpm.value = 120 * (player.level >= 30 ? 2.5 : player.level >= 20 ? 2 : player.level >= 10 ? 1.5 : 1);
             updateUIStats();
-            vibrate(50);
+            vibrateLevelUp();
             playSound('levelUp');
             showUpgradeMenu();
         }
@@ -1991,7 +2145,7 @@ if (firstCard) {
 
         async function endGame() {
             playSound('gameOver');
-            vibrate([100, 30, 100]);
+            vibratePlayerDeath();
             playerStats.totalDeaths++;
             gameOver = true; gamePaused = true; gameActive = false;
             stopBGM();
@@ -2324,6 +2478,7 @@ async function startGame() {
             playSound('dodge'); // Play dodge sound
             if (entity === player) {
                 playerStats.totalDashes++;
+                vibrateDash();
             }
         }
 

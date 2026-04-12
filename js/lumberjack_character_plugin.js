@@ -1,7 +1,19 @@
-// lumberjack_character_plugin.js - Lumberjack (🧑‍🚒): whirlwind axe only, no bullets
+// ═══════════════════════════════════════════════════════════════════════════
+// LUMBERJACK CHARACTER PLUGIN — The Lumberjack 🧑‍🚒
+// ═══════════════════════════════════════════════════════════════════════════
+// Adds the Lumberjack as a playable character.
+//
+// How it works:
+//   - No gun — throws spinning axes instead of bullets
+//   - Whirlwind Axe powerup is always active (free, permanent)
+//   - Dashing fires an 8-axe nova in all directions
+//   - Unlock condition: purchase in the upgrade shop for 500 coins
+//
+// Uses the same plugin pattern as the Skull plugin.
 (function () {
   'use strict';
 
+  // ─── WAIT FOR CORE GAME TO LOAD ─────────────────────────────────────────
   function waitFor(cond, cb, timeout = 8000, interval = 40) {
     const start = Date.now();
     const t = setInterval(() => {
@@ -26,16 +38,17 @@
   function init() {
     log('Initializing lumberjack character plugin...');
 
-    const LJ_ID       = 'lumberjack';
-    const LJ_EMOJI    = '🧑‍🚒';   // firefighter emoji as the character sprite
-    const AXE_EMOJI   = '🪓';
+    // ─── CONSTANTS ────────────────────────────────────────────────────────
+    const LJ_ID         = 'lumberjack';
+    const LJ_EMOJI      = '🧑‍🚒';   // Firefighter emoji used as the character sprite
+    const AXE_EMOJI     = '🪓';
     const AXE_RENDER_SIZE = 22;
-    const NOVA_COUNT  = 8;
-    const NOVA_SPEED  = 5.5;
-    const NOVA_SIZE   = 22;
-    const NOVA_LIFE   = 1400;
+    const NOVA_COUNT    = 8;       // Axes fired on dash
+    const NOVA_SPEED    = 5.5;     // Speed of nova axes
+    const NOVA_SIZE     = 22;      // Size of nova axes
+    const NOVA_LIFE     = 1400;    // How long nova axes last (ms)
 
-    // ── Register character ─────────────────────────────────────────────────
+    // ─── REGISTER CHARACTER ───────────────────────────────────────────────
     if (!CHARACTERS[LJ_ID]) {
       CHARACTERS[LJ_ID] = {
         id: LJ_ID,
@@ -43,11 +56,11 @@
         emoji: LJ_EMOJI,
         description: 'A rugged woodsman who wields axes instead of bullets.',
         perk: 'Whirlwind axe always active. Dash fires an 8-axe nova. No gun.',
-        unlockCondition: { type: 'store' }
+        unlockCondition: { type: 'store' } // Bought in upgrade shop
       };
     }
 
-    // ── Register in store ──────────────────────────────────────────────────
+    // Register in the upgrade shop
     if (!UNLOCKABLE_PICKUPS[LJ_ID]) {
       UNLOCKABLE_PICKUPS[LJ_ID] = {
         name: 'The Lumberjack',
@@ -57,31 +70,37 @@
       };
     }
 
-    // Pre-render the emoji so drawImage works
+    // Pre-render axe and lumberjack emojis for fast drawing
     try { preRenderEmoji(AXE_EMOJI, AXE_RENDER_SIZE); } catch (e) {}
     try { preRenderEmoji(LJ_EMOJI, 35); } catch (e) {}
 
-    // ── Apply / reset ──────────────────────────────────────────────────────
+    // ─── APPLY / RESET LUMBERJACK STATS ──────────────────────────────────
 
+    // Apply Lumberjack-specific setup to the player
+    // - Sets the _isLumberjack flag (used by render/update to change behavior)
+    // - Forces whirlwind axe on (saves previous state to restore later)
     function applyLumberjackToPlayer() {
       if (!player) return;
       player._isLumberjack = true;
-      // Force whirlwind axe on (save previous state so we can restore it)
+      // Save previous whirlwind state so we can restore it if character is swapped
       window._lj_whirlwindWasActive = typeof whirlwindAxeActive !== 'undefined' ? whirlwindAxeActive : false;
       if (typeof whirlwindAxeActive !== 'undefined') whirlwindAxeActive = true;
       log('Lumberjack applied.');
     }
 
+    // Restore original state when switching away from Lumberjack
     function resetLumberjackFromPlayer() {
       if (!player || !player._isLumberjack) return;
       player._isLumberjack = false;
+      // Only turn off whirlwind if it wasn't already active before
       if (typeof whirlwindAxeActive !== 'undefined' && !window._lj_whirlwindWasActive) {
         whirlwindAxeActive = false;
       }
       log('Lumberjack removed.');
     }
 
-    // ── Patch startGame ────────────────────────────────────────────────────
+    // ─── PATCH startGame ──────────────────────────────────────────────────
+    // Re-apply lumberjack setup after startGame() resets the player
     (function patchStartGame() {
       if (typeof startGame !== 'function') { setTimeout(patchStartGame, 100); return; }
       const orig = window.startGame;
@@ -97,7 +116,8 @@
       };
     })();
 
-    // ── Hook character tile clicks ─────────────────────────────────────────
+    // ─── HOOK CHARACTER TILE CLICKS ───────────────────────────────────────
+    // Apply or remove lumberjack setup when the player selects/deselects
     (function hookCharacterTiles() {
       const container = document.getElementById('characterTilesContainer');
       if (!container) { setTimeout(hookCharacterTiles, 100); return; }
@@ -114,13 +134,17 @@
       });
     })();
 
-    // ── Dash nova: 8 axes in a ring ────────────────────────────────────────
+    // ─── DASH NOVA ────────────────────────────────────────────────────────
+    // Fire 8 axes in a ring when the player dashes
     function createAxeNova() {
       try {
         if (!window.weaponPool || !window.player) return;
         let created = 0;
+
         for (let i = 0; i < NOVA_COUNT; i++) {
-          const angle = (i / NOVA_COUNT) * Math.PI * 2;
+          const angle = (i / NOVA_COUNT) * Math.PI * 2; // Evenly spaced around 360°
+
+          // Find an inactive slot in the weapon pool
           for (const weapon of weaponPool) {
             if (!weapon.active) {
               weapon.x = player.x;
@@ -134,22 +158,25 @@
               weapon.hitsLeft = 1;
               weapon.hitEnemies = [];
               weapon.active = true;
-              weapon._axeSpin = angle;
+              weapon._axeSpin = angle; // Used by renderer to spin the axe visually
               created++;
               break;
             }
           }
         }
+
         if (created > 0 && typeof playSound === 'function') playSound('playerShoot');
       } catch (e) { console.error('[LumberjackPlugin] nova error:', e); }
     }
 
-    // ── Patch triggerDash ──────────────────────────────────────────────────
+    // ─── PATCH triggerDash ────────────────────────────────────────────────
+    // Hook into the existing dash system to fire the nova on dash
     (function patchTriggerDash() {
       if (typeof triggerDash !== 'function') { setTimeout(patchTriggerDash, 100); return; }
       const orig = window.triggerDash;
       window.triggerDash = function (entity, ...args) {
         const result = orig.call(this, entity, ...args);
+        // Fire nova only when the player dashes with Lumberjack equipped
         if (entity === player && player._isLumberjack && entity.isDashing) {
           createAxeNova();
         }
@@ -157,7 +184,8 @@
       };
     })();
 
-    // draw() is now handled entirely in game_render.js — no patch needed here.
+    // Note: Drawing is handled in game_render.js via player._isLumberjack flag
+    // Note: Bullet firing is blocked in game_update.js via !player._isLumberjack check
 
     log('Lumberjack plugin ready.');
   }

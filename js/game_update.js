@@ -760,7 +760,8 @@ for (let i = merchants.length - 1; i >= 0; i--) {
                     runStats.killsSinceDamage = 0;
                     if (player.lives === 1) runStats.hasBeenAtOneHeart = true;
                     createBloodSplatter(player.x, player.y); createBloodPuddle(player.x, player.y, player.size);
-                    vibrate(50); playSound('playerScream');
+                    vibrateHit(true); // Player hit vibration
+                    playSound('playerScream');
                     isPlayerHitShaking = true; playerHitShakeStartTime = now;
                     if (vengeanceNovaActive) { vengeanceNovas.push({ x: player.x, y: player.y, startTime: now, duration: 500, maxRadius: player.size * 3 }); }
                     if (temporalWardActive) { isTimeStopped = true; timeStopEndTime = now + 2000; playSound('levelUpSelect'); }
@@ -916,7 +917,7 @@ for (let i = merchants.length - 1; i >= 0; i--) {
 
                 if (collected) {
                     if (item.type === 'box') {
-                        vibrate(20);
+                        vibratePickup('powerup'); // Powerup vibration
                         player.boxPickupsCollectedCount++;
                         playerStats.totalBoxesOpened++;
                         
@@ -934,7 +935,7 @@ for (let i = merchants.length - 1; i >= 0; i--) {
                     player.xp += item.xpValue * (cheats.xp_boost ? 2 : 1);
                     runStats.xpCollectedThisRun += item.xpValue;
                     score += item.xpValue * 7;
-                    vibrate(10);
+                    vibratePickup('xp'); // XP pickup vibration
                     pickupItems.splice(i, 1);
                     playSound('xpPickup');
                     if (player.xp >= player.xpToNextLevel) levelUp();
@@ -961,14 +962,14 @@ for (let i = merchants.length - 1; i >= 0; i--) {
                 }
                 
                 if (collected) {
-                    vibrate(20);
+                    vibratePickup('apple'); // Apple pickup vibration
                     player.appleCount++;
                     runStats.applesEatenThisRun++;
                     playerStats.totalApplesEaten++;
                     if (player.appleCount >= 5) {
                         player.maxLives++;
                         player.appleCount = 0;
-                        vibrate(50);
+                        vibrateAppleComplete(); // Special vibration for completing apple set
                         playSound('levelUpSelect');
                         floatingTexts.push({ text: "Max Life +1!", x: player.x, y: player.y - player.size, startTime: now, duration: 1500 });
                     }
@@ -1124,6 +1125,7 @@ if (!player._isLumberjack && !player._isKnight && (aimDx !== 0 || aimDy !== 0) &
                         x: weapon.x, y: weapon.y, radius: enemy.size * 2,
                         startTime: Date.now(), duration: 300
                     });
+                    vibrateExplosion();
                     // This part can also be optimized later, but let's leave it for now
                     enemies.forEach(otherEnemy => { 
                         if (otherEnemy !== enemy && !otherEnemy.isHit) {
@@ -1200,6 +1202,7 @@ if (!player._isLumberjack && !player._isKnight && (aimDx !== 0 || aimDy !== 0) &
                         });
                         handleEnemyDeath(enemy);
                         playBombExplosionSound();
+                        vibrateExplosion();
                         bombs.splice(b, 1);
                         break;
                     }
