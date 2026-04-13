@@ -2190,12 +2190,6 @@ if (firstCard) {
             saveHighScore(Math.floor(score), player.level);
 
             if (gameOverlay) gameOverlay.style.display = 'flex';
-            
-            if (loadingStoryDiv) loadingStoryDiv.style.display = 'block';
-            if (storytellerOutputDiv) storytellerOutputDiv.textContent = '';
-            const epicMessage = `Hark, a hero's tale is sung! For ${totalTimeSeconds} grueling seconds, a noble warrior battled the emoji hordes. With unmatched courage, they gathered ${player.xp} XP and etched a legendary score of ${Math.floor(score)} into the annals of history!`;
-            if (storytellerOutputDiv) storytellerOutputDiv.textContent = epicMessage;
-            if (loadingStoryDiv) loadingStoryDiv.style.display = 'none';
         }
 
 async function tryLoadMusic(retries = 3) {
