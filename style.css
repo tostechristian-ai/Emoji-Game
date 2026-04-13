@@ -1574,8 +1574,8 @@
                 align-items: center;
                 position: relative;
                 background-size: cover;
-                gap: 5px;
-                padding: 10px;
+                gap: 3px;
+                padding: 5px;
             }
 
             /* Hide desktop bottom buttons, show mobile ones */
@@ -1586,24 +1586,24 @@
             body.is-mobile #mobile-bottom-buttons {
                 display: flex !important;
                 flex-direction: row;
-                gap: 5px;
+                gap: 3px;
                 justify-content: center;
                 flex-wrap: wrap;
                 position: absolute;
-                bottom: 5px;
+                bottom: 2px;
                 left: 50%;
                 transform: translateX(-50%);
                 z-index: 3001;
                 max-width: 100%;
-                padding: 0 5px;
+                padding: 0 3px;
             }
 
             /* Ensure mobile buttons use PNG backgrounds in landscape */
             body.is-mobile #mobile-bottom-buttons button {
                 display: inline-block;
                 cursor: pointer;
-                width: 80px;
-                height: 26px;
+                width: 65px;
+                height: 22px;
                 background-size: contain;
                 background-repeat: no-repeat;
                 background-position: center;
@@ -1709,60 +1709,70 @@
             }
 
             body.is-mobile #difficultyScreen h1 {
-                font-size: 24px;
-                margin-bottom: 10px;
+                font-size: 20px;
+                margin-bottom: 5px;
             }
 
             body.is-mobile #highScoresContainer {
-                font-size: 8px;
-                padding: 5px 10px;
-                margin-bottom: 10px;
+                font-size: 7px;
+                padding: 3px 8px;
+                margin-bottom: 5px;
             }
             body.is-mobile #highScoresContainer h3 {
-                font-size: 10px;
-                margin-bottom: 5px;
+                font-size: 8px;
+                margin-bottom: 3px;
             }
 
             body.is-mobile .difficulty-buttons {
                 flex-direction: row;
                 flex-wrap: wrap;
                 justify-content: center;
-                gap: 10px;
-                width: 80%;
-                max-width: 320px;
+                gap: 6px;
+                width: 90%;
+                max-width: 280px;
             }
 
             body.is-mobile #gameOverlay h2 {
-                font-size: 20px;
-                margin-bottom: 10px;
+                font-size: 18px;
+                margin-bottom: 6px;
             }
             body.is-mobile #gameOverlay p {
-                font-size: 14px;
-                margin: 5px 0;
+                font-size: 12px;
+                margin: 2px 0;
             }
             body.is-mobile #gameOverlay button {
-                font-size: 14px;
-                padding: 6px 14px;
-                margin-top: 8px;
+                font-size: 12px;
+                padding: 5px 10px;
+                margin-top: 6px;
             }
 
             /* Scale down main menu for landscape mobile */
             body.is-mobile #difficultyScreen {
+                gap: 2px;
+                padding: 5px;
+            }
+
+            body.is-mobile .difficulty-buttons {
                 gap: 3px;
+                width: 95%;
+                max-width: 280px;
             }
 
             body.is-mobile .difficulty-buttons button {
-                width: 110px;
-                height: 36px;
+                width: 85px;
+                height: 28px;
             }
 
             body.is-mobile #mainTitle {
-                font-size: 22px;
+                font-size: 18px;
+                margin-bottom: 2px;
             }
 
             body.is-mobile #highScoresContainer {
-                transform: scale(0.75);
+                transform: scale(0.6);
                 transform-origin: top left;
+                top: 3px;
+                left: 3px;
             }
             
             body.is-mobile #gameGuideModal .content-wrapper,
@@ -1814,33 +1824,57 @@
         
         @media (max-width: 600px) {
             #difficultyScreen h1 {
-                font-size: 24px;
-                margin-bottom: 15px;
+                font-size: 20px;
+                margin-bottom: 8px;
             }
 
             .difficulty-buttons {
                 flex-direction: row;
                 flex-wrap: wrap;
                 justify-content: center;
-                gap: 10px;
-                width: 90%;
+                gap: 6px;
+                width: 95%;
+                max-width: 320px;
+            }
+
+            .difficulty-buttons button {
+                width: 110px;
+                height: 36px;
             }
 
             .spinning-emoji {
-                font-size: 60px;
+                font-size: 50px;
             }
 
             .emoji-container {
-                width: 80px;
-                height: 80px;
+                width: 70px;
+                height: 70px;
             }
 
             .left-emoji {
-                left: 1%;
+                left: 2%;
             }
 
             .right-emoji {
-                right: 1%;
+                right: 2%;
+            }
+
+            #highScoresContainer {
+                transform: scale(0.75);
+                transform-origin: top left;
+            }
+
+            #gameOverlay h2 {
+                font-size: 22px;
+            }
+
+            #gameOverlay p {
+                font-size: 14px;
+            }
+
+            #gameOverlay button {
+                font-size: 14px;
+                padding: 8px 16px;
             }
         }
 
@@ -1878,8 +1912,8 @@
         flex-direction: column;
         justify-content: center;
         align-items: center;
-        gap: 8px;
-        padding: 10px;
+        gap: 4px;
+        padding: 5px;
         position: relative;
         background-size: cover;
     }
@@ -1902,24 +1936,24 @@
     body.is-mobile #mobile-bottom-buttons {
         display: flex !important;
         flex-direction: row;
-        gap: 6px;
+        gap: 4px;
         justify-content: center;
         flex-wrap: wrap;
         position: absolute;
-        bottom: 5px;
+        bottom: 3px;
         left: 50%;
         transform: translateX(-50%);
         z-index: 3001;
         max-width: 100%;
-        padding: 0 10px;
+        padding: 0 5px;
     }
 
     /* Ensure mobile buttons use PNG backgrounds */
     body.is-mobile #mobile-bottom-buttons button {
         display: inline-block;
         cursor: pointer;
-        width: 90px;
-        height: 30px;
+        width: 70px;
+        height: 24px;
         background-size: contain;
         background-repeat: no-repeat;
         background-position: center;
@@ -1999,39 +2033,45 @@
     }
 
     body.is-mobile #gameOverlay h2 {
-        font-size: 28px;
+        font-size: 24px;
+        margin-bottom: 8px;
     }
 
     body.is-mobile #gameOverlay p {
-        font-size: 18px;
+        font-size: 14px;
+        margin: 3px 0;
     }
 
     body.is-mobile #gameOverlay button {
-        font-size: 16px;
-        padding: 8px 16px;
-        margin-top: 10px;
+        font-size: 14px;
+        padding: 6px 12px;
+        margin-top: 8px;
     }
 
     /* Scale down main menu buttons for mobile portrait */
     body.is-mobile .difficulty-buttons {
-        gap: 6px;
-        margin-bottom: 5px;
+        gap: 4px;
+        margin-bottom: 3px;
+        width: 95%;
+        max-width: 300px;
     }
 
     body.is-mobile .difficulty-buttons button {
-        width: 130px;
-        height: 42px;
+        width: 100px;
+        height: 32px;
     }
 
     body.is-mobile #mainTitle {
-        font-size: 28px;
-        margin-bottom: 5px;
+        font-size: 22px;
+        margin-bottom: 3px;
     }
 
     body.is-mobile #highScoresContainer {
-        transform: scale(0.85);
+        transform: scale(0.7);
         transform-origin: top left;
-        margin-bottom: 5px;
+        margin-bottom: 2px;
+        top: 5px;
+        left: 5px;
     }
 
     body.is-mobile #upgradeMenu {
