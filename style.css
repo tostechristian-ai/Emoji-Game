@@ -1553,24 +1553,29 @@
 
             /* Scale down main menu in landscape to fit all buttons */
             body.is-mobile #difficultyContainer {
-                width: 100%;
-                height: 100%;
+                width: 100vw;
+                height: 100vh;
                 display: flex;
                 align-items: center;
                 justify-content: center;
                 position: fixed;
                 top: 0;
                 left: 0;
+                aspect-ratio: auto;
             }
 
             body.is-mobile #difficultyScreen {
-                transform: scale(0.58);
-                transform-origin: center center;
+                width: 100%;
+                height: 100%;
+                transform: none;
                 display: flex;
                 flex-direction: column;
                 justify-content: center;
                 align-items: center;
                 position: relative;
+                background-size: cover;
+                gap: 5px;
+                padding: 10px;
             }
 
             /* Hide desktop bottom buttons, show mobile ones */
@@ -1829,8 +1834,8 @@
 
     /* Center and scale the main menu properly */
     body.is-mobile #difficultyContainer {
-        width: 100%;
-        height: 100%;
+        width: 100vw;
+        height: 100vh;
         border-radius: 0;
         display: flex;
         align-items: center;
@@ -1839,18 +1844,21 @@
         position: fixed;
         top: 0;
         left: 0;
+        aspect-ratio: auto;
     }
 
     body.is-mobile #difficultyScreen {
-        transform: scale(0.55);
-        transform-origin: center center;
+        width: 100%;
+        height: 100%;
+        transform: none;
         display: flex;
         flex-direction: column;
         justify-content: center;
         align-items: center;
-        gap: 15px;
-        padding: 20px;
+        gap: 8px;
+        padding: 10px;
         position: relative;
+        background-size: cover;
     }
 
     body.is-mobile #highScoresContainer {
@@ -2035,9 +2043,9 @@
     /* Character Select Screen fixes for mobile portrait */
     body.is-mobile #characterSelectContainer {
         width: 100vw;
-        max-height: 100vh;
-        height: auto;
+        height: 100vh;
         border-radius: 0;
+        aspect-ratio: auto;
     }
 
     body.is-mobile #characterSelectScreen {
@@ -2151,9 +2159,9 @@
     /* Map Select Screen fixes */
     body.is-mobile #mapSelectContainer {
         width: 100vw;
-        max-height: 100vh;
-        height: auto;
+        height: 100vh;
         border-radius: 0;
+        aspect-ratio: auto;
     }
 
     body.is-mobile #mapSelectScreen {
