@@ -635,6 +635,7 @@ let doppelganger = null;
         let blackHoleActive = false; let lastBlackHoleTime = 0;
         let dualGunActive = false;
         let dualRevolversActive = false;
+        let pendingRevolverShot = null; // { angle, fireAt } for delayed second bullet
         let flamingBulletsActive = false;
         let shotgunBlastActive = false;
         let flamethrowerActive = false;
@@ -659,7 +660,7 @@ let doppelganger = null;
         let score = 0;
         let lastEnemySpawnTime = 0;
         let enemySpawnInterval = 1000;
-        let baseEnemySpeed = 0.84;
+        let baseEnemySpeed = 0.63; // Reduced to 75% of original (0.84 * 0.75)
 
         let lastWeaponFireTime = 0;
         let weaponFireInterval = 400;
@@ -1845,11 +1846,9 @@ function createBoss() {
             angles.forEach(angle => fireWeaponFromPool(angle));
             if(dualGunActive && shooter === player) { angles.forEach(angle => fireWeaponFromPool(angle + Math.PI)); }
             
-            // Dual Revolvers: Fire a second bullet 0.2ms after each main bullet
+            // Dual Revolvers: queue a second bullet 200ms after the first
             if(dualRevolversActive && shooter === player) {
-                setTimeout(() => {
-                    angles.forEach(angle => fireWeaponFromPool(angle));
-                }, 0.2);
+                pendingRevolverShot = { angles: [...angles], fireAt: Date.now() + 200 };
             }
 
             if (shooter === player) {
@@ -2435,7 +2434,7 @@ async function startGame() {
             magneticProjectileActive = false; vShapeProjectileLevel = 0; iceProjectileActive = false; puddleTrailActive = false;
             laserPointerActive = false; autoAimActive = false; explosiveBulletsActive = false; vengeanceNovaActive = false;
             dogCompanionActive = false; antiGravityActive = false; ricochetActive = false; rocketLauncherActive = false;
-            blackHoleActive = false; dualGunActive = false; dualRevolversActive = false; flamingBulletsActive = false; flamethrowerActive = false; laserCannonActive = false; hasDashInvincibility = false;
+            blackHoleActive = false; dualGunActive = false; dualRevolversActive = false; pendingRevolverShot = null; flamingBulletsActive = false; flamethrowerActive = false; laserCannonActive = false; hasDashInvincibility = false;
             lastAntiGravityPushTime = 0; lastBlackHoleTime = 0; shotgunBlastActive = false; doppelgangerActive = false;
             doppelganger = null;
             bugSwarmActive = false; nightOwlActive = false; whirlwindAxeActive = false; lightningStrikeActive = false; owl = null;
