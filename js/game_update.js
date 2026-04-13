@@ -433,9 +433,9 @@ for (let i = merchants.length - 1; i >= 0; i--) {
 
             // Enemy cap: scales with difficulty. Hard allows up to 150, medium 120, easy 80.
             // Also scales slightly with powerups collected to keep challenge proportional.
-            const baseCap = currentDifficulty === 'hard' ? 50 : currentDifficulty === 'medium' ? 40 : 30;
+            const baseCap = currentDifficulty === 'hard' ? 100 : currentDifficulty === 'medium' ? 80 : 60;
             const powerupPressure = Math.floor(player.boxPickupsCollectedCount / 5);
-            let enemySpawnCap = cheats.noSpawnCap ? Infinity : Math.min(baseCap + powerupPressure, 80);
+            let enemySpawnCap = cheats.noSpawnCap ? Infinity : Math.min(baseCap + powerupPressure, 160);
             
             // Horde mode: double the spawn cap
             if (cheats.horde_mode) {
@@ -481,6 +481,7 @@ for (let i = merchants.length - 1; i >= 0; i--) {
                 }
             }
             let currentEnemySpawnInterval = enemySpawnInterval / Math.pow(1.3, player.boxPickupsCollectedCount) * (1 - 0.01 * (player.level - 1));
+            currentEnemySpawnInterval *= 0.5; // 2x spawn rate
             // Hard mode spawns faster to fill the higher cap
             if (currentDifficulty === 'hard') currentEnemySpawnInterval *= 0.65;
             else if (currentDifficulty === 'medium') currentEnemySpawnInterval *= 0.82;
@@ -690,8 +691,8 @@ for (let i = merchants.length - 1; i >= 0; i--) {
                             const distance = Math.sqrt(dx * dx + dy * dy);
                             
                             if (distance > 0) {
-                                enemy.jumpDx = (dx / distance) * effectiveEnemySpeed * 3; // 3x speed during jump
-                                enemy.jumpDy = (dy / distance) * effectiveEnemySpeed * 3;
+                                enemy.jumpDx = (dx / distance) * effectiveEnemySpeed * 1.5; // 1.5x speed during jump
+                                enemy.jumpDy = (dy / distance) * effectiveEnemySpeed * 1.5;
                             } else {
                                 enemy.jumpDx = 0;
                                 enemy.jumpDy = 0;
@@ -1052,6 +1053,33 @@ if (!player._isLumberjack && !player._isKnight && (aimDx !== 0 || aimDy !== 0) &
         createWeapon();
         lastWeaponFireTime = now;
     }
+}
+
+// Dual Revolvers: fire the queued second bullet when its timer is up
+if (pendingRevolverShot && now >= pendingRevolverShot.fireAt) {
+    const shot = pendingRevolverShot;
+    pendingRevolverShot = null;
+    for (const angle of shot.angles) {
+        for (const weapon of weaponPool) {
+            if (!weapon.active) {
+                weapon.x = player.x;
+                weapon.y = player.y;
+                weapon.size = shotgunBlastActive ? 30 * player.projectileSizeMultiplier : 38 * player.projectileSizeMultiplier * (rocketLauncherActive ? 2 : 1);
+                weapon.speed = 5.04 * player.projectileSpeedMultiplier;
+                weapon.angle = angle;
+                weapon.dx = Math.cos(angle) * weapon.speed;
+                weapon.dy = Math.sin(angle) * weapon.speed;
+                weapon.lifetime = now + 2000;
+                weapon.hitsLeft = rocketLauncherActive ? 3 : (ricochetActive ? 2 : 1);
+                weapon.hitEnemies.length = 0;
+                weapon.owner = 'player';
+                weapon.active = true;
+                if (typeof runStats !== 'undefined') runStats.bulletsFired = (runStats.bulletsFired || 0) + 1;
+                break;
+            }
+        }
+    }
+    playSound('playerShoot');
 }
 
             for(const weapon of weaponPool) {

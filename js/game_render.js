@@ -635,11 +635,10 @@
                 } else {
                     ctx.drawImage(sprites.gun, gunXOffset, gunYOffset, gunWidth, gunHeight);
                     if (dualGunActive) { ctx.save(); ctx.scale(-1, 1); ctx.drawImage(sprites.gun, -gunXOffset, gunYOffset, gunWidth, gunHeight); ctx.restore(); }
-                    if (dualRevolversActive) { 
-                        ctx.save(); 
-                        ctx.scale(-1, -1); // Invert the sprite (flip both horizontally and vertically)
-                        ctx.drawImage(sprites.gun, -gunXOffset, -gunYOffset, gunWidth, gunHeight); 
-                        ctx.restore(); 
+                    if (dualRevolversActive) {
+                        ctx.save();
+                        ctx.drawImage(sprites.gun, gunXOffset, gunYOffset + gunHeight + 2, gunWidth, gunHeight);
+                        ctx.restore();
                     }
                     if (laserPointerActive) {
                         ctx.save(); ctx.beginPath();
