@@ -1852,7 +1852,7 @@ function createBoss() {
             }
 
             if (shooter === player) {
-                const elementsToShake = [gameContainer, gameStats, pauseButton];
+                const elementsToShake = [gameContainer, pauseButton];
                 elementsToShake.forEach(el => {
                     if (el) {
                         el.classList.remove('ui-shake-active');
