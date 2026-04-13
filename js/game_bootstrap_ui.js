@@ -283,12 +283,14 @@ window.onload = function() {
   const openShopAction = () => { vibrateUI(); playUISound('uiClick'); openUpgradeShop(); };
   desktopUpgradesButton.addEventListener('click', openShopAction);
   if (mobileMenuUpgradesButton) mobileMenuUpgradesButton.addEventListener('click', openShopAction);
+  if (mobileUpgradesButton) mobileUpgradesButton.addEventListener('click', openShopAction);
   backToMenuButton.addEventListener('click', () => { vibrateUI(); playUISound('uiClick'); showDifficultyScreen(); });
 
   // ─── RESET BUTTON ─────────────────────────────────────────────────────────
   const resetAction = () => { vibrate(20); resetAllData(); };
   desktopResetButton.addEventListener('click', resetAction);
   mobileResetButton.addEventListener('click', resetAction);
+  if (mobileResetGameButton) mobileResetGameButton.addEventListener('click', resetAction);
 
   // ─── ACHIEVEMENTS / TROPHIES ──────────────────────────────────────────────
   const achievementsAction = () => {
@@ -301,6 +303,7 @@ window.onload = function() {
   };
   desktopAchievementsButton.addEventListener('click', achievementsAction);
   if (mobileMenuTrophiesButton) mobileMenuTrophiesButton.addEventListener('click', achievementsAction);
+  if (mobileAchievementsButton) mobileAchievementsButton.addEventListener('click', achievementsAction);
 
   // ─── CHEATS MENU ──────────────────────────────────────────────────────────
   const cheatsAction = () => {
