@@ -84,23 +84,30 @@
 }
 
         #gameContainer {
-            position: relative;
-            line-height: 0; 
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            line-height: 0;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            background: #1a1a1a;
         }
 
        canvas {
     background-color: #000000;
     border: 2px solid #66bb6a;
-    width: clamp(320px, 95vw, 1125px);
-    height: auto;
-    max-width: 1125px;
-    max-height: 95vh;
-    aspect-ratio: auto;
+    width: 100%;
+    height: 100%;
+    max-width: 100%;
+    max-height: 100%;
+    aspect-ratio: 1125 / 676;
     box-shadow: 0 0 20px rgba(0, 255, 0, 0.5);
-    border-radius: 10px;
+    border-radius: 0;
     object-fit: contain;
     display: block;
-    margin: 0 auto;
 }
         .thumbstick-base {
             position: fixed;
@@ -177,7 +184,7 @@
             background-color: rgba(0, 0, 0, 0.3);
             border-radius: 4px;
             padding: 2px;
-            transition: font-size: 0.2s; 
+            transition: font-size 0.2s; 
         }
         
         #powerupIcons.small-icons span {
@@ -483,33 +490,19 @@
             transform: scale(1.05);
         }
 
-        #storytellerOutput {
-            margin-top: 20px;
-            font-size: 18px;
-            color: #ffffff;
-            max-width: 80%;
-            background-color: rgba(0, 0, 0, 0.6);
-            padding: 15px;
-            border-radius: 10px;
-            border: 1px solid #66bb6a;
-            line-height: 1.5;
-        }
-
-        #loadingStory {
-            margin-top: 20px;
-            font-size: 20px;
-            color: #66bb6a;
-        }
-
         #difficultyContainer, #mapSelectContainer, #characterSelectContainer {
-    display: none; 
-    position: relative;
-    width: clamp(320px, 95vw, 1125px);
-    max-height: 95vh; /* ADD THIS LINE */
-    max-width: 1125px;
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
     aspect-ratio: 1125 / 676;
     overflow: hidden;
-    border-radius: 10px;
+    border-radius: 0;
+    justify-content: center;
+    align-items: center;
+    background: #1a1a1a;
 }
 
         #difficultyScreen, #mapSelectScreen, #characterSelectScreen {
@@ -1560,11 +1553,14 @@
 
             /* Scale down main menu in landscape to fit all buttons */
             body.is-mobile #difficultyContainer {
-                width: 100vw;
-                height: 100vh;
+                width: 100%;
+                height: 100%;
                 display: flex;
                 align-items: center;
                 justify-content: center;
+                position: fixed;
+                top: 0;
+                left: 0;
             }
 
             body.is-mobile #difficultyScreen {
@@ -1833,14 +1829,16 @@
 
     /* Center and scale the main menu properly */
     body.is-mobile #difficultyContainer {
-        width: 100vw;
-        height: 100vh;
+        width: 100%;
+        height: 100%;
         border-radius: 0;
         display: flex;
         align-items: center;
         justify-content: center;
         overflow: hidden;
-        position: relative;
+        position: fixed;
+        top: 0;
+        left: 0;
     }
 
     body.is-mobile #difficultyScreen {
@@ -2169,19 +2167,17 @@
         margin-bottom: 15px;
     }
 
-    /* Canvas and game container fixes */
+    /* Canvas and game container - same scaling as desktop */
     body.is-mobile #gameContainer {
-        width: 100vw;
-        height: auto;
-        max-height: 100vh;
+        width: 100%;
+        height: 100%;
     }
 
     body.is-mobile canvas {
-        width: 100vw !important;
-        height: auto !important;
-        max-height: 100vh !important;
+        width: 100%;
+        height: 100%;
         border-radius: 0;
-        border: none;
+        border: 2px solid #66bb6a;
     }
 }
 
