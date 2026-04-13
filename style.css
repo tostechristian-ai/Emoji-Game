@@ -652,13 +652,13 @@
         }
 
         /* Desktop and Mobile Bottom Buttons */
-        #desktopUpgradesButton, #mobileMenuUpgradesButton {
+        #desktopUpgradesButton, #mobileMenuUpgradesButton, #mobileUpgradesButton {
             background-image: url('sprites/upgrades.png');
         }
-        #desktopAchievementsButton, #mobileMenuTrophiesButton {
+        #desktopAchievementsButton, #mobileMenuTrophiesButton, #mobileAchievementsButton {
             background-image: url('sprites/achievements.png');
         }
-        #desktopResetButton, #mobileMenuResetButton {
+        #desktopResetButton, #mobileMenuResetButton, #mobileResetGameButton {
             background-image: url('sprites/reset.png');
         }
         
@@ -1545,6 +1545,15 @@
         #mobile-bottom-buttons {
             display: none; /* Hidden by default */
         }
+
+        /* Mobile menu buttons - hidden on desktop, shown on mobile */
+        .mobile-menu-btn {
+            display: none !important;
+        }
+
+        body.is-mobile .mobile-menu-btn {
+            display: inline-block !important;
+        }
         
         @media (max-width: 900px) and (orientation: landscape) {
             body.is-mobile {
@@ -1578,58 +1587,22 @@
                 padding: 5px;
             }
 
-            /* Hide desktop bottom buttons, show mobile ones */
-            body.is-mobile .bottom-menu-buttons {
+            /* Hide desktop and old mobile bottom buttons */
+            body.is-mobile .bottom-menu-buttons,
+            body.is-mobile #mobile-bottom-buttons {
                 display: none !important;
             }
 
-            body.is-mobile #mobile-bottom-buttons {
-                display: flex !important;
-                flex-direction: row;
+            /* Mobile menu buttons integrated into main grid */
+            body.is-mobile .difficulty-buttons {
                 gap: 3px;
-                justify-content: center;
-                flex-wrap: wrap;
-                position: absolute;
-                bottom: 2px;
-                left: 50%;
-                transform: translateX(-50%);
-                z-index: 3001;
-                max-width: 100%;
-                padding: 0 3px;
+                width: 95%;
+                max-width: 280px;
             }
 
-            /* Ensure mobile buttons use PNG backgrounds in landscape */
-            body.is-mobile #mobile-bottom-buttons button {
-                display: inline-block;
-                cursor: pointer;
-                width: 65px;
-                height: 22px;
-                background-size: contain;
-                background-repeat: no-repeat;
-                background-position: center;
-                transition: transform 0.2s;
-                box-sizing: border-box;
-                font-size: 0;
-                color: transparent;
-                text-indent: -9999px;
-                overflow: hidden;
-                border: none;
-                padding: 0;
-                margin: 0;
-            }
-
-            body.is-mobile #mobileMenuUpgradesButton {
-                background-image: url('sprites/upgrades.png');
-            }
-            body.is-mobile #mobileMenuTrophiesButton {
-                background-image: url('sprites/achievements.png');
-            }
-            body.is-mobile #mobileMenuResetButton {
-                background-image: url('sprites/reset.png');
-            }
-
-            body.is-mobile #mobile-bottom-buttons button:hover {
-                transform: scale(1.05);
+            body.is-mobile .difficulty-buttons button {
+                width: 85px;
+                height: 28px;
             }
 
             body.is-mobile #gameContainer {
@@ -1723,15 +1696,6 @@
                 margin-bottom: 3px;
             }
 
-            body.is-mobile .difficulty-buttons {
-                flex-direction: row;
-                flex-wrap: wrap;
-                justify-content: center;
-                gap: 6px;
-                width: 90%;
-                max-width: 280px;
-            }
-
             body.is-mobile #gameOverlay h2 {
                 font-size: 18px;
                 margin-bottom: 6px;
@@ -1750,17 +1714,6 @@
             body.is-mobile #difficultyScreen {
                 gap: 2px;
                 padding: 5px;
-            }
-
-            body.is-mobile .difficulty-buttons {
-                gap: 3px;
-                width: 95%;
-                max-width: 280px;
-            }
-
-            body.is-mobile .difficulty-buttons button {
-                width: 85px;
-                height: 28px;
             }
 
             body.is-mobile #mainTitle {
@@ -1932,61 +1885,25 @@
         display: none;
     }
 
-    /* Show mobile bottom buttons with PNG backgrounds */
+    /* Hide old mobile bottom buttons container - using integrated buttons now */
     body.is-mobile #mobile-bottom-buttons {
-        display: flex !important;
-        flex-direction: row;
+        display: none !important;
+    }
+
+    /* Mobile menu buttons are now integrated into difficulty-buttons grid */
+    body.is-mobile .difficulty-buttons {
         gap: 4px;
-        justify-content: center;
-        flex-wrap: wrap;
-        position: absolute;
-        bottom: 3px;
-        left: 50%;
-        transform: translateX(-50%);
-        z-index: 3001;
-        max-width: 100%;
-        padding: 0 5px;
+        margin-bottom: 3px;
+        width: 95%;
+        max-width: 320px;
     }
 
-    /* Ensure mobile buttons use PNG backgrounds */
-    body.is-mobile #mobile-bottom-buttons button {
-        display: inline-block;
-        cursor: pointer;
-        width: 70px;
-        height: 24px;
-        background-size: contain;
-        background-repeat: no-repeat;
-        background-position: center;
-        transition: transform 0.2s;
-        box-sizing: border-box;
-        font-size: 0;
-        color: transparent;
-        text-indent: -9999px;
-        overflow: hidden;
-        border: none;
-        padding: 0;
-        margin: 0;
-    }
-
-    body.is-mobile #mobileMenuUpgradesButton {
-        background-image: url('sprites/upgrades.png');
-    }
-    body.is-mobile #mobileMenuTrophiesButton {
-        background-image: url('sprites/achievements.png');
-    }
-    body.is-mobile #mobileMenuResetButton {
-        background-image: url('sprites/reset.png');
-    }
-
-    body.is-mobile #mobile-bottom-buttons button:hover {
-        transform: scale(1.05);
+    body.is-mobile .difficulty-buttons button {
+        width: 100px;
+        height: 32px;
     }
     
     #mobileCheatsButton {
-        display: none;
-    }
-
-    body.is-mobile .difficulty-buttons button.upgrades {
         display: none;
     }
 
@@ -2046,19 +1963,6 @@
         font-size: 14px;
         padding: 6px 12px;
         margin-top: 8px;
-    }
-
-    /* Scale down main menu buttons for mobile portrait */
-    body.is-mobile .difficulty-buttons {
-        gap: 4px;
-        margin-bottom: 3px;
-        width: 95%;
-        max-width: 300px;
-    }
-
-    body.is-mobile .difficulty-buttons button {
-        width: 100px;
-        height: 32px;
     }
 
     body.is-mobile #mainTitle {
