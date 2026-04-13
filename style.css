@@ -1979,20 +1979,7 @@
     }
     
     body.is-mobile #mobileResetButton {
-        display: block;
-        order: 1;
-        width: 95%;
-        max-width: 50px;
-        margin-top: 10px;
-        margin-bottom: 10px;
-        padding: 5px;
-        font-family: 'Press Start 2P', cursive;
-        font-size: 6px;
-        border-radius: 20px;
-        border: none;
-        color: white;
-        cursor: pointer;
-        opacity: 0.3;
+        display: none;
     }
 
     body.is-mobile #gameStats p {
