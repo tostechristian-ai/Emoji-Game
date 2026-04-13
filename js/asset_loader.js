@@ -10,21 +10,52 @@
         // Pre-render an emoji to a canvas for faster drawing later
         // @param emoji - The emoji character to render (e.g., '🧟', '💀')
         // @param size - The font size in pixels
-        function preRenderEmoji(emoji, size) {
-            // Create an off-screen canvas to draw the emoji once
+        // @param options - Optional rendering options (outlineColor, outlineWidth)
+        function preRenderEmoji(emoji, size, options = {}) {
+            const outlineColor = options.outlineColor || null;
+            const outlineWidth = Math.max(0, Number(options.outlineWidth) || 0);
+            
+            // Draw the emoji first on a base canvas
+            const baseSize = Math.ceil(size * 1.3);
+            const emojiCanvas = document.createElement('canvas');
+            const emojiCtx = emojiCanvas.getContext('2d');
+            emojiCanvas.width = baseSize;
+            emojiCanvas.height = baseSize;
+            emojiCtx.font = `${size}px sans-serif`;
+            emojiCtx.textAlign = 'center';
+            emojiCtx.textBaseline = 'middle';
+            emojiCtx.fillText(emoji, baseSize / 2, baseSize / 2);
+
+            // Final canvas gets extra room for the outline halo
+            const extraPadding = outlineWidth > 0 ? Math.ceil(outlineWidth * 2 + 2) : 0;
+            const paddedSize = baseSize + extraPadding;
+            const centerOffset = (paddedSize - baseSize) / 2;
             const bufferCanvas = document.createElement('canvas');
             const bufferCtx = bufferCanvas.getContext('2d');
-            
-            // Add padding around the emoji so it doesn't get cut off
-            const paddedSize = size * 1.3;
             bufferCanvas.width = paddedSize;
             bufferCanvas.height = paddedSize;
+
+            // Build white outline from the emoji alpha mask (works with color emoji fonts)
+            if (outlineWidth > 0 && outlineColor) {
+                const radii = [outlineWidth, outlineWidth * 0.65];
+                radii.forEach(radius => {
+                    if (radius <= 0) return;
+                    const steps = Math.max(12, Math.ceil(radius * 10));
+                    for (let i = 0; i < steps; i++) {
+                        const angle = (i / steps) * Math.PI * 2;
+                        const offsetX = Math.cos(angle) * radius;
+                        const offsetY = Math.sin(angle) * radius;
+                        bufferCtx.drawImage(emojiCanvas, centerOffset + offsetX, centerOffset + offsetY);
+                    }
+                });
+                bufferCtx.globalCompositeOperation = 'source-in';
+                bufferCtx.fillStyle = outlineColor;
+                bufferCtx.fillRect(0, 0, paddedSize, paddedSize);
+                bufferCtx.globalCompositeOperation = 'source-over';
+            }
             
-            // Draw the emoji centered on the canvas
-            bufferCtx.font = `${size}px sans-serif`;
-            bufferCtx.textAlign = 'center';
-            bufferCtx.textBaseline = 'middle';
-            bufferCtx.fillText(emoji, paddedSize / 2, paddedSize / 2);
+            // Draw the original emoji on top of the outline
+            bufferCtx.drawImage(emojiCanvas, centerOffset, centerOffset);
             
             // Store the canvas for later use
             preRenderedEntities[emoji] = bufferCanvas;
@@ -34,18 +65,22 @@
         // This is called once after all assets are loaded
         function initializePreRenders() {
             // ─── ENEMY EMOJIS ───────────────────────────────────────────────────
-            preRenderEmoji('🧟', 17);              // Zombie - basic enemy
-            preRenderEmoji('💀', 20);              // Skull - faster enemy
-            preRenderEmoji('🦇', 25 * 0.85);       // Bat - dashing enemy
-            preRenderEmoji('🐌', 22);              // Snail - leaves slowing puddles
-            preRenderEmoji('🦟', 15);              // Mosquito - erratic movement
-            preRenderEmoji('🕷️', 18);              // Spider - jumps diagonally, leaves webs
-            preRenderEmoji('😈', 20 * 0.8);        // Devil - axis-based movement
-            preRenderEmoji('👹', 28 * 0.7);        // Demon - alternating behavior
-            preRenderEmoji('👻', 22);              // Ghost - phases in/out
-            preRenderEmoji('👁️', 25 * 0.6);       // Eye - ranged attacker
-            preRenderEmoji('🧟‍♀️', 17 * 1.75);    // Female Zombie - large & slow
-            preRenderEmoji('🧛‍♀️', 20);           // Vampire - dodges bullets
+            const preRenderEnemyEmoji = (emoji, size) => preRenderEmoji(emoji, size, {
+                outlineColor: '#FF0000',
+                outlineWidth: Math.max(1.2, size * 0.08)
+            });
+            preRenderEnemyEmoji('🧟', 17);              // Zombie - basic enemy
+            preRenderEnemyEmoji('💀', 20);              // Skull - faster enemy
+            preRenderEnemyEmoji('🦇', 25 * 0.85);       // Bat - dashing enemy
+            preRenderEnemyEmoji('🐌', 22);              // Snail - leaves slowing puddles
+            preRenderEnemyEmoji('🦟', 15);              // Mosquito - erratic movement
+            preRenderEnemyEmoji('🕷️', 18);              // Spider - jumps diagonally, leaves webs
+            preRenderEnemyEmoji('😈', 20 * 0.8);        // Devil - axis-based movement
+            preRenderEnemyEmoji('👹', 28 * 0.7);        // Demon - alternating behavior
+            preRenderEnemyEmoji('👻', 22);              // Ghost - phases in/out
+            preRenderEnemyEmoji('👁️', 25 * 0.6);       // Eye - ranged attacker
+            preRenderEnemyEmoji('🧟‍♀️', 17 * 1.75);    // Female Zombie - large & slow
+            preRenderEnemyEmoji('🧛‍♀️', 20);           // Vampire - dodges bullets
             
             // ─── PICKUP & EFFECT EMOJIS ─────────────────────────────────────────
             preRenderEmoji('🔸', COIN_SIZE);       // Coin - basic XP
