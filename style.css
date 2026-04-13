@@ -1586,23 +1586,24 @@
             body.is-mobile #mobile-bottom-buttons {
                 display: flex !important;
                 flex-direction: row;
-                gap: 8px;
+                gap: 5px;
                 justify-content: center;
                 flex-wrap: wrap;
                 position: absolute;
-                bottom: 2px;
+                bottom: 5px;
                 left: 50%;
                 transform: translateX(-50%);
                 z-index: 3001;
                 max-width: 100%;
+                padding: 0 5px;
             }
 
             /* Ensure mobile buttons use PNG backgrounds in landscape */
             body.is-mobile #mobile-bottom-buttons button {
                 display: inline-block;
                 cursor: pointer;
-                width: 95px;
-                height: 30px;
+                width: 80px;
+                height: 26px;
                 background-size: contain;
                 background-repeat: no-repeat;
                 background-position: center;
@@ -1732,14 +1733,36 @@
             }
 
             body.is-mobile #gameOverlay h2 {
-                font-size: 24px;
+                font-size: 20px;
+                margin-bottom: 10px;
             }
             body.is-mobile #gameOverlay p {
-                font-size: 16px;
+                font-size: 14px;
+                margin: 5px 0;
             }
             body.is-mobile #gameOverlay button {
-                font-size: 16px;
-                padding: 8px 18px;
+                font-size: 14px;
+                padding: 6px 14px;
+                margin-top: 8px;
+            }
+
+            /* Scale down main menu for landscape mobile */
+            body.is-mobile #difficultyScreen {
+                gap: 3px;
+            }
+
+            body.is-mobile .difficulty-buttons button {
+                width: 110px;
+                height: 36px;
+            }
+
+            body.is-mobile #mainTitle {
+                font-size: 22px;
+            }
+
+            body.is-mobile #highScoresContainer {
+                transform: scale(0.75);
+                transform-origin: top left;
             }
             
             body.is-mobile #gameGuideModal .content-wrapper,
@@ -1879,23 +1902,24 @@
     body.is-mobile #mobile-bottom-buttons {
         display: flex !important;
         flex-direction: row;
-        gap: 8px;
+        gap: 6px;
         justify-content: center;
         flex-wrap: wrap;
         position: absolute;
-        bottom: 0px;
+        bottom: 5px;
         left: 50%;
         transform: translateX(-50%);
         z-index: 3001;
         max-width: 100%;
+        padding: 0 10px;
     }
 
     /* Ensure mobile buttons use PNG backgrounds */
     body.is-mobile #mobile-bottom-buttons button {
         display: inline-block;
         cursor: pointer;
-        width: 105px;
-        height: 34px;
+        width: 90px;
+        height: 30px;
         background-size: contain;
         background-repeat: no-repeat;
         background-position: center;
@@ -1998,8 +2022,31 @@
     }
 
     body.is-mobile #gameOverlay button {
-        font-size: 18px;
-        padding: 10px 20px;
+        font-size: 16px;
+        padding: 8px 16px;
+        margin-top: 10px;
+    }
+
+    /* Scale down main menu buttons for mobile portrait */
+    body.is-mobile .difficulty-buttons {
+        gap: 6px;
+        margin-bottom: 5px;
+    }
+
+    body.is-mobile .difficulty-buttons button {
+        width: 130px;
+        height: 42px;
+    }
+
+    body.is-mobile #mainTitle {
+        font-size: 28px;
+        margin-bottom: 5px;
+    }
+
+    body.is-mobile #highScoresContainer {
+        transform: scale(0.85);
+        transform-origin: top left;
+        margin-bottom: 5px;
     }
 
     body.is-mobile #upgradeMenu {
