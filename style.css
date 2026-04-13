@@ -1913,18 +1913,20 @@
 
     body.is-mobile #gameStats {
         position: absolute;
-        top: 10px;
-        left: 10px;
+        top: 5px;
+        left: 5px;
         width: auto;
         background: url(sprites/uibackground.png) no-repeat center center;
         background-size: 100% 100%;
         color: #000;
-        opacity: 0.85;
+        opacity: 0.9;
         text-align: left;
-        padding: 12px 15px;
+        padding: 4px 6px;
         margin: 0;
         border: none;
         z-index: 1000;
+        transform: scale(0.25);
+        transform-origin: top left;
     }
     
     body.is-mobile #mobileResetButton {
@@ -1933,7 +1935,7 @@
 
     body.is-mobile #gameStats p {
         color: #000;
-        margin: 1px 0;
+        margin: 0;
         font-size: 10px;
     }
 
