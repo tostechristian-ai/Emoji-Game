@@ -2375,7 +2375,7 @@ async function startGame() {
             if (isMobileDevice) {
                 if (movementStickBase) movementStickBase.style.display = 'flex';
                 if (firestickBase) firestickBase.style.display = 'flex';
-                if (mobileResetButton) mobileResetButton.style.display = 'block'; // Show mobile reset button
+                if (mobileResetButton) mobileResetButton.style.display = 'none'; // Hide mobile reset button
                 cameraZoom = 1.4; zoomToggle.checked = true;
             } else {
                 if (movementStickBase) movementStickBase.style.display = 'none';
@@ -2488,7 +2488,7 @@ async function startGame() {
 
             if (gameContainer) gameContainer.style.display = 'none';
             if (gameStats) gameStats.style.display = 'none';
-            if (mobileResetButton) mobileResetButton.style.display = 'block';
+            if (mobileResetButton) mobileResetButton.style.display = 'none';
             if (movementStickBase) movementStickBase.style.display = 'none';
             if (firestickBase) firestickBase.style.display = 'none';
             if (upgradeMenu) upgradeMenu.style.display = 'none';
