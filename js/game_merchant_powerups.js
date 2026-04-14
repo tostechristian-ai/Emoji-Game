@@ -128,11 +128,14 @@ function showMerchantShop() {
         { id: 'lightning_strike',     name: 'Lightning Strike',  icon: '⚡', active: lightningStrikeActive },
         { id: 'flamethrower',         name: 'Flamethrower',      icon: '🔥', active: flamethrowerActive },
         { id: 'laser_cannon',         name: 'Laser Cannon',      icon: '🟢', active: laserCannonActive },
-        { id: 'shotgun',              name: 'Shotgun',           icon: '🔫', active: shotgunActive },
-        { id: 'ice_cannon',           name: 'Ice Cannon',        icon: '❄️', active: iceCannonActive },
+        { id: 'shotgun',              name: 'Shotgun',           icon: '🔫', active: shotgunActive, locked: !playerData.unlockedPickups.shotgun },
+        { id: 'ice_cannon',           name: 'Ice Cannon',        icon: '❄️', active: iceCannonActive, locked: !playerData.unlockedPickups.ice_cannon },
+        { id: 'dynamite',             name: 'Dynamite',          icon: '🧨', active: dynamiteActive, locked: !playerData.unlockedPickups.dynamite },
+        { id: 'pistol',                name: 'Pistol',            icon: '🔫', active: player._hasPistol, locked: !playerData.unlockedPickups.pistol || equippedCharacterID === 'cowboy' },
         { id: 'anti_gravity',         name: 'Anti-Gravity',      icon: '💨', active: antiGravityActive, locked: !playerData.unlockedPickups.anti_gravity },
         { id: 'black_hole',           name: 'Black Hole',        icon: '⚫', active: blackHoleActive, locked: !playerData.unlockedPickups.black_hole },
         { id: 'vengeance_nova',       name: 'Vengeance Nova',    icon: '🛡️', active: vengeanceNovaActive, locked: !playerData.unlockedPickups.vengeance_nova },
+        { id: 'robot_drone',         name: 'Robot Drone',       icon: '🤖', active: robotDroneActive, locked: !playerData.unlockedPickups.robot_drone },
         
         // Companions
         { id: 'doppelganger',         name: 'Doppelganger',      icon: '👯', active: doppelgangerActive, locked: !playerData.unlockedPickups.doppelganger },
@@ -221,11 +224,14 @@ function purchaseFromMerchant(option) {
     // ─── APPLE PURCHASES ────────────────────────────────────────────────────
     if (option.type === 'xp_for_apples') {
         player.appleCount -= option.cost;
-        player.xp += option.xpAmount;
+        // Cap XP to leave player 1-2 XP shy of level up to prevent softlock
+        const maxXpToAdd = Math.max(0, player.xpToNextLevel - player.xp - 2);
+        const actualXpToAdd = Math.min(option.xpAmount, maxXpToAdd);
+        player.xp += actualXpToAdd;
         
         // Show floating text
         floatingTexts.push({
-            text: `+${option.xpAmount} XP!`,
+            text: `+${actualXpToAdd} XP!`,
             x: player.x,
             y: player.y - player.size,
             startTime: Date.now(),
@@ -233,7 +239,7 @@ function purchaseFromMerchant(option) {
             color: '#00c6ff'
         });
         
-        // Check if player leveled up
+        // Check if player leveled up (shouldn't happen with capped XP, but safety check)
         if (player.xp >= player.xpToNextLevel) {
             closeMerchantShop();
             setTimeout(() => levelUp(), 200);
@@ -257,10 +263,13 @@ function purchaseFromMerchant(option) {
     // ─── COIN PURCHASES ─────────────────────────────────────────────────────
     else if (option.type === 'xp_for_coins') {
         player.coins -= option.cost;
-        player.xp += option.xpAmount;
+        // Cap XP to leave player 1-2 XP shy of level up to prevent softlock
+        const maxXpToAdd = Math.max(0, player.xpToNextLevel - player.xp - 2);
+        const actualXpToAdd = Math.min(option.xpAmount, maxXpToAdd);
+        player.xp += actualXpToAdd;
         
         floatingTexts.push({
-            text: `+${option.xpAmount} XP!`,
+            text: `+${actualXpToAdd} XP!`,
             x: player.x,
             y: player.y - player.size,
             startTime: Date.now(),
@@ -335,6 +344,14 @@ function purchaseFromMerchant(option) {
 // This is the central function that handles all powerup types
 // @param id - The powerup ID to activate
 function activatePowerup(id) {
+    // Track weapon unlocks for weapon_collector achievement
+    const weaponIds = ['dynamite', 'pistol', 'shotgun', 'rocket_launcher', 'dual_gun', 
+                      'dual_revolvers', 'flamethrower', 'laser_cannon', 'ice_cannon', 
+                      'bug_swarm', 'night_owl', 'whirlwind_axe'];
+    if (weaponIds.includes(id) && runStats && runStats.uniqueWeaponsUnlocked) {
+        runStats.uniqueWeaponsUnlocked[id] = true;
+    }
+    
     // ─── COMPANION POWERUPS ─────────────────────────────────────────────────
     if (id === 'doppelganger') {
         doppelgangerActive = true;
@@ -358,6 +375,17 @@ function activatePowerup(id) {
     }
     else if (id === 'night_owl') {
         nightOwlActive = true;
+    }
+    else if (id === 'robot_drone') {
+        robotDroneActive = true;
+        // Initialize robot position near player
+        robotDrone.x = player.x + 50;
+        robotDrone.y = player.y;
+        // Random diagonal direction
+        const angle = Math.random() * Math.PI * 2;
+        robotDrone.dx = Math.cos(angle) * ROBOT_DRONE_SPEED;
+        robotDrone.dy = Math.sin(angle) * ROBOT_DRONE_SPEED;
+        robotDrone.lastFireTime = Date.now();
     }
     
     // ─── DEFENSIVE POWERUPS ─────────────────────────────────────────────────
@@ -475,6 +503,13 @@ function activatePowerup(id) {
     else if (id === 'ice_cannon') {
         iceCannonActive = true;
         lastIceCannonTime = Date.now();
+    }
+    else if (id === 'dynamite') {
+        dynamiteActive = true;
+        lastDynamiteTime = Date.now();
+    }
+    else if (id === 'pistol') {
+        player._hasPistol = true;
     }
 
     // ─── ACHIEVEMENT TRACKING ───────────────────────────────────────────────

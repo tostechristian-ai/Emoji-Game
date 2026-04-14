@@ -236,6 +236,7 @@
         const playerLivesIcon = document.getElementById('playerLivesIcon');
         const appleCounterSpan = document.getElementById('appleCounter');
         const coinCounterSpan = document.getElementById('coinCounter');
+        const gameTimerSpan = document.getElementById('gameTimer');
 
         const upgradeMenu = document.getElementById('upgradeMenu');
         const upgradeOptionsContainer = document.getElementById('upgradeOptionsContainer');
@@ -536,7 +537,14 @@ let doppelganger = null;
         let lastIceCannonTime = 0;
         const ICE_CANNON_INTERVAL = 1500; // ms between ice cannon shots
         const ICE_CANNON_FREEZE_DURATION = 2000; // ms enemies stay frozen
-        const ICE_CANNON_DAMAGE = 0.3;
+
+        let dynamiteActive = false;
+        let lastDynamiteTime = 0;
+        const DYNAMITE_INTERVAL = 2000; // ms between dynamite throws
+        const DYNAMITE_STOP_TIME = 1000; // ms before dynamite stops moving
+        const DYNAMITE_EXPLODE_TIME = 3000; // ms before dynamite explodes
+        const DYNAMITE_BASE_SPEED = 2.5; // half of starting bullet speed (5)
+        let dynamiteProjectiles = []; // Array to track thrown dynamite
 
         const APPLE_ITEM_EMOJI = '🍎';
         const APPLE_ITEM_SIZE = 15;
@@ -569,14 +577,18 @@ let doppelganger = null;
         let gameOver = false;
         let gameActive = false;
         let gameStartTime = 0;
+        let gameTimeOffset = 0; // Accumulates paused time to keep timer accurate
+        let gameTimePausedAt = 0; // When the timer was paused
         let animationFrameId;
         let enemiesDefeatedCount = 0;
         let lastFrameTime = 0;
         let lastCircleSpawnEventTime = 0; 
         let lastBarrelSpawnTime = 0;
 
-        let gameSpeedLevel = 1; // 1, 2, or 3 (x speed)
-        let gameTimeScale = 1; // Actual time multiplier
+        const GAME_SPEED_LEVELS = [0.5, 1, 2, 3];
+        let gameSpeedLevel = 1; // Index into GAME_SPEED_LEVELS [0.5, 1, 2, 3]
+        let gameTimeScale = GAME_SPEED_LEVELS[1]; // Start at 1x
+        let gameSpeedUnlocked = false; // Must purchase in upgrade store
         
         const UPGRADE_BORDER_COLORS = {
             "speed": "#66bb6a", "fireRate": "#8B4513", "magnetRadius": "#800080",
@@ -609,6 +621,7 @@ let doppelganger = null;
         const BOX_SIZE = 25;
         const BASE_BOX_DROP_CHANCE = 0.015;
         let boxDropChance = BASE_BOX_DROP_CHANCE;
+        const MAX_BOX_DROP_CHANCE = 0.05; // 5% cap to prevent drop flood
 
         const BOMB_SIZE = 14;
         const BOMB_LIFETIME_MS = 8000;
@@ -657,6 +670,14 @@ let doppelganger = null;
         const LASER_CANNON_DAMAGE = 1.0;
         const LASER_CANNON_RANGE = 800;
         let laserCannonBeams = [];
+        
+        // Robot Drone powerup
+        let robotDroneActive = false;
+        let robotDrone = { x: 0, y: 0, size: 28, dx: 1, dy: 1, lastFireTime: 0 };
+        const ROBOT_DRONE_SPEED = 1.4; // Same as player base speed
+        const ROBOT_DRONE_FIRE_INTERVAL = 1000; // Fire every 1 second
+        const ROBOT_DRONE_BULLET_SIZE = 18;
+        const ROBOT_DRONE_BULLET_SPEED = 6;
         
         let dog = { x: 0, y: 0, size: 25, state: 'returning', target: null, lastHomingShotTime: 0 };
         const DOG_HOMING_SHOT_INTERVAL = 3000;
@@ -1286,13 +1307,15 @@ function handleGamepadInput() {
         const eyeProjectileHitSynth = new Tone.Synth({ oscillator: { type: "triangle" }, envelope: { attack: 0.001, decay: 0.08, sustain: 0.01, release: 0.1 } }).toDestination();
         const bombExplosionSynth = new Tone.Synth({ oscillator: { type: "sawtooth" }, envelope: { attack: 0.001, decay: 0.1, sustain: 0.01, release: 0.2 } }).toDestination();
         
-        const backgroundMusicPaths = [ 
-            'audio/background_music.mp3',  'audio/background_music2.mp3', 
-            'audio/background_music3.mp3', 'audio/background_music4.mp3', 'audio/background_music5.mp3',
-            'audio/background_music6.mp3', 'audio/background_music7.mp3', 'audio/background_music8.mp3',
-            'audio/background_music9.mp3', 'audio/background_music10.mp3', 'audio/background_music11.mp3',
-            'audio/background_music12.mp3', 'audio/background_music13.mp3', 'audio/background_music14.mp3',
-            'audio/background_music15.mp3'
+        const backgroundMusicPaths = [
+            'audio/background_music.mp3',  'audio/background_music1.mp3',
+            'audio/background_music2.mp3', 'audio/background_music3.mp3', 'audio/background_music4.mp3',
+            'audio/background_music5.mp3', 'audio/background_music6.mp3', 'audio/background_music7.mp3',
+            'audio/background_music8.mp3', 'audio/background_music9.mp3', 'audio/background_music10.mp3',
+            'audio/background_music11.mp3', 'audio/background_music12.mp3', 'audio/background_music13.mp3',
+            'audio/background_music14.mp3', 'audio/background_music15.mp3', 'audio/background_music16.mp3',
+            'audio/background_music17.mp3', 'audio/background_music18.mp3', 'audio/background_music19.mp3',
+            'audio/background_music20.mp3'
         ];
         let currentBGMPlayer = null;
 
@@ -1538,8 +1561,8 @@ document.body.addEventListener('touchstart', (e) => {
 
         const ENEMY_CONFIGS = {
             '🧟': { size: 17, baseHealth: 1, speedMultiplier: 1, type: 'pursuer', minLevel: 1 },
-            '💀': { size: 20, baseHealth: 2, speedMultiplier: 1.15, type: 'pursuer', minLevel: 5 },
-            '🐌': { size: 22, baseHealth: 3, speedMultiplier: 0.6, type: 'snail', minLevel: 4, spawnWeight: 0.005, initialProps: () => ({ lastPuddleSpawnTime: Date.now(), directionAngle: Math.random() * 2 * Math.PI, lastDirChange: Date.now() }) },
+            '💀': { size: 20, baseHealth: 2, speedMultiplier: 1.15 * 1.5, type: 'skull', minLevel: 5, initialProps: () => ({ skullState: 'approach', lastSkullStateChange: Date.now() }) },
+            '🐌': { size: 22, baseHealth: 3, speedMultiplier: 0.6, type: 'snail', minLevel: 4, spawnWeight: 0.05, initialProps: () => ({ lastPuddleSpawnTime: Date.now(), directionAngle: Math.random() * 2 * Math.PI, lastDirChange: Date.now() }) },
             '🦟': { size: 15, baseHealth: 2, speedMultiplier: 1.5, type: 'mosquito', minLevel: 7, initialProps: () => ({ lastDirectionUpdateTime: Date.now(), currentMosquitoDirection: null, lastPuddleSpawnTime: Date.now() }) },
             '🕷️': { size: 18, baseHealth: 2.5, speedMultiplier: 1.3, type: 'spider', minLevel: 7, initialProps: () => ({ lastJumpTime: Date.now(), jumpCooldown: 1500, isJumping: false, jumpStartTime: 0, jumpDuration: 300 }) },
             '🦇': { size: 25 * 0.85, baseHealth: 3, speedMultiplier: 2, type: 'bat', minLevel: 10, initialProps: () => ({ isPaused: false, pauseTimer: 0, pauseDuration: 30, moveDuration: 30 }) },
@@ -1548,7 +1571,8 @@ document.body.addEventListener('touchstart', (e) => {
             '👻': { size: 22, baseHealth: 4, speedMultiplier: 1.2, type: 'ghost', minLevel: 12, initialProps: () => ({ isVisible: true, lastPhaseChange: Date.now(), phaseDuration: 3000, bobOffset: 0 }) },
             '👁️': { size: 25 * 0.6, baseHealth: 4, speedMultiplier: 1.1 * 1.1, type: 'eye', minLevel: 20, initialProps: () => ({ lastEyeProjectileTime: Date.now() }) },
             '🧟‍♀️': { size: 17 * 1.75, baseHealth: 6, speedMultiplier: 0.5, type: 'pursuer', minLevel: 25 },
-            '🧛‍♀️': { size: 20, baseHealth: 5, speedMultiplier: 1.2, type: 'vampire', minLevel: 30 }
+            '🧛‍♀️': { size: 20, baseHealth: 5, speedMultiplier: 1.2, type: 'vampire', minLevel: 30 },
+            '👾': { size: 22, baseHealth: 1.5, speedMultiplier: 0.9, type: 'invader', minLevel: 2, spawnWeight: 0.05, initialProps: () => ({ zigzagPhase: 0 }) }
         };
 
         const BOSS_HEALTH = 20;
@@ -1558,6 +1582,18 @@ document.body.addEventListener('touchstart', (e) => {
         // All enemy types can now spawn as bosses
         const BOSSED_ENEMY_TYPES = Object.keys(ENEMY_CONFIGS);
         let lastBossLevelSpawned = 0;
+
+        // Mega Boss constants
+        const MEGA_BOSS_SPAWN_TIME = 15 * 60 * 1000; // 15 minutes in milliseconds
+        const MEGA_BOSS_HEALTH_MULTIPLIER = 10;
+        const MEGA_BOSS_SIZE_MULTIPLIER = 2;
+        const MEGA_BOSS_SPEED_MULTIPLIER = 0.5;
+        const MEGA_BOSS_MINION_SPAWN_INTERVAL = 3000; // 3 seconds
+        let megaBossSpawned = false;
+        let megaBossDefeated = false;
+        let lastMegaBossMinionSpawnTime = 0;
+        let megaBossMusicPlaying = false;
+        let normalEnemySpawningPaused = false;
         function createEnemy(x_pos, y_pos, type) { 
             let x, y, enemyEmoji;
             if (x_pos !== undefined && y_pos !== undefined && type !== undefined) {
@@ -1598,28 +1634,54 @@ document.body.addEventListener('touchstart', (e) => {
             
             const config = ENEMY_CONFIGS[enemyEmoji];
 
-            // Scale enemy health with powerups collected so the game stays challenging
-            // as the player gets stronger. Every 4 powerups adds +1 health on hard, +1 per 6 on medium.
-            const powerupHealthBonus = currentDifficulty === 'hard'
-                ? Math.floor(player.boxPickupsCollectedCount / 4)
-                : currentDifficulty === 'medium'
-                    ? Math.floor(player.boxPickupsCollectedCount / 6)
-                    : 0;
+            // Scale enemy health with both player level and powerups for balanced challenge
+            // Level scaling: +12% health per player level
+            // Box scaling: +20% health per 4 powerups collected
+            const levelScaling = 1 + (player.level - 1) * 0.12;
+            const boxScaling = 1 + Math.floor(player.boxPickupsCollectedCount / 4) * 0.20;
+            let health = Math.floor(config.baseHealth * levelScaling * boxScaling);
 
             const newEnemy = { 
                 x, y, size: config.size, emoji: enemyEmoji, speed: currentBaseEnemySpeed * config.speedMultiplier, 
-                health: config.baseHealth + powerupHealthBonus,
+                health: health,
                 isHit: false, isHitByOrbiter: false, isHitByCircle: false, 
                 isFrozen: false, freezeEndTime: 0, originalSpeed: currentBaseEnemySpeed * config.speedMultiplier, 
                 isSlowedByPuddle: false, isBoss: false, isHitByAxe: false,
                 isIgnited: false, ignitionEndTime: 0, lastIgnitionDamageTime: 0
             };
+            
+            // Inferno Mode: All enemies spawn ignited
+            if (cheats.inferno_mode) {
+                const now = Date.now();
+                newEnemy.isIgnited = true;
+                newEnemy.ignitionEndTime = now + 10000; // Burn for 10 seconds
+                newEnemy.lastIgnitionDamageTime = now;
+            }
+            
             if (config.initialProps) Object.assign(newEnemy, config.initialProps());
+            
+            // 1 in 4 zombies are "stopping zombies" - they pause periodically
+            if (enemyEmoji === '🧟' && Math.random() < 0.25) {
+                newEnemy.isStoppingZombie = true;
+                newEnemy.zombieMoveState = 'moving';
+                newEnemy.zombieStateDuration = 3000 + Math.random() * 1000; // 3-4 seconds
+                newEnemy.zombieStateStartTime = Date.now();
+                newEnemy.zombieStopDuration = 500; // 0.5 seconds
+                // Speed multiplier: 4/3.5 = ~1.14 to compensate for 0.5s stop in 4s cycle
+                newEnemy.speed *= (4 / 3.5);
+                newEnemy.originalSpeed *= (4 / 3.5);
+            }
+            
             enemies.push(newEnemy);
         }
 
         function handleEnemyDeath(enemy, explosionId = null) {
             if (enemy.isHit) return;
+            // Check if mega boss died - trigger win
+            if (enemy.isMegaBoss) {
+                winGame();
+                return;
+            }
             // Zombie enemies: revive once with half health
             if (cheats.zombie_enemies && !enemy._hasRevived) {
                 enemy._hasRevived = true;
@@ -1642,9 +1704,12 @@ document.body.addEventListener('touchstart', (e) => {
                 if (typeof playerStats.totalCoins !== 'number' || !Number.isFinite(playerStats.totalCoins)) playerStats.totalCoins = 0;
                 playerStats.totalCoins++;
             }
-            if (Math.random() < boxDropChance) {
-            createPickup(enemy.x, enemy.y, 'box', BOX_SIZE, 0);
-        }
+            // Apply saturation penalty: fewer drops when player has many powerups
+            const saturationPenalty = Math.min(0.7, player.boxPickupsCollectedCount * 0.015);
+            const effectiveDropChance = Math.min(MAX_BOX_DROP_CHANCE, boxDropChance * (1 - saturationPenalty));
+            if (Math.random() < effectiveDropChance) {
+                createPickup(enemy.x, enemy.y, 'box', BOX_SIZE, 0);
+            }
             // Achievement Tracking
             runStats.killsThisRun++; // FIX 1: Corrected variable name
             playerStats.totalKills++; // FIX 2: Added missing total kills counter
@@ -1689,7 +1754,6 @@ document.body.addEventListener('touchstart', (e) => {
                 else if (enemy.emoji === DEMON_EMOJI || enemy.emoji === EYE_EMOJI || enemy.emoji === '👻') createPickup(enemy.x, enemy.y, DEMON_XP_EMOJI, RING_SYMBOL_SIZE, DEMON_XP_VALUE);
             }
 
-            if (Math.random() < boxDropChance) { createPickup(enemy.x, enemy.y, 'box', BOX_SIZE, 0); }
             score += 10;
         }
 
@@ -1758,6 +1822,208 @@ function createBoss() {
             }, 2000);
         }
 
+        function createMegaBoss() {
+            // Show warning first
+            visualWarnings.push({ 
+                text: '☠️ MEGA BOSS APPROACHING! ☠️', 
+                x: player.x, 
+                y: player.y - 100, 
+                startTime: Date.now(), 
+                duration: 3000, 
+                color: '#9900ff',
+                fontSize: 28
+            });
+            playSound('levelUp'); // Warning sound
+            vibrateBossSpawn();
+            
+            // Change music to mega boss theme
+            stopBGM();
+            megaBossMusicPlaying = true;
+            if (currentBGMPlayer) {
+                currentBGMPlayer.stop();
+                currentBGMPlayer.dispose();
+            }
+            currentBGMPlayer = new Tone.Player({ 
+                url: 'audio/mega_boss_music.mp3', 
+                loop: true, 
+                autostart: false, 
+                volume: -10 
+            }).toDestination();
+            Tone.loaded().then(() => {
+                if (megaBossMusicPlaying) startBGM();
+            });
+            
+            // Delay mega boss spawn by 3 seconds for dramatic effect
+            setTimeout(() => {
+                // Clear all existing enemies
+                enemies.length = 0;
+                // Stop normal enemy spawning
+                normalEnemySpawningPaused = true;
+                
+                // Spawn in middle of map
+                const x = WORLD_WIDTH / 2;
+                const y = WORLD_HEIGHT / 2;
+
+                // Pick random eligible enemy type
+                const eligible = BOSSED_ENEMY_TYPES.filter(e => ENEMY_CONFIGS[e].minLevel <= player.level);
+                const mimickedEmoji = eligible[Math.floor(Math.random() * eligible.length)];
+                const config = ENEMY_CONFIGS[mimickedEmoji];
+
+                // Mega boss stats
+                const megaBossSize = config.size * MEGA_BOSS_SIZE_MULTIPLIER;
+                const megaBossHealth = Math.floor((BOSS_HEALTH + player.level * 1.5) * MEGA_BOSS_HEALTH_MULTIPLIER);
+                const megaBossSpeed = config.speedMultiplier * baseEnemySpeed * MEGA_BOSS_SPEED_MULTIPLIER;
+
+                const megaBoss = {
+                    x, y, 
+                    size: megaBossSize, 
+                    emoji: mimickedEmoji, 
+                    speed: megaBossSpeed,
+                    health: megaBossHealth,
+                    isBoss: true, 
+                    isMegaBoss: true,
+                    mimics: mimickedEmoji, 
+                    isHit: false, 
+                    isHitByOrbiter: false, 
+                    isHitByCircle: false,
+                    isFrozen: false, 
+                    freezeEndTime: 0, 
+                    originalSpeed: megaBossSpeed, 
+                    isSlowedByPuddle: false,
+                    isHitByAxe: false, 
+                    isIgnited: false, 
+                    ignitionEndTime: 0, 
+                    lastIgnitionDamageTime: 0
+                };
+                if (config.initialProps) Object.assign(megaBoss, config.initialProps());
+                enemies.push(megaBoss);
+                megaBossSpawned = true;
+                lastMegaBossMinionSpawnTime = Date.now();
+                
+                // Mega Boss arrival notification
+                floatingTexts.push({ 
+                    text: 'MEGA BOSS ARRIVED!', 
+                    x: player.x, 
+                    y: player.y - 80, 
+                    startTime: Date.now(), 
+                    duration: 3000, 
+                    color: '#9900ff',
+                    fontSize: 26
+                });
+            }, 3000);
+        }
+
+        function spawnMegaBossMinions(megaBoss) {
+            const now = Date.now();
+            if (now - lastMegaBossMinionSpawnTime > MEGA_BOSS_MINION_SPAWN_INTERVAL) {
+                lastMegaBossMinionSpawnTime = now;
+                const config = ENEMY_CONFIGS[megaBoss.mimics];
+                
+                // Spawn 4 minions around the mega boss
+                for (let i = 0; i < 4; i++) {
+                    const angle = (i / 4) * Math.PI * 2;
+                    const dist = megaBoss.size * 1.5;
+                    const mx = megaBoss.x + Math.cos(angle) * dist;
+                    const my = megaBoss.y + Math.sin(angle) * dist;
+                    
+                    const minion = {
+                        x: mx, 
+                        y: my, 
+                        size: config.size, 
+                        emoji: megaBoss.mimics, 
+                        speed: config.speedMultiplier * baseEnemySpeed * 0.8,
+                        health: config.baseHealth,
+                        isBoss: false,
+                        isMegaBossMinion: true,
+                        isHit: false, 
+                        isHitByOrbiter: false, 
+                        isHitByCircle: false,
+                        isFrozen: false, 
+                        freezeEndTime: 0, 
+                        originalSpeed: config.speedMultiplier * baseEnemySpeed * 0.8, 
+                        isSlowedByPuddle: false,
+                        isHitByAxe: false, 
+                        isIgnited: false, 
+                        ignitionEndTime: 0, 
+                        lastIgnitionDamageTime: 0
+                    };
+                    if (config.initialProps) Object.assign(minion, config.initialProps());
+                    enemies.push(minion);
+                }
+            }
+        }
+
+        async function winGame() {
+            playSound('gameWin');
+            vibrate([100, 50, 100, 50, 200]);
+            gameOver = true; 
+            gamePaused = true; 
+            gameActive = false;
+            megaBossDefeated = true;
+            stopBGM();
+            megaBossMusicPlaying = false;
+            
+            // Play win music
+            if (currentBGMPlayer) {
+                currentBGMPlayer.stop();
+                currentBGMPlayer.dispose();
+            }
+            currentBGMPlayer = new Tone.Player({ 
+                url: 'audio/gamewin.mp3', 
+                loop: false, 
+                autostart: false, 
+                volume: -5 
+            }).toDestination();
+            Tone.loaded().then(() => {
+                currentBGMPlayer.start();
+            });
+            
+            cameraZoom = 1.0;
+            if (canvas) canvas.style.cursor = 'default';
+            isMouseInCanvas = false;
+            if (pauseButton) pauseButton.style.display = 'none'; 
+            if (animationFrameId) cancelAnimationFrame(animationFrameId);
+            if (gameContainer) gameContainer.style.display = 'none'; 
+            if (movementStickBase) movementStickBase.style.display = 'none';
+            if (firestickBase) firestickBase.style.display = 'none';
+            
+            const totalTimeSeconds = Math.floor((Date.now() - gameStartTime) / 1000);
+            
+            // Unlock achievement for completing a run
+            unlockAchievement('run_completed');
+            
+            // Show YOU WIN screen
+            if (gameOverlay) {
+                gameOverlay.style.background = 'linear-gradient(to bottom, rgba(0,100,0,0.95), rgba(0,60,0,0.98))';
+                gameOverlay.innerHTML = `
+                    <div style="text-align: center; color: #00ff00;">
+                        <h1 style="font-size: 48px; margin-bottom: 20px; text-shadow: 0 0 20px #00ff00;">🏆 YOU WIN! 🏆</h1>
+                        <p style="font-size: 24px; color: #90EE90;">You defeated the Mega Boss!</p>
+                        <p style="font-size: 18px; margin-top: 20px;">Survival Time: ${totalTimeSeconds}s</p>
+                        <p style="font-size: 18px;">Final Score: ${Math.floor(score)}</p>
+                        <p style="font-size: 18px;">Coins Earned: ${enemiesDefeatedCount}</p>
+                        <p style="font-size: 16px; color: #FFD700; margin-top: 15px;">🏆 Trophy Unlocked: Run Completed!</p>
+                        <button id="winRestartButton" style="margin-top: 30px; padding: 15px 40px; font-size: 20px; cursor: pointer; background: #00aa00; color: white; border: 2px solid #00ff00; border-radius: 10px;">Return to Main Menu</button>
+                    </div>
+                `;
+                gameOverlay.style.display = 'flex';
+                
+                // Add click handler for restart button
+                document.getElementById('winRestartButton').addEventListener('click', () => {
+                    // Reset mega boss state
+                    megaBossSpawned = false;
+                    megaBossDefeated = false;
+                    megaBossMusicPlaying = false;
+                    normalEnemySpawningPaused = false;
+                    // Restore original game overlay content
+                    location.reload(); // Simple reload to reset everything
+                });
+            }
+            
+            // Save high score
+            saveHighScore(Math.floor(score), player.level);
+        }
+
         function createPickup(x, y, type, size, xpValue) {
             if (x === -1 || y === -1) { x = Math.random() * WORLD_WIDTH; y = Math.random() * WORLD_HEIGHT; }
             
@@ -1770,6 +2036,7 @@ function createBoss() {
             // Pre-assign powerup for boxes so we can show a preview
             if (type === 'box') {
                 const powerUpChoices = [];
+                const unlocked = playerData.unlockedPickups;
                 if (vShapeProjectileLevel < 4 && !shotgunBlastActive) powerUpChoices.push({id: 'v_shape_projectile', name: 'V-Shape Shots', label: 'VSH'});
                 if (!magneticProjectileActive) powerUpChoices.push({id: 'magnetic_projectile', name: 'Magnetic Shots', label: 'MAG'});
                 if (!iceProjectileActive) powerUpChoices.push({id: 'ice_projectile', name: 'Ice Projectiles', label: 'ICE'});
@@ -1788,12 +2055,13 @@ function createBoss() {
                 if (!lightningProjectileActive) powerUpChoices.push({id: 'lightning_projectile', name: 'Lightning Projectile', label: 'LTN'});
                 if (!bugSwarmActive) powerUpChoices.push({id: 'bug_swarm', name: 'Bug Swarm', label: 'BUG'});
                 if (!lightningStrikeActive) powerUpChoices.push({id: 'lightning_strike', name: 'Lightning Strike', label: 'STK'});
-                if (!shotgunActive) powerUpChoices.push({id: 'shotgun', name: 'Shotgun', label: 'SGN'});
-                if (!iceCannonActive) powerUpChoices.push({id: 'ice_cannon', name: 'Ice Cannon', label: 'ICE'});
+                if (unlocked.shotgun && !shotgunActive) powerUpChoices.push({id: 'shotgun', name: 'Shotgun', label: 'SGN'});
+                if (unlocked.ice_cannon && !iceCannonActive) powerUpChoices.push({id: 'ice_cannon', name: 'Ice Cannon', label: 'ICE'});
+                if (unlocked.dynamite && !dynamiteActive) powerUpChoices.push({id: 'dynamite', name: 'Dynamite', label: 'DYN'});
+                if (unlocked.pistol && !player._hasPistol && equippedCharacterID !== 'cowboy') powerUpChoices.push({id: 'pistol', name: 'Pistol', label: 'PST'});
                 if (!hasDashInvincibility) powerUpChoices.push({id: 'dash_invincibility', name: 'Dash Invincibility', label: 'DSH'});
                 if (!playerData.hasReducedDashCooldown) powerUpChoices.push({id: 'dash_cooldown', name: 'Dash Cooldown', label: 'CDN'});
 
-                const unlocked = playerData.unlockedPickups;
                 if (unlocked.doppelganger && !doppelgangerActive) powerUpChoices.push({id: 'doppelganger', name: 'Doppelganger', label: 'DOP'});
                 if (unlocked.temporal_ward && !temporalWardActive) powerUpChoices.push({id: 'temporal_ward', name: 'Temporal Ward', label: 'TME'});
                 if (unlocked.circle && !damagingCircleActive) powerUpChoices.push({id:'circle', name: 'Damaging Circle', label: 'CIR'});
@@ -1805,6 +2073,7 @@ function createBoss() {
                 if (unlocked.flaming_bullets && !flamingBulletsActive) powerUpChoices.push({id: 'flaming_bullets', name: 'Flaming Bullets', label: 'FIR'});
                 if (unlocked.night_owl && !nightOwlActive) powerUpChoices.push({id: 'night_owl', name: 'Night Owl', label: 'OWL'});
                 if (unlocked.whirlwind_axe && !whirlwindAxeActive) powerUpChoices.push({id: 'whirlwind_axe', name: 'Whirlwind Axe', label: 'AXE'});
+                if (unlocked.robot_drone && !robotDroneActive) powerUpChoices.push({id: 'robot_drone', name: 'Robot Drone', label: 'RBT'});
 
                 if (powerUpChoices.length > 0) {
                     const randomChoice = powerUpChoices[Math.floor(Math.random() * powerUpChoices.length)];
@@ -1993,8 +2262,12 @@ function createBoss() {
             player.xp -= player.xpToNextLevel;
             if (player.xp < 0) player.xp = 0;
             if(cheats.instantLevelUp) player.xp = player.xpToNextLevel;
-            else if (player.level < 10) player.xpToNextLevel += 1;
-            else player.xpToNextLevel = Math.floor(player.xpToNextLevel * 1.25);
+            else if (player.level < 50) {
+                // Polynomial curve: tuned for level 30-50 in 5-10 minutes
+                player.xpToNextLevel = Math.floor(3 + Math.pow(player.level, 1.7) * 0.45);
+            } else {
+                player.xpToNextLevel = Math.floor(player.xpToNextLevel * 1.08);
+            }
             Tone.Transport.bpm.value = 120 * (player.level >= 30 ? 2.5 : player.level >= 20 ? 2 : player.level >= 10 ? 1.5 : 1);
             updateUIStats();
             vibrateLevelUp();
@@ -2006,7 +2279,8 @@ function createBoss() {
             if (upgradeOptionsContainer) upgradeOptionsContainer.innerHTML = '';
             let availableUpgrades = [...UPGRADE_OPTIONS];
             let selectedChoices = [];
-            let choiceCount = cheats.hardcoreMode ? 2 : 3;
+            let baseChoices = (playerData.unlockedPickups && playerData.unlockedPickups.four_choices) ? 4 : 3;
+            let choiceCount = cheats.hardcoreMode ? 2 : baseChoices;
             for (let i = 0; i < choiceCount; i++) {
                 if (availableUpgrades.length === 0) break;
                 const randomIndex = Math.floor(Math.random() * availableUpgrades.length);
@@ -2045,6 +2319,8 @@ const firstCard = upgradeOptionsContainer.querySelector('.upgrade-card');
 if (firstCard) {
     firstCard.classList.add('selected');
 }
+                // Pause timer when upgrade menu opens
+                gameTimePausedAt = Date.now();
                 upgradeMenu.style.display = 'flex';
             }
         }
@@ -2075,6 +2351,15 @@ if (firstCard) {
                 levelUpBoxImage.style.display = 'none';
                 upgradeMenu.style.display = 'none';
             }
+            // Calculate pause duration and extend fire rate boost
+            if (gameTimePausedAt > 0) {
+                const pauseDuration = Date.now() - gameTimePausedAt;
+                gameTimeOffset += pauseDuration;
+                if (fireRateBoostActive && fireRateBoostEndTime > 0) {
+                    fireRateBoostEndTime += pauseDuration;
+                }
+                gameTimePausedAt = 0;
+            }
             gamePaused = false;
             isGamepadUpgradeMode = false;
             joystickDirX = 0; joystickDirY = 0; aimDx = 0; aimDy = 0;
@@ -2097,6 +2382,20 @@ if (firstCard) {
         }
 
         function updateUIStats() {
+            // Update timer display (accounts for paused time)
+            if (gameTimerSpan && gameActive && gameStartTime) {
+                let elapsedMs = Date.now() - gameStartTime - gameTimeOffset;
+                // If currently paused, don't count time since pause started
+                if (gamePaused && gameTimePausedAt > 0) {
+                    elapsedMs = gameTimePausedAt - gameStartTime - gameTimeOffset;
+                }
+                const totalSeconds = Math.floor(elapsedMs / 1000);
+                const minutes = Math.floor(totalSeconds / 60);
+                const seconds = totalSeconds % 60;
+                const timeStr = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                gameTimerSpan.textContent = timeStr;
+            }
+
             const oldLevel = currentLevelSpan.textContent;
             const newLevel = player.level;
             if (oldLevel !== newLevel.toString()) {
@@ -2172,6 +2471,10 @@ if (firstCard) {
             if (lightningProjectileActive) icons.push('⚡️');
             if (lightningStrikeActive) icons.push('⚡');
             if (laserCannonActive) icons.push('🟢');
+            if (shotgunActive) icons.push('🔫💥');
+            if (iceCannonActive) icons.push('❄️❄️');
+            if (dynamiteActive) icons.push('🧨');
+            if (player._hasPistol) icons.push('🔫');
             
             // Area effects
             if (orbitingPowerUpActive) icons.push('💫');
@@ -2346,6 +2649,21 @@ async function tryLoadMusic(retries = 3) {
                 // Re-apply so startup cheats like giant_mode take effect
                 applyCheats();
             }
+            if (cheats.all_weapons_start) {
+                console.log("Activating all weapons cheat.");
+                // Activate all weapon powerups
+                const weaponPowerups = ['dynamite', 'pistol', 'doppelganger', 'temporal_ward', 'ice_cannon', 
+                                       'shotgun', 'rocket_launcher', 'dual_gun', 'dual_revolvers', 'flamethrower', 
+                                       'laser_cannon', 'bug_swarm', 'night_owl', 'whirlwind_axe'];
+                weaponPowerups.forEach(id => {
+                    if (playerData.unlockedPickups[id] || UNLOCKABLE_PICKUPS[id]?.requires === 'level_5') {
+                        activatePowerup(id);
+                        if (runStats && runStats.uniqueWeaponsUnlocked) {
+                            runStats.uniqueWeaponsUnlocked[id] = true;
+                        }
+                    }
+                });
+            }
         }
 
         function playGameStartVideo() {
@@ -2356,7 +2674,10 @@ async function tryLoadMusic(retries = 3) {
 
                 // Stop menu BGM before the video plays
                 if (currentBGMPlayer) {
+                    currentBGMPlayer.onstop = null; // Prevent auto-restart
                     currentBGMPlayer.stop();
+                    currentBGMPlayer.dispose();
+                    currentBGMPlayer = null;
                 }
                 stopMainMenuBGM();
 
@@ -2410,10 +2731,14 @@ async function startGame() {
                 // Random map selection - only pick from unlocked maps
                 const unlockedMapIndices = [];
                 for (let i = 0; i < backgroundImages.length; i++) {
-                    // Maps 9, 10, 11 require unlocks
-                    if (i === 9 && !playerData.unlockedPickups.map_junkyard) continue;
-                    if (i === 10 && !playerData.unlockedPickups.map_log_cabin) continue;
-                    if (i === 11 && !playerData.unlockedPickups.map_cellar) continue;
+                    // Maps 13-19 require unlocks (index 13=Junkyard, 14=Log Cabin, 15=Cellar, 16=Desert Dunes, 17=Mossy Rocks, 18=Golden Caves, 19=Grid Map)
+                    if (i === 13 && !playerData.unlockedPickups.map_junkyard) continue;
+                    if (i === 14 && !playerData.unlockedPickups.map_log_cabin) continue;
+                    if (i === 15 && !playerData.unlockedPickups.map_cellar) continue;
+                    if (i === 16 && !playerData.unlockedPickups.map_desert_dunes) continue;
+                    if (i === 17 && !playerData.unlockedPickups.map_mossy_rocks) continue;
+                    if (i === 18 && !playerData.unlockedPickups.map_golden_caves) continue;
+                    if (i === 19 && !playerData.unlockedPickups.map_grid) continue;
                     unlockedMapIndices.push(i);
                 }
                 
@@ -2466,14 +2791,17 @@ async function startGame() {
             if (currentDifficulty === 'medium') difficultyMultiplier = 1.1;
             else if (currentDifficulty === 'hard') difficultyMultiplier = 1.2;
 
+            // Reset maxLives to base value (3 or 4 based on unlock) to fix the heart persistence bug
+            const baseMaxLives = (playerData.unlockedPickups && playerData.unlockedPickups.fourth_heart) ? 4 : 3;
+            
             Object.assign(player, { 
                 xp: 0, level: 1, xpToNextLevel: 3, projectileSizeMultiplier: 1, projectileSpeedMultiplier: 1, 
-                speed: basePlayerSpeed * difficultyMultiplier, lives: player.maxLives, orbitAngle: 0, 
+                speed: basePlayerSpeed * difficultyMultiplier, lives: baseMaxLives, maxLives: baseMaxLives, orbitAngle: 0, 
                 boxPickupsCollectedCount: 0, bgmFastModeActive: false, swordActive: false, 
                 lastSwordSwingTime: 0, currentSwordSwing: null, isSlowedByMosquitoPuddle: false, isSlowedBySpiderWeb: false, 
                 facing: 'down', appleCount: 0,
                 isDashing: false, dashEndTime: 0, lastDashTime: 0 - (playerData.hasReducedDashCooldown ? 3000: 6000), 
-                dashCooldown: playerData.hasReducedDashCooldown ? 3000: 6000,
+                dashCooldown: playerData.hasReducedDashCooldown ? 3000 : 6000,
                 isInvincible: false,
                 spinStartTime: null, spinDirection: 0,
                 upgradeLevels: { speed: 0, fireRate: 0, magnetRadius: 0, damage: 0, projectileSpeed: 0, knockback: 0, luck: 0, bulletSize: 0, dashCooldown: 0 }
@@ -2491,6 +2819,13 @@ async function startGame() {
 
             [enemies, pickupItems, appleItems, eyeProjectiles, playerPuddles, snailPuddles, mosquitoPuddles, spiderWebs, bombs, floatingTexts, visualWarnings, explosions, blackHoles, bloodSplatters, bloodPuddles, antiGravityPulses, vengeanceNovas, dogHomingShots, destructibles, flameAreas, flies, owlProjectiles, lightningStrikes, smokeParticles, flameProjectiles, laserCannonBeams].forEach(arr => arr.length = 0);
             
+            // Reset mega boss state for new game
+            megaBossSpawned = false;
+            megaBossDefeated = false;
+            megaBossMusicPlaying = false;
+            normalEnemySpawningPaused = false;
+            lastMegaBossMinionSpawnTime = 0;
+            
             spawnInitialObstacles();
 
             score = 0; lastEnemySpawnTime = 0; enemySpawnInterval = 1000;
@@ -2502,6 +2837,9 @@ async function startGame() {
             dogCompanionActive = false; antiGravityActive = false; ricochetActive = false; rocketLauncherActive = false;
             blackHoleActive = false; dualGunActive = false; dualRevolversActive = false; pendingRevolverShot = null; flamingBulletsActive = false; flamethrowerActive = false; laserCannonActive = false; hasDashInvincibility = false;
             lastAntiGravityPushTime = 0; lastBlackHoleTime = 0; shotgunBlastActive = false; doppelgangerActive = false;
+            shotgunActive = false; lastShotgunTime = 0; iceCannonActive = false; lastIceCannonTime = 0;
+            dynamiteActive = false; lastDynamiteTime = 0; dynamiteProjectiles = [];
+            player._hasPistol = false;
             doppelganger = null;
             bugSwarmActive = false; nightOwlActive = false; whirlwindAxeActive = false; lightningStrikeActive = false; owl = null;
             
@@ -2515,6 +2853,7 @@ async function startGame() {
             // Reset per-run cheat state
             player._shieldLastHitTime = 0;
             player._vampireLastHealTime = 0;
+            player._hasRevivedWithSecondLife = false;
             if (window.cloneArmy) window.cloneArmy.length = 0;
             if (!cheats.infinite_dash) player.dashCooldown = playerData.hasReducedDashCooldown ? 3000 : 6000;
 
@@ -2530,6 +2869,8 @@ async function startGame() {
 
             Tone.Transport.bpm.value = 120;
             gameStartTime = Date.now();
+            gameTimeOffset = 0; // Reset paused time tracking
+            gameTimePausedAt = 0;
             runStats.startTime = gameStartTime; // ACHIEVEMENT FIX
             lastFrameTime = gameStartTime;
             runStats.lastDamageTime = gameStartTime;
@@ -2590,23 +2931,47 @@ async function startGame() {
         }
         function togglePause() {
             vibrate(20);
+            if (!gameActive || gameOver) return; // Prevent pause when not in active game
             gamePaused = !gamePaused;
-            if (gamePaused) { pauseOverlay.style.display = 'flex'; Tone.Transport.pause(); } 
+            if (gamePaused) {
+                if (pauseOverlay) pauseOverlay.style.display = 'flex';
+                if (Tone.Transport) Tone.Transport.pause();
+                // Record when we paused for timer and fire rate boost
+                gameTimePausedAt = Date.now();
+                // Update game speed button visibility when opening pause menu
+                if (typeof window.updateGameSpeedButtonVisibility === 'function') {
+                    window.updateGameSpeedButtonVisibility();
+                }
+            }
             else {
-                pauseOverlay.style.display = 'none';
-                Tone.Transport.start();
+                if (pauseOverlay) pauseOverlay.style.display = 'none';
+                if (Tone.Transport) Tone.Transport.start();
+                // Calculate how long we were paused and add to offset
+                if (gameTimePausedAt > 0) {
+                    const pauseDuration = Date.now() - gameTimePausedAt;
+                    gameTimeOffset += pauseDuration;
+                    // Extend fire rate boost end time by pause duration
+                    if (fireRateBoostActive && fireRateBoostEndTime > 0) {
+                        fireRateBoostEndTime += pauseDuration;
+                    }
+                    gameTimePausedAt = 0;
+                }
                 // Reset pause nav state so it re-initialises cleanly next open
                 if (typeof _gpNav !== 'undefined') { _gpNav.lastScreen = ''; _gpNav.menuIndex = 0; }
-                const pauseBtns = Array.from(pauseOverlay.querySelectorAll('button'));
-                pauseBtns.forEach(el => el.classList.remove('gamepad-focus'));
+                if (pauseOverlay) {
+                    const pauseBtns = Array.from(pauseOverlay.querySelectorAll('button'));
+                    pauseBtns.forEach(el => el.classList.remove('gamepad-focus'));
+                }
             }
         }
 
         function toggleGameSpeed() {
-            gameSpeedLevel = gameSpeedLevel >= 3 ? 1 : gameSpeedLevel + 1;
-            gameTimeScale = gameSpeedLevel;
+            if (!gameSpeedUnlocked) return; // Can't toggle if not unlocked
+            gameSpeedLevel = (gameSpeedLevel + 1) % GAME_SPEED_LEVELS.length;
+            gameTimeScale = GAME_SPEED_LEVELS[gameSpeedLevel];
             if (gameSpeedButton) {
-                gameSpeedButton.textContent = `Speed: ${gameSpeedLevel}x`;
+                const speedLabel = gameTimeScale === 0.5 ? '0.5x' : `${gameTimeScale}x`;
+                gameSpeedButton.textContent = `Speed: ${speedLabel}`;
             }
             playUISound('uiClick');
             vibrateUI();
@@ -2614,7 +2979,8 @@ async function startGame() {
         
         function triggerDash(entity) {
             const now = Date.now();
-            if (!entity || entity.isDashing || now - entity.lastDashTime < entity.dashCooldown) {
+            const effectiveCooldown = (cheats.infinite_stamina && entity === player) ? 0 : entity.dashCooldown;
+            if (!entity || entity.isDashing || now - entity.lastDashTime < effectiveCooldown) {
                 return;
             }
             entity.isDashing = true;
@@ -2624,6 +2990,7 @@ async function startGame() {
             playSound('dodge'); // Play dodge sound
             if (entity === player) {
                 playerStats.totalDashes++;
+                if (runStats) runStats.dashesThisRun = (runStats.dashesThisRun || 0) + 1;
                 vibrateDash();
             }
         }

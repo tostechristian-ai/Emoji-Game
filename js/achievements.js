@@ -31,6 +31,7 @@ const ACHIEVEMENTS = {
     // ─── BOSS ACHIEVEMENTS ──────────────────────────────────────────────────
     'boss_breaker': { name: "Boss Breaker", desc: "Defeat your first boss.", icon: '👑', unlocked: false },
     'boss_crusher': { name: "Boss Crusher", desc: "Defeat 10 bosses.", icon: '👑', unlocked: false },
+    'run_completed': { name: "Run Completed", desc: "Defeat the Mega Boss and complete a full run!", icon: '🏆', unlocked: false },
     
     // ─── SKILL ACHIEVEMENTS ─────────────────────────────────────────────────
     'untouchable': { name: "Untouchable", desc: "Kill 100 enemies without taking damage.", icon: '🧘', unlocked: false },
@@ -74,7 +75,19 @@ const ACHIEVEMENTS = {
     
     // ─── SPECIAL ACHIEVEMENTS ───────────────────────────────────────────────
     'friend_or_foe': { name: "Friend or Foe", desc: "Player 2 (enemy possession) defeats Player 1's boss.", icon: '👾', unlocked: false },
-    'immortal_legend': { name: "Immortal Legend", desc: "Beat a full run without losing a single heart.", icon: '🏆', unlocked: false }
+    'immortal_legend': { name: "Immortal Legend", desc: "Beat a full run without losing a single heart.", icon: '🏆', unlocked: false },
+    
+    // ─── NEW COMBAT ACHIEVEMENTS ────────────────────────────────────────────
+    'pyromaniac': { name: "Pyromaniac", desc: "Have 20+ enemies ignited at the same time.", icon: '🔥', unlocked: false },
+    'explosion_expert': { name: "Explosion Expert", desc: "Kill 8+ enemies with a single explosion.", icon: '💥', unlocked: false },
+    
+    // ─── NEW PROGRESSION ACHIEVEMENTS ────────────────────────────────────────
+    'weapon_collector': { name: "Weapon Collector", desc: "Unlock every weapon upgrade in a single run.", icon: '📦', unlocked: false },
+    'marathon_runner': { name: "Marathon Runner", desc: "Dash 200 times in a single run.", icon: '🏃', unlocked: false },
+    
+    // ─── NEW SURVIVAL ACHIEVEMENTS ─────────────────────────────────────────
+    'iron_soul': { name: "Iron Soul", desc: "Survive 30 minutes in one run.", icon: '⏱️', unlocked: false },
+    'berserker': { name: "Berserker", desc: "Kill 500 enemies in 2 minutes.", icon: '😤', unlocked: false }
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -129,7 +142,19 @@ const CHEATS = {
     'xp_boost': { name: "XP Boost", desc: "XP gain is doubled." },
     'night_mode': { name: "Night Mode", desc: "Dark overlay simulates nighttime." },
     'mirror_mode': { name: "Mirror Mode", desc: "Map & controls flipped left ↔ right." },
-    'chaos_mode': { name: "Chaos Mode", desc: "Random mix of cheats activates at once." }
+    'chaos_mode': { name: "Chaos Mode", desc: "Random mix of cheats activates at once." },
+    
+    // ─── NEW COMBAT CHEATS ─────────────────────────────────────────────────
+    'inferno_mode': { name: "Inferno Mode", desc: "All enemies spawn ignited and take burn damage over time." },
+    'chain_explosion': { name: "Chain Reaction", desc: "Explosions chain to nearby enemies, triggering more explosions!" },
+    
+    // ─── NEW UTILITY CHEATS ────────────────────────────────────────────────
+    'all_weapons_start': { name: "Arsenal Start", desc: "Begin with every weapon upgrade already unlocked." },
+    'infinite_stamina': { name: "Infinite Stamina", desc: "Unlimited dash with no cooldown, faster movement." },
+    
+    // ─── NEW SURVIVAL CHEATS ───────────────────────────────────────────────
+    'time_warp': { name: "Time Warp", desc: "Time slows down when enemies get close to you." },
+    'second_life': { name: "Second Life", desc: "Once per run, revive at full health instead of dying." }
 };
 
 // Storage for which cheats are currently enabled
@@ -169,7 +194,16 @@ const TROPHY_UNLOCKS_CHEAT = {
     'speed_demon': 'mirror_mode',
     'chaos_survivor': 'zombie_enemies',
     'friend_or_foe': 'enemy_possession',
-    'immortal_legend': 'mirror_mode'
+    'immortal_legend': 'mirror_mode',
+    
+    // New achievement → cheat mappings
+    'pyromaniac': 'inferno_mode',
+    'explosion_expert': 'chain_explosion',
+    'weapon_collector': 'all_weapons_start',
+    'marathon_runner': 'infinite_stamina',
+    'iron_soul': 'time_warp',
+    'berserker': 'second_life',
+    'run_completed': 'all_powerups_start'
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -248,7 +282,14 @@ function resetRunStats() {
         lastDoppelgangerStartTime: 0,
         
         // Explosion tracking (for achievements)
-        killsPerExplosion: {}
+        killsPerExplosion: {},
+        
+        // ─── NEW TRACKING FOR NEW ACHIEVEMENTS ────────────────────────────────
+        // Movement tracking
+        dashesThisRun: 0,
+        
+        // Weapon unlock tracking
+        uniqueWeaponsUnlocked: {}
     };
 }
 
@@ -360,6 +401,7 @@ function saveCheats() {
 
 // Display the next achievement banner from the queue
 // Shows one banner at a time with animation
+// Click/tap to dismiss early
 function showAchievementBanner() {
     // Don't show if already showing or queue is empty
     if (isBannerShowing || achievementUnlockQueue.length === 0) {
@@ -379,15 +421,37 @@ function showAchievementBanner() {
     
     // Show the banner with CSS animation
     achievementBanner.classList.add('show');
+    achievementBanner.classList.remove('dismiss');
+    
+    // Handler to dismiss banner early on click/tap
+    const dismissBanner = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        // Remove event listeners to prevent multiple triggers
+        achievementBanner.removeEventListener('click', dismissBanner);
+        achievementBanner.removeEventListener('touchstart', dismissBanner);
+        // Add dismiss class for quick exit animation
+        achievementBanner.classList.add('dismiss');
+    };
+    
+    // Add click/tap listeners
+    achievementBanner.addEventListener('click', dismissBanner);
+    achievementBanner.addEventListener('touchstart', dismissBanner, { passive: false });
     
     // When animation ends, hide banner and show next one
-    achievementBanner.addEventListener('animationend', () => {
+    const onAnimationEnd = () => {
         achievementBanner.classList.remove('show');
+        achievementBanner.classList.remove('dismiss');
+        achievementBanner.removeEventListener('animationend', onAnimationEnd);
+        achievementBanner.removeEventListener('click', dismissBanner);
+        achievementBanner.removeEventListener('touchstart', dismissBanner);
         isBannerShowing = false;
         
         // Wait a bit before showing the next banner
-        setTimeout(showAchievementBanner, 500);
-    }, { once: true });
+        setTimeout(showAchievementBanner, 300);
+    };
+    
+    achievementBanner.addEventListener('animationend', onAnimationEnd);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -477,6 +541,41 @@ function checkAchievements() {
     // ─── PERFECT RUN ACHIEVEMENT ────────────────────────────────────────────
     if (runStats.damageTakenThisRun === 0 && survivalTime >= 5 * 60 * 1000) {
         unlockAchievement('immortal_legend');
+    }
+    
+    // ─── NEW SURVIVAL ACHIEVEMENTS ─────────────────────────────────────────
+    if (survivalTime >= 30 * 60 * 1000) unlockAchievement('iron_soul'); // 30 minutes
+    
+    // ─── NEW COMBAT ACHIEVEMENTS ──────────────────────────────────────────
+    // Pyromaniac - 20+ enemies ignited at once (checked via update._ignitedEnemyCount)
+    if (typeof update !== 'undefined' && update._ignitedEnemyCount >= 20) {
+        unlockAchievement('pyromaniac');
+    }
+    
+    // Explosion Expert - 8+ kills with single explosion
+    if (runStats.killsPerExplosion) {
+        for (const explosionId in runStats.killsPerExplosion) {
+            if (runStats.killsPerExplosion[explosionId] >= 8) {
+                unlockAchievement('explosion_expert');
+                break;
+            }
+        }
+    }
+    
+    // ─── NEW PROGRESSION ACHIEVEMENTS ─────────────────────────────────────
+    // Weapon Collector - unlock all weapons in one run
+    if (runStats.uniqueWeaponsUnlocked && Object.keys(runStats.uniqueWeaponsUnlocked).length >= 8) {
+        unlockAchievement('weapon_collector');
+    }
+    
+    // Marathon Runner - 200 dashes in one run
+    if (runStats.dashesThisRun >= 200) {
+        unlockAchievement('marathon_runner');
+    }
+    
+    // Berserker - 500 kills in 2 minutes
+    if (runStats.killsThisRun >= 500 && survivalTime <= 2 * 60 * 1000) {
+        unlockAchievement('berserker');
     }
 }
 

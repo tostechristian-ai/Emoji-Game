@@ -4,6 +4,9 @@
         function draw() {
             if (!gameActive) return;
             const now = Date.now();
+            
+            // Reset ignited enemy counter for this frame
+            draw._ignitedCount = 0;
 
             // Viewport bounds for culling — add a margin so things don't pop in at edges
             const CULL_MARGIN = 80;
@@ -252,6 +255,14 @@
                     ctx.globalAlpha = 0.8;
                 }
 
+                // Mega Boss: purple glow outline
+                if (enemy.isMegaBoss) {
+                    ctx.shadowColor = '#9900ff';
+                    ctx.shadowBlur = 20;
+                    ctx.shadowOffsetX = 0;
+                    ctx.shadowOffsetY = 0;
+                }
+
                 if (enemy.emoji === '👻') {
                     ctx.globalAlpha = enemy.isVisible ? 1.0 : 0.2;
                 }
@@ -276,30 +287,53 @@
                 }
 
                 if (enemy.isIgnited) {
-                    ctx.globalAlpha = Math.min(ctx.globalAlpha, 0.8);
-                    ctx.font = `${enemy.size * 0.8}px sans-serif`;
-                    ctx.fillText('🔥', enemy.x, enemy.y + (enemy.bobOffset || 0));
+                    // Count burning enemies for throttling
+                    if (!draw._ignitedCount) draw._ignitedCount = 0;
+                    draw._ignitedCount++;
+                    
+                    // Only render fire for every 2nd burning enemy when many burning
+                    const manyBurning = draw._ignitedCount > 15;
+                    if (!manyBurning || (draw._ignitedCount % 2 === 0)) {
+                        ctx.globalAlpha = Math.min(ctx.globalAlpha, 0.8);
+                        ctx.font = `${enemy.size * 0.8}px sans-serif`;
+                        ctx.fillText('🔥', enemy.x, enemy.y + (enemy.bobOffset || 0));
+                    }
                 }
                 ctx.restore();
 
                 // Boss health bar
                 if (enemy.isBoss) {
-                    const maxHp = Math.floor(20 + (player.level || 1) * 1.5);
+                    const maxHp = enemy.isMegaBoss 
+                        ? Math.floor((20 + (player.level || 1) * 1.5) * 10) // Mega boss has 10x health
+                        : Math.floor(20 + (player.level || 1) * 1.5);
                     const hpRatio = Math.max(0, enemy.health / maxHp);
                     const barW = enemy.size * 1.2;
-                    const barH = 5;
+                    const barH = enemy.isMegaBoss ? 8 : 5; // Larger bar for mega boss
                     const barX = enemy.x - barW / 2;
                     const barY = enemy.y + enemy.size / 2 + 6 + (enemy.bobOffset || 0);
                     ctx.fillStyle = '#222';
                     ctx.fillRect(barX, barY, barW, barH);
-                    // Colour shifts green → orange → red as health drops
-                    const r = Math.floor(255 * (1 - hpRatio));
-                    const g = Math.floor(200 * hpRatio);
-                    ctx.fillStyle = `rgb(${r},${g},0)`;
+                    
+                    if (enemy.isMegaBoss) {
+                        // Mega boss: purple health bar
+                        const r = Math.floor(150 + 105 * (1 - hpRatio));
+                        const b = Math.floor(255 * (0.5 + 0.5 * hpRatio));
+                        ctx.fillStyle = `rgb(${r},0,${b})`;
+                    } else {
+                        // Regular boss: Colour shifts green → orange → red as health drops
+                        const r = Math.floor(255 * (1 - hpRatio));
+                        const g = Math.floor(200 * hpRatio);
+                        ctx.fillStyle = `rgb(${r},${g},0)`;
+                    }
                     ctx.fillRect(barX, barY, barW * hpRatio, barH);
-                    ctx.strokeStyle = '#000';
-                    ctx.lineWidth = 1;
+                    ctx.strokeStyle = enemy.isMegaBoss ? '#9900ff' : '#000';
+                    ctx.lineWidth = enemy.isMegaBoss ? 2 : 1;
                     ctx.strokeRect(barX, barY, barW, barH);
+                    
+                    // Reset shadow after drawing
+                    if (enemy.isMegaBoss) {
+                        ctx.shadowBlur = 0;
+                    }
                 }
             });
 
@@ -369,6 +403,22 @@
                     ctx.restore();
                     continue;
                 }
+                // Snowman: snowflakes instead of bullets
+                if (weapon._isSnowflakeBullet || (player._isSnowman && weapon.owner === 'player')) {
+                    const snowflakePre = preRenderedEntities && preRenderedEntities['❄️'];
+                    if (snowflakePre) {
+                        ctx.rotate(weapon.angle + Math.PI / 2); // Align snowflake
+                        ctx.drawImage(snowflakePre, -weapon.size/2, -weapon.size/2, weapon.size, weapon.size);
+                    } else {
+                        ctx.rotate(weapon.angle);
+                        ctx.font = `${weapon.size}px sans-serif`;
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText('❄️', 0, 0);
+                    }
+                    ctx.restore();
+                    continue;
+                }
                 ctx.rotate(weapon.angle);
                 const bSize = weapon.size * 1.4;
                 const bH = bSize * 0.5;
@@ -376,6 +426,13 @@
                 if (iceProjectileActive) {
                     ctx.globalAlpha = 0.08;
                     ctx.fillStyle = '#00aaff';
+                    ctx.fillRect(-bSize / 2, -bH / 2, bSize, bH);
+                    ctx.globalAlpha = 1;
+                }
+                // Red box for fire rate boost
+                if (fireRateBoostActive) {
+                    ctx.globalAlpha = 0.12;
+                    ctx.fillStyle = '#ff4444';
                     ctx.fillRect(-bSize / 2, -bH / 2, bSize, bH);
                     ctx.globalAlpha = 1;
                 }
@@ -470,6 +527,28 @@
             bombs.forEach(bomb => {
                 const preRendered = preRenderedEntities['💣'];
                 if(preRendered) ctx.drawImage(preRendered, bomb.x - preRendered.width/2, bomb.y - preRendered.height/2);
+            });
+
+            // Render dynamite projectiles
+            dynamiteProjectiles.forEach(dyn => {
+                if (!dyn.active) return;
+                const preRendered = preRenderedEntities['🧨'];
+                if (preRendered) {
+                    ctx.save();
+                    ctx.translate(dyn.x, dyn.y);
+                    // Rotate slowly while moving
+                    const rotation = (now - dyn.spawnTime) / 500;
+                    ctx.rotate(rotation);
+                    ctx.drawImage(preRendered, -preRendered.width/2, -preRendered.height/2);
+                    ctx.restore();
+                } else {
+                    ctx.save();
+                    ctx.font = '20px sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText('🧨', dyn.x, dyn.y);
+                    ctx.restore();
+                }
             });
 
             const drawGlimmer = (item) => {
@@ -614,6 +693,36 @@
                 const knPre = preRenderedEntities && preRenderedEntities['🤺'];
                 if (knPre) ctx.drawImage(knPre, -player.size / 2, -player.size / 2, player.size, player.size);
                 else { ctx.font = `${player.size}px sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('🤺', 0, 0); }
+            } else if (player._isSnowman) {
+                // ⛄ flips based on aim direction (like Knight)
+                // Snowman faces right by default, so mirror for left
+                if (player.facing === 'left') {
+                    ctx.scale(-1, 1); // mirror = faces left
+                }
+                const smPre = preRenderedEntities && preRenderedEntities['⛄'];
+                if (smPre) ctx.drawImage(smPre, -player.size / 2, -player.size / 2, player.size, player.size);
+                else { ctx.font = `${player.size}px sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('⛄', 0, 0); }
+            } else if (player._isFarmer) {
+                // 🧑‍🌾 Farmer - normal rendering
+                const fmPre = preRenderedEntities && preRenderedEntities['🧑‍🌾'];
+                if (fmPre) ctx.drawImage(fmPre, -player.size / 2, -player.size / 2, player.size, player.size);
+                else { ctx.font = `${player.size}px sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('🧑‍🌾', 0, 0); }
+            } else if (player._isAlien) {
+                // 👽 Alien - faces left by default, flip for right
+                if (player.facing === 'right') {
+                    ctx.scale(-1, 1); // mirror = faces right
+                }
+                const alienPre = preRenderedEntities && preRenderedEntities['👽'];
+                if (alienPre) ctx.drawImage(alienPre, -player.size / 2, -player.size / 2, player.size, player.size);
+                else { ctx.font = `${player.size}px sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('👽', 0, 0); }
+            } else if (player._isJackOLantern) {
+                // 🎃 Jack O Lantern - faces left by default, flip for right
+                if (player.facing === 'right') {
+                    ctx.scale(-1, 1); // mirror = faces right
+                }
+                const pumpkinPre = preRenderedEntities && preRenderedEntities['🎃'];
+                if (pumpkinPre) ctx.drawImage(pumpkinPre, -player.size / 2, -player.size / 2, player.size, player.size);
+                else { ctx.font = `${player.size}px sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('🎃', 0, 0); }
             } else {
                 ctx.drawImage(playerSprite, -player.size / 2, -player.size / 2, player.size, player.size);
             }
@@ -644,7 +753,7 @@
             }
 
 
-            if ((aimDx !== 0 || aimDy !== 0 || autoAimActive) && !player._isLumberjack && !player._isKnight) {
+            if ((aimDx !== 0 || aimDy !== 0 || autoAimActive) && !player._isLumberjack && !player._isKnight && !player._isAlien && !player._isJackOLantern) {
                 const aimAngle = player.rotationAngle;
                 ctx.save();
                 ctx.translate(player.x, player.y + bobOffset);
@@ -664,12 +773,16 @@
                         ctx.fillText('🦴', gunXOffset + gunWidth / 2, 0);
                     }
                 } else {
-                    ctx.drawImage(sprites.gun, gunXOffset, gunYOffset, gunWidth, gunHeight);
-                    if (dualGunActive) { ctx.save(); ctx.scale(-1, 1); ctx.drawImage(sprites.gun, -gunXOffset, gunYOffset, gunWidth, gunHeight); ctx.restore(); }
                     if (dualRevolversActive) {
+                        // Dual Revolvers: draw 2 guns side by side (not 3!)
                         ctx.save();
-                        ctx.drawImage(sprites.gun, gunXOffset, gunYOffset + gunHeight + 2, gunWidth, gunHeight);
+                        const gunSpacing = gunHeight * 0.6;
+                        ctx.drawImage(sprites.gun, gunXOffset, gunYOffset - gunSpacing/2, gunWidth, gunHeight);
+                        ctx.drawImage(sprites.gun, gunXOffset, gunYOffset + gunSpacing/2, gunWidth, gunHeight);
                         ctx.restore();
+                    } else {
+                        ctx.drawImage(sprites.gun, gunXOffset, gunYOffset, gunWidth, gunHeight);
+                        if (dualGunActive) { ctx.save(); ctx.scale(-1, 1); ctx.drawImage(sprites.gun, -gunXOffset, gunYOffset, gunWidth, gunHeight); ctx.restore(); }
                     }
                     if (laserPointerActive) {
                         ctx.save(); ctx.beginPath();
@@ -761,6 +874,43 @@
             if (dogCompanionActive) {
                 const preRendered = preRenderedEntities['🐶'];
                 if(preRendered) ctx.drawImage(preRendered, dog.x - preRendered.width/2, dog.y - preRendered.height/2);
+            }
+            
+            // Robot Drone rendering with blue outline and drop shadow
+            if (robotDroneActive) {
+                const preRendered = preRenderedEntities['🤖'];
+                const now = Date.now();
+                
+                ctx.save();
+                
+                // Draw drop shadow under robot
+                const shadowY = robotDrone.y + robotDrone.size * 0.4;
+                const shadowRadiusX = robotDrone.size * 0.5;
+                const shadowRadiusY = robotDrone.size * 0.2;
+                ctx.beginPath();
+                ctx.ellipse(robotDrone.x, shadowY, shadowRadiusX, shadowRadiusY, 0, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+                ctx.fill();
+                
+                // Draw blue outline (similar to enemy outline but blue)
+                const outlineSize = robotDrone.size * 0.6;
+                ctx.beginPath();
+                ctx.arc(robotDrone.x, robotDrone.y, outlineSize / 2, 0, Math.PI * 2);
+                ctx.strokeStyle = 'rgba(0, 100, 255, 0.6)';
+                ctx.lineWidth = 3;
+                ctx.stroke();
+                
+                // Draw the robot emoji
+                if (preRendered) {
+                    ctx.drawImage(preRendered, robotDrone.x - preRendered.width / 2, robotDrone.y - preRendered.height / 2);
+                } else {
+                    ctx.font = `${robotDrone.size}px sans-serif`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText('🤖', robotDrone.x, robotDrone.y);
+                }
+                
+                ctx.restore();
             }
             
             if (player2 && player2.active) {

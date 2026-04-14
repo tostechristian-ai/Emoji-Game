@@ -81,6 +81,7 @@
             preRenderEnemyEmoji('👁️', 25 * 0.6);       // Eye - ranged attacker
             preRenderEnemyEmoji('🧟‍♀️', 17 * 1.75);    // Female Zombie - large & slow
             preRenderEnemyEmoji('🧛‍♀️', 20);           // Vampire - dodges bullets
+            preRenderEnemyEmoji('👾', 22);             // Invader - zigzag movement, teleports
             
             // ─── PICKUP & EFFECT EMOJIS ─────────────────────────────────────────
             preRenderEmoji('🔸', COIN_SIZE);       // Coin - basic XP
@@ -97,6 +98,10 @@
             preRenderEmoji('🦉', 30);              // Owl companion
             preRenderEmoji('🧱', 30);              // Brick wall - destructible
             preRenderEmoji('🛢️', 15);             // Barrel - explodes when destroyed
+            preRenderEmoji('🤖', 28);              // Robot Drone - autonomous companion
+            preRenderEmoji('❄️', 16);              // Snowflake - Snowman bullets
+            preRenderEmoji('⛄', 35);              // Snowman character
+            preRenderEmoji('🧑‍🌾', 35);            // Farmer character
             
             console.log("All emojis have been pre-rendered to memory.");
         }
@@ -154,19 +159,27 @@
         // ─── BACKGROUND MAP IMAGES ──────────────────────────────────────────────
         // Array of background images for different maps
         // Players can unlock additional maps through the upgrade shop
-        const backgroundPaths = [ 
-            'sprites/Background6.png',  // Map 1: Grass Map 1
-            'sprites/Background2.png',  // Map 2: Desert Map 1
-            'sprites/Background3.png',  // Map 3: Desert Map 2
-            'sprites/Background4.png',  // Map 4: Lava Map 1
-            'sprites/Background5.png',  // Map 5: Lava Map 2
-            'sprites/Background8.png',  // Map 6: Desert Map 3
-            'sprites/Background1.png',  // Map 7: Ice Map 1
-            'sprites/Background7.png',  // Map 8: Grass Map 2
-            'sprites/Background9.png',  // Map 9: Ice Map 2
-            'sprites/Background10.png', // Map 10: Junkyard (unlockable)
-            'sprites/Background12.png', // Map 11: Log Cabin (unlockable)
-            'sprites/Background13.png'  // Map 12: Cellar (unlockable)
+        const backgroundPaths = [
+            'sprites/Background6.png',   // Map 1: Grass Map 1
+            'sprites/Background2.png',   // Map 2: Desert Map 1
+            'sprites/Background3.png',   // Map 3: Desert Map 2
+            'sprites/Background4.png',   // Map 4: Lava Map 1
+            'sprites/Background5.png',   // Map 5: Lava Map 2
+            'sprites/Background8.png',   // Map 6: Desert Map 3
+            'sprites/Background1.png',   // Map 7: Ice Map 1
+            'sprites/Background7.png',   // Map 8: Grass Map 2
+            'sprites/Background9.png',   // Map 9: Ice Map 2
+            'sprites/Background14.png',  // Map 10: Desert Ruins
+            'sprites/Background15.png',  // Map 11: City Street
+            'sprites/Background16.png',  // Map 12: Rocky Mountain
+            'sprites/Background17.png',  // Map 13: Boglands
+            'sprites/Background10.png',  // Map 14: Junkyard (unlockable)
+            'sprites/Background12.png',  // Map 15: Log Cabin (unlockable)
+            'sprites/Background13.png',  // Map 16: Cellar (unlockable)
+            'sprites/Background18.png',  // Map 17: Desert Dunes (unlockable)
+            'sprites/Background19.png',  // Map 18: Mossy Rocks (unlockable)
+            'sprites/Background20.png',  // Map 19: Golden Caves (unlockable)
+            'sprites/Background21.png'   // Map 20: Grid Map (unlockable)
         ];
         
         // Storage for loaded background images

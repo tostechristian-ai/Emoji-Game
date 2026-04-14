@@ -14,12 +14,26 @@
 
 // Main game loop — runs every frame (~60fps) while the game is active
 // Order matters: update logic first, then draw, then refresh UI text
+let _gameSpeedAccumulator = 0; // For fractional speed tracking
+
 function gameLoop() {
-  // Game speed: run update multiple times per frame for faster speeds
-  const ticks = gameTimeScale || 1;
-  for (let i = 0; i < ticks; i++) {
-    update();            // Move everything, check collisions, spawn enemies
+  // Game speed handling: support 0.5x (slow-mo), 1x, 2x, 3x
+  const scale = gameTimeScale || 1;
+  
+  if (scale < 1) {
+    // Slow motion: accumulate and update every other frame
+    _gameSpeedAccumulator += scale;
+    if (_gameSpeedAccumulator >= 1) {
+      _gameSpeedAccumulator -= 1;
+      update();
+    }
+  } else {
+    // Normal or fast speed: run multiple updates per frame
+    for (let i = 0; i < scale; i++) {
+      update();
+    }
   }
+  
   handleGamepadInput(); // Poll gamepad buttons/sticks
   draw();              // Render everything to the canvas
   updateUIStats();     // Refresh HUD text (level, score, XP bar, etc.)
@@ -78,9 +92,7 @@ const ALWAYS_AVAILABLE_PICKUPS = {
   orbiter: { id: 'orbiter', name: 'Spinning Orbiter' },
   lightning_projectile: { id: 'lightning_projectile', name: 'Lightning Projectile' },
   flamethrower: { id: 'flamethrower', name: 'Flamethrower' },
-  laser_cannon: { id: 'laser_cannon', name: 'Laser Cannon' },
-  shotgun: { id: 'shotgun', name: 'Shotgun' },
-  ice_cannon: { id: 'ice_cannon', name: 'Ice Cannon' }
+  laser_cannon: { id: 'laser_cannon', name: 'Laser Cannon' }
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -91,10 +103,14 @@ const ALWAYS_AVAILABLE_PICKUPS = {
 // special powerups.
 const UNLOCKABLE_PICKUPS = {
   // ─── MAPS ─────────────────────────────────────────────────────────────────
-  map_select:   { name: "Map Select",    desc: "Unlocks the ability to choose your map.",      cost: 1500, icon: '🗺️' },
-  map_junkyard: { name: "Junkyard Map",  desc: "Unlocks the Junkyard map for selection.",      cost: 800,  icon: '🏭' },
-  map_log_cabin:{ name: "Log Cabin Map", desc: "Unlocks the Log Cabin map for selection.",     cost: 800,  icon: '🪵' },
-  map_cellar:   { name: "Cellar Map",    desc: "Unlocks the Cellar map for selection.",        cost: 800,  icon: '🕯️' },
+  map_select:       { name: "Map Select",       desc: "Unlocks the ability to choose your map.",         cost: 1500, icon: '🗺️' },
+  map_junkyard:     { name: "Junkyard Map",     desc: "Unlocks the Junkyard map for selection.",         cost: 800,  icon: '🏭' },
+  map_log_cabin:    { name: "Log Cabin Map",    desc: "Unlocks the Log Cabin map for selection.",        cost: 800,  icon: '🪵' },
+  map_cellar:       { name: "Cellar Map",       desc: "Unlocks the Cellar map for selection.",           cost: 800,  icon: '🕯️' },
+  map_desert_dunes: { name: "Desert Dunes Map", desc: "Unlocks the Desert Dunes map for selection.",   cost: 800,  icon: '🏜️' },
+  map_mossy_rocks:  { name: "Mossy Rocks Map",  desc: "Unlocks the Mossy Rocks map for selection.",     cost: 800,  icon: '🪨' },
+  map_golden_caves: { name: "Golden Caves Map", desc: "Unlocks the Golden Caves map for selection.",    cost: 800,  icon: '💎' },
+  map_grid:         { name: "Grid Map",         desc: "Unlocks the Grid map for selection.",             cost: 800,  icon: '▦' },
   // ─── COMPANIONS ───────────────────────────────────────────────────────────
   night_owl:    { name: "Night Owl",     desc: "Unlocks a companion that snipes enemies.",     cost: 1300, icon: '🦉' },
   whirlwind_axe:{ name: "Whirlwind Axe", desc: "Unlocks a large, damaging orbiting axe.",     cost: 1000, icon: '🪓' },
@@ -107,7 +123,17 @@ const UNLOCKABLE_PICKUPS = {
   circle:       { name: "Damaging Circle",desc: "Unlocks the persistent damaging aura pickup.",cost: 900, icon: '⭕' },
   flaming_bullets:{ name: "Flaming Bullets",desc: "Unlocks bullets that ignite enemies.",     cost: 1150, icon: '🔥' },
   black_hole:   { name: "Black Hole",    desc: "Unlocks the enemy-vortex pickup.",            cost: 1180, icon: '⚫' },
-  vengeance_nova:{ name: "Vengeance Nova",desc: "Unlocks the defensive blast pickup.",        cost: 700,  icon: '🛡️' }
+  vengeance_nova:{ name: "Vengeance Nova",desc: "Unlocks the defensive blast pickup.",        cost: 700,  icon: '🛡️' },
+  robot_drone:  { name: "Robot Drone",   desc: "Unlocks the autonomous combat drone.",       cost: 900,  icon: '🤖' },
+  game_speed:   { name: "Game Speed",      desc: "Unlocks game speed control (0.5x, 1x, 2x, 3x).", cost: 1200, icon: '⏩' },
+  // ─── WEAPON PICKUPS ───────────────────────────────────────────────────────
+  shotgun:      { name: "Shotgun",       desc: "Unlocks the shotgun powerup.",               cost: 950,  icon: '🔫' },
+  ice_cannon:   { name: "Ice Cannon",      desc: "Unlocks the ice cannon powerup.",            cost: 1000, icon: '❄️' },
+  dynamite:     { name: "Dynamite",        desc: "Unlocks the dynamite throwing powerup.",     cost: 1100, icon: '🧨' },
+  pistol:       { name: "Pistol",          desc: "Unlocks pistol for non-cowboy characters.",  cost: 800,  icon: '🔫' },
+  // ─── QUALITY OF LIFE ──────────────────────────────────────────────────────
+  fourth_heart: { name: "4th Heart",       desc: "Start each run with 4 hearts instead of 3.", cost: 3000, icon: '❤️' },
+  four_choices: { name: "4 Level Choices", desc: "Get 4 choices on level up instead of 3.",  cost: 3500, icon: '📋' }
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -349,10 +375,25 @@ window.onload = function() {
   }
 
   // ─── GAME SPEED BUTTON ────────────────────────────────────────────────────
+  // Check if game speed is unlocked and show/hide button accordingly
+  window.updateGameSpeedButtonVisibility = function() {
+    if (gameSpeedButton) {
+      const isUnlocked = playerData?.unlockedPickups?.game_speed;
+      gameSpeedUnlocked = isUnlocked;
+      gameSpeedButton.style.display = isUnlocked ? 'block' : 'none';
+      if (isUnlocked) {
+        const speedLabel = gameTimeScale === 0.5 ? '0.5x' : `${gameTimeScale}x`;
+        gameSpeedButton.textContent = `Speed: ${speedLabel}`;
+      }
+    }
+  };
+  
   if (gameSpeedButton) {
     const speedAction = (e) => { e.preventDefault(); toggleGameSpeed(); };
     gameSpeedButton.addEventListener('click', speedAction);
     gameSpeedButton.addEventListener('touchstart', speedAction);
+    // Initial visibility check
+    window.updateGameSpeedButtonVisibility();
   }
 
   // ─── MERCHANT LEAVE BUTTON ────────────────────────────────────────────────

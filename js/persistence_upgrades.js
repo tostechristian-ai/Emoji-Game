@@ -434,8 +434,8 @@ function showMapSelectScreen() {
 
     // Map names for display
     const mapNames = [
-        "Grass Map 1", 
-        "Desert Map 1", 
+        "Grass Map 1",
+        "Desert Map 1",
         "Desert Map 2",
         "Lava Map 1",
         "Lava Map 2",
@@ -443,16 +443,28 @@ function showMapSelectScreen() {
         "Ice Map 1",
         "Grass Map 2",
         "Ice Map 2",
-        "Junkyard",      // Unlockable
-        "Log Cabin",     // Unlockable
-        "Cellar"         // Unlockable
+        "Desert Ruins",       // Map 10
+        "City Street",        // Map 11
+        "Rocky Mountain",     // Map 12
+        "Boglands",           // Map 13
+        "Junkyard",           // Map 14 - Unlockable
+        "Log Cabin",          // Map 15 - Unlockable
+        "Cellar",             // Map 16 - Unlockable
+        "Desert Dunes",       // Map 17 - Unlockable
+        "Mossy Rocks",        // Map 18 - Unlockable
+        "Golden Caves",       // Map 19 - Unlockable
+        "Grid Map"            // Map 20 - Unlockable
     ];
 
     // Define which maps require unlocks
     const mapUnlockRequirements = {
-        9: 'map_junkyard',
-        10: 'map_log_cabin',
-        11: 'map_cellar'
+        13: 'map_junkyard',
+        14: 'map_log_cabin',
+        15: 'map_cellar',
+        16: 'map_desert_dunes',
+        17: 'map_mossy_rocks',
+        18: 'map_golden_caves',
+        19: 'map_grid'
     };
     
     // Create a tile for each map

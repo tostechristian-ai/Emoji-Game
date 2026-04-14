@@ -5,6 +5,25 @@
         function update() {
     if (gamePaused || gameOver || !gameActive) return;
 
+    // Time Warp cheat: time slows when enemies get close
+    let timeScale = 1.0;
+    if (cheats.time_warp && !isTimeStopped) {
+        let closestEnemyDistSq = Infinity;
+        for (const enemy of enemies) {
+            if (enemy.isHit) continue;
+            const dx = enemy.x - player.x;
+            const dy = enemy.y - player.y;
+            const distSq = dx*dx + dy*dy;
+            if (distSq < closestEnemyDistSq) closestEnemyDistSq = distSq;
+        }
+        // Slow time progressively as enemies get within 200 pixels
+        const TIME_WARP_RADIUS_SQ = 200 * 200;
+        if (closestEnemyDistSq < TIME_WARP_RADIUS_SQ) {
+            const distRatio = Math.sqrt(closestEnemyDistSq) / 200;
+            timeScale = 0.3 + (0.7 * distRatio); // 0.3x to 1.0x speed
+        }
+    }
+    
     // Frame counter for throttling expensive per-enemy checks
     if (!update._frame) update._frame = 0;
     update._frame = (update._frame + 1) % 6;
@@ -38,6 +57,11 @@
             if (!update._lastAchievementCheck || now - update._lastAchievementCheck > 1000) {
                 checkAchievements();
                 update._lastAchievementCheck = now;
+            }
+
+            // Check for mega boss spawn at 15 minutes
+            if (!megaBossSpawned && gameActive && (now - gameStartTime >= MEGA_BOSS_SPAWN_TIME)) {
+                createMegaBoss();
             }
 
             if (now - lastMerchantSpawnTime >= MERCHANT_SPAWN_INTERVAL) {
@@ -118,6 +142,7 @@ for (let i = merchants.length - 1; i >= 0; i--) {
             if (cheats.double_game_speed) currentPlayerSpeed *= 2;
             if (cheats.slow_mo_mode) currentPlayerSpeed *= 0.5;
             if (cheats.infinite_dash) player.dashCooldown = 0;
+            if (cheats.infinite_stamina) currentPlayerSpeed *= 1.3; // 30% faster with infinite stamina
 
 
             if(player.isDashing) {
@@ -303,9 +328,9 @@ for (let i = merchants.length - 1; i >= 0; i--) {
                 player2.x = Math.max(player2.size / 2, Math.min(WORLD_WIDTH - player2.size / 2, player2.x));
                 player2.y = Math.max(player2.size / 2, Math.min(WORLD_HEIGHT - player2.size / 2, player2.y));
                 
-                // Player 2 aiming with numpad (8=up, 2=down, 4=left, 6=right)
+                // Player 2 aiming with numpad (8=up, 5=down, 4=left, 6=right)
                 if (keys['8']) p2aimDy = -1; // Numpad 8 is up
-                if (keys['2']) p2aimDy = 1;  // Numpad 2 is down  
+                if (keys['5']) p2aimDy = 1;  // Numpad 5 is down  
                 if (keys['4']) p2aimDx = -1; // Numpad 4 is left
                 if (keys['6']) p2aimDx = 1;  // Numpad 6 is right
                 
@@ -468,12 +493,147 @@ for (let i = merchants.length - 1; i >= 0; i--) {
                 }
             }
 
+            // Dynamite — thrown at closest enemy, stops after 1s, explodes after 3s with fire damage
+            if (dynamiteActive && !isTimeStopped && now - lastDynamiteTime > DYNAMITE_INTERVAL) {
+                let dynTarget = null; let minDist = Infinity;
+                for (let si = 0; si < enemies.length; si++) {
+                    const e = enemies[si];
+                    if (!e.isHit) {
+                        const d = (player.x - e.x)**2 + (player.y - e.y)**2;
+                        if (d < minDist) { minDist = d; dynTarget = e; }
+                    }
+                }
+                if (dynTarget) {
+                    const angle = Math.atan2(dynTarget.y - player.y, dynTarget.x - player.x);
+                    const speed = DYNAMITE_BASE_SPEED * (1 + (player.upgradeLevels?.fireRate || 0) * 0.1); // Speed increases with fire rate
+                    dynamiteProjectiles.push({
+                        x: player.x,
+                        y: player.y,
+                        dx: Math.cos(angle) * speed,
+                        dy: Math.sin(angle) * speed,
+                        angle: angle,
+                        spawnTime: now,
+                        stopTime: now + DYNAMITE_STOP_TIME,
+                        explodeTime: now + DYNAMITE_EXPLODE_TIME,
+                        size: 20,
+                        active: true,
+                        stopped: false
+                    });
+                    playSound('playerShoot');
+                    lastDynamiteTime = now;
+                }
+            }
 
-            // Enemy cap: scales with difficulty. Hard allows up to 150, medium 120, easy 80.
-            // Also scales slightly with powerups collected to keep challenge proportional.
-            const baseCap = currentDifficulty === 'hard' ? 100 : currentDifficulty === 'medium' ? 80 : 60;
-            const powerupPressure = Math.floor(player.boxPickupsCollectedCount / 5);
-            let enemySpawnCap = cheats.noSpawnCap ? Infinity : Math.min(baseCap + powerupPressure, 160);
+            // Update dynamite projectiles
+            for (let i = dynamiteProjectiles.length - 1; i >= 0; i--) {
+                const dyn = dynamiteProjectiles[i];
+                if (!dyn.active) continue;
+                
+                // Move until stop time
+                if (!dyn.stopped && now < dyn.stopTime) {
+                    dyn.x += dyn.dx;
+                    dyn.y += dyn.dy;
+                } else if (!dyn.stopped) {
+                    dyn.stopped = true;
+                }
+                
+                // Check if it's time to explode
+                if (now >= dyn.explodeTime) {
+                    const explosionRadius = 60;
+                    
+                    // Create flame area like oil barrel
+                    flameAreas.push({
+                        x: dyn.x,
+                        y: dyn.y,
+                        radius: explosionRadius,
+                        startTime: now,
+                        endTime: now + 3000 // 3 seconds of fire
+                    });
+                    
+                    // Damage enemies in radius
+                    const killedEnemies = [];
+                    for (const enemy of enemies) {
+                        if (!enemy.isHit) {
+                            const dx = enemy.x - dyn.x;
+                            const dy = enemy.y - dyn.y;
+                            if (dx*dx + dy*dy < explosionRadius*explosionRadius) {
+                                enemy.health -= 2; // Explosion damage
+                                enemy.isIgnited = true; // Set on fire like oil barrel
+                                enemy.ignitionEndTime = now + 3000;
+                                createBloodSplatter(enemy.x, enemy.y);
+                                
+                                if (enemy.health <= 0) {
+                                    killedEnemies.push({x: enemy.x, y: enemy.y});
+                                    handleEnemyDeath(enemy);
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Chain Reaction cheat: killed enemies trigger smaller secondary explosions
+                    if (cheats.chain_explosion && killedEnemies.length > 0) {
+                        const chainRadius = 40;
+                        const chainDelay = 150; // 150ms delay for chain effect
+                        
+                        killedEnemies.forEach((pos, idx) => {
+                            setTimeout(() => {
+                                // Create smaller flame area
+                                flameAreas.push({
+                                    x: pos.x,
+                                    y: pos.y,
+                                    radius: chainRadius,
+                                    startTime: Date.now(),
+                                    endTime: Date.now() + 2000
+                                });
+                                
+                                // Chain damage to nearby enemies
+                                for (const enemy of enemies) {
+                                    if (!enemy.isHit) {
+                                        const dx = enemy.x - pos.x;
+                                        const dy = enemy.y - pos.y;
+                                        if (dx*dx + dy*dy < chainRadius*chainRadius) {
+                                            enemy.health -= 1; // Chain damage is weaker
+                                            enemy.isIgnited = true;
+                                            enemy.ignitionEndTime = Date.now() + 2000;
+                                            if (enemy.health <= 0) handleEnemyDeath(enemy);
+                                        }
+                                    }
+                                }
+                                
+                                // Visual chain explosion
+                                explosions.push({
+                                    x: pos.x,
+                                    y: pos.y,
+                                    radius: chainRadius,
+                                    startTime: Date.now(),
+                                    duration: 300
+                                });
+                            }, chainDelay * (idx + 1));
+                        });
+                    }
+                    
+                    // Visual explosion effect
+                    explosions.push({
+                        x: dyn.x,
+                        y: dyn.y,
+                        radius: explosionRadius,
+                        startTime: now,
+                        duration: 400
+                    });
+                    
+                    playSound('enemyDeath');
+                    dyn.active = false;
+                }
+                
+                // Remove inactive dynamite
+                if (!dyn.active) {
+                    dynamiteProjectiles.splice(i, 1);
+                }
+            }
+
+            // Enemy cap: fixed per difficulty for consistent challenge
+            // Hard: 100, Medium: 80, Easy: 60 - no box scaling to prevent overcrowding
+            const enemySpawnCap = cheats.noSpawnCap ? Infinity : (currentDifficulty === 'hard' ? 100 : currentDifficulty === 'medium' ? 80 : 60);
             
             // Horde mode: double the spawn cap
             if (cheats.horde_mode) {
@@ -518,12 +678,17 @@ for (let i = merchants.length - 1; i >= 0; i--) {
                     update._lastCoinRainTime = now;
                 }
             }
-            let currentEnemySpawnInterval = enemySpawnInterval / Math.pow(1.3, player.boxPickupsCollectedCount) * (1 - 0.01 * (player.level - 1));
-            currentEnemySpawnInterval *= 0.5; // 2x spawn rate
+            // Linear box scaling instead of exponential for better pacing
+            const boxScaling = 1 + player.boxPickupsCollectedCount * 0.12;
+            let currentEnemySpawnInterval = enemySpawnInterval / boxScaling * (1 - 0.005 * (player.level - 1));
             // Hard mode spawns faster to fill the higher cap
             if (currentDifficulty === 'hard') currentEnemySpawnInterval *= 0.65;
             else if (currentDifficulty === 'medium') currentEnemySpawnInterval *= 0.82;
-            currentEnemySpawnInterval = Math.max(currentDifficulty === 'hard' ? 50 : 80, currentEnemySpawnInterval);
+            // Higher floor to prevent spawn rate from getting too chaotic
+            currentEnemySpawnInterval = Math.max(
+                currentDifficulty === 'hard' ? 120 : currentDifficulty === 'medium' ? 150 : 180, 
+                currentEnemySpawnInterval
+            );
             
             // Horde mode: double the spawn rate (half the interval)
             if (cheats.horde_mode) {
@@ -534,41 +699,71 @@ for (let i = merchants.length - 1; i >= 0; i--) {
                 createBoss();
                 lastBossLevelSpawned = player.level;
             }
-            if (enemies.length < enemySpawnCap && now - lastEnemySpawnTime > currentEnemySpawnInterval) {
+            if (!normalEnemySpawningPaused && enemies.length < enemySpawnCap && now - lastEnemySpawnTime > currentEnemySpawnInterval) {
                 if (cheats.boss_rush_mode) { createBoss(); } else { createEnemy(); }
                 lastEnemySpawnTime = now;
             }
             
+            // Reset ignited enemy count for this frame (for adaptive throttling)
+            update._ignitedEnemyCount = 0;
+            
             enemies.forEach((enemy, enemyIdx) => {
                 if (isTimeStopped) return;
+
+                // Mega boss minion spawning
+                if (enemy.isMegaBoss) {
+                    spawnMegaBossMinions(enemy);
+                }
 
                 if (enemy.isIgnited) {
                     if (now > enemy.ignitionEndTime) { enemy.isIgnited = false; }
                     else {
-                        // Smoke from ignited enemies — throttled, capped, simple circles
-                        if (smokeParticles.length < 50 && !enemy._lastSmoke || now - enemy._lastSmoke > 300) {
-                            smokeParticles.push({
-                                x: enemy.x + (Math.random() - 0.5) * enemy.size,
-                                y: enemy.y - enemy.size * 0.3,
-                                dx: (Math.random() - 0.5) * 0.4, dy: -0.5 - Math.random() * 0.5,
-                                size: 6 + Math.random() * 4, alpha: 0.5
-                            });
+                        // Count ignited enemies globally for throttling (calculated once per frame)
+                        if (!update._ignitedEnemyCount) update._ignitedEnemyCount = 0;
+                        update._ignitedEnemyCount++;
+                        
+                        // Smoke from ignited enemies — adaptively throttled based on total burning enemies
+                        // When many enemies burn, reduce smoke frequency and cap
+                        const manyIgnited = update._ignitedEnemyCount > 10;
+                        const smokeCap = manyIgnited ? 25 : 50;
+                        const smokeInterval = manyIgnited ? 600 : 300; // Less frequent when many burning
+                        
+                        if (smokeParticles.length < smokeCap && (!enemy._lastSmoke || now - enemy._lastSmoke > smokeInterval)) {
+                            // Batch smoke creation: only create smoke for every Nth enemy when many burning
+                            if (!manyIgnited || (enemyIdx % 3 === 0)) {
+                                smokeParticles.push({
+                                    x: enemy.x + (Math.random() - 0.5) * enemy.size,
+                                    y: enemy.y - enemy.size * 0.3,
+                                    dx: (Math.random() - 0.5) * 0.4, dy: -0.5 - Math.random() * 0.5,
+                                    size: 6 + Math.random() * 4, alpha: 0.5
+                                });
+                            }
                             enemy._lastSmoke = now;
                         }
-                        if (now - enemy.lastIgnitionDamageTime > 500) { // Burn damage every 0.5 seconds
-                            const damage = 0.5; // Small but frequent damage
+                        
+                        // Burn damage every 0.5 seconds - staggered by enemy index to spread load
+                        const damageInterval = 500 + (enemyIdx % 5) * 50; // 500-750ms staggered
+                        if (now - enemy.lastIgnitionDamageTime > damageInterval) {
+                            const damage = 0.5;
                             enemy.health -= damage;
-                            createBloodSplatter(enemy.x, enemy.y);
                             
-                            // Damage number for burning
-                            if (floatingTexts.length < 30) {
+                            // Skip visual effects when many enemies burning to reduce lag
+                            const skipEffects = manyIgnited && (enemyIdx % 3 !== 0);
+                            
+                            if (!skipEffects) {
+                                createBloodSplatter(enemy.x, enemy.y);
+                            }
+                            
+                            // Damage number for burning - show for each enemy individually throttled
+                            if (!enemy._lastBurnDamageNumberTime || now - enemy._lastBurnDamageNumberTime > 600) {
                                 floatingTexts.push({
                                     text: String(damage),
                                     x: enemy.x + (Math.random() - 0.5) * enemy.size,
                                     y: enemy.y - enemy.size * 0.5,
                                     startTime: now, duration: 600,
-                                    color: '#ff4400', fontSize: 10
+                                    color: '#ff6600', fontSize: 11
                                 });
+                                enemy._lastBurnDamageNumberTime = now;
                             }
                             
                             if (enemy.health <= 0) { handleEnemyDeath(enemy); }
@@ -595,6 +790,7 @@ for (let i = merchants.length - 1; i >= 0; i--) {
                 let effectiveEnemySpeed = enemy.speed;
                 if(cheats.fastEnemies) effectiveEnemySpeed *= 1.5;
                 if(cheats.slowEnemies) effectiveEnemySpeed *= 0.5;
+                if(cheats.time_warp) effectiveEnemySpeed *= timeScale; // Apply time warp slow-down
 
                 // Throttle puddle checks — only every 3 frames per enemy (staggered by index)
                 enemy.isSlowedByPuddle = enemy.isSlowedByPuddle || false;
@@ -620,6 +816,30 @@ for (let i = merchants.length - 1; i >= 0; i--) {
                     }
                 }
                 if (enemy.isSlowedByPuddle) effectiveEnemySpeed *= PLAYER_PUDDLE_SLOW_FACTOR;
+                
+                // Alien slime damage - enemies in puddles take 0.25 damage periodically
+                if (player && player._isAlien && enemy.isSlowedByPuddle) {
+                    if (!enemy._lastAlienSlimeDamageTime) enemy._lastAlienSlimeDamageTime = 0;
+                    if (now - enemy._lastAlienSlimeDamageTime >= 500) { // 500ms between damage
+                        enemy._lastAlienSlimeDamageTime = now;
+                        enemy.health -= 0.25;
+                        
+                        // Show green damage number
+                        floatingTexts.push({
+                            text: '0.25',
+                            x: enemy.x,
+                            y: enemy.y - enemy.size / 2,
+                            startTime: now,
+                            duration: 600,
+                            color: '#00FF00', // Green damage number
+                            fontSize: 12
+                        });
+                        
+                        if (enemy.health <= 0) {
+                            handleEnemyDeath(enemy);
+                        }
+                    }
+                }
                 if (enemy.isFrozen && now < enemy.freezeEndTime) {
                     enemy._pendingMoveX = 0;
                     enemy._pendingMoveY = 0;
@@ -642,6 +862,19 @@ for (let i = merchants.length - 1; i >= 0; i--) {
                             moveX += Math.cos(angleToTarget) * effectiveEnemySpeed;
                             moveY += Math.sin(angleToTarget) * effectiveEnemySpeed;
                         }
+                        break;
+                    }
+                    case 'skull': {
+                        // Approach for 3s, flee for 1s with 1.5x speed (compensates for backtracking)
+                        if (!enemy.lastSkullStateChange) enemy.lastSkullStateChange = now;
+                        const skullStateDur = enemy.skullState === 'approach' ? 3000 : 1000;
+                        if (now - enemy.lastSkullStateChange > skullStateDur) {
+                            enemy.skullState = enemy.skullState === 'approach' ? 'flee' : 'approach';
+                            enemy.lastSkullStateChange = now;
+                        }
+                        const skullDirection = enemy.skullState === 'approach' ? 1 : -1;
+                        moveX += Math.cos(angleToTarget) * effectiveEnemySpeed * skullDirection;
+                        moveY += Math.sin(angleToTarget) * effectiveEnemySpeed * skullDirection;
                         break;
                     }
                     case 'devil': 
@@ -774,16 +1007,55 @@ for (let i = merchants.length - 1; i >= 0; i--) {
                         // Snail puddle trail removed
                         break;
                     }
+                    case 'invader': {
+                        // Invader: exaggerated S/zig-zag movement towards player
+                        const baseAngle = angleToTarget;
+                        // Create exaggerated zig-zag by adding sine wave perpendicular to movement
+                        const zigzagAmplitude = 2.5; // Exaggerated swerving
+                        const zigzagFrequency = 0.008; // How fast it zigzags
+                        enemy.zigzagPhase += zigzagFrequency * effectiveEnemySpeed;
+                        
+                        // Calculate perpendicular direction for zigzag
+                        const perpX = -Math.sin(baseAngle);
+                        const perpY = Math.cos(baseAngle);
+                        
+                        // Apply zigzag offset
+                        const zigzagOffset = Math.sin(enemy.zigzagPhase) * zigzagAmplitude;
+                        
+                        // Main movement towards player plus zigzag
+                        moveX += (Math.cos(baseAngle) * effectiveEnemySpeed) + (perpX * zigzagOffset);
+                        moveY += (Math.sin(baseAngle) * effectiveEnemySpeed) + (perpY * zigzagOffset);
+                        break;
+                    }
                     default:
-                        moveX += Math.cos(angleToTarget) * effectiveEnemySpeed;
-                        moveY += Math.sin(angleToTarget) * effectiveEnemySpeed;
+                        // Handle stopping zombies (1 in 4) - move 3-4s, stop 0.5s
+                        if (enemy.isStoppingZombie) {
+                            if (!enemy.zombieStateStartTime) enemy.zombieStateStartTime = now;
+                            const currentStateDur = enemy.zombieMoveState === 'moving' ? enemy.zombieStateDuration : enemy.zombieStopDuration;
+                            if (now - enemy.zombieStateStartTime > currentStateDur) {
+                                enemy.zombieMoveState = enemy.zombieMoveState === 'moving' ? 'stopped' : 'moving';
+                                enemy.zombieStateStartTime = now;
+                                if (enemy.zombieMoveState === 'moving') {
+                                    // Randomize next move duration 3-4 seconds
+                                    enemy.zombieStateDuration = 3000 + Math.random() * 1000;
+                                }
+                            }
+                            // Only move if not stopped
+                            if (enemy.zombieMoveState === 'moving') {
+                                moveX += Math.cos(angleToTarget) * effectiveEnemySpeed;
+                                moveY += Math.sin(angleToTarget) * effectiveEnemySpeed;
+                            }
+                        } else {
+                            moveX += Math.cos(angleToTarget) * effectiveEnemySpeed;
+                            moveY += Math.sin(angleToTarget) * effectiveEnemySpeed;
+                        }
                         break;
                 }
                 enemy._pendingMoveX = moveX;
                 enemy._pendingMoveY = moveY;
             });
             
-            // Apply movement + obstacle repulsion
+            // Apply movement + obstacle repulsion + enemy separation
             for (let ei = 0; ei < enemies.length; ei++) {
                 const enemy = enemies[ei];
                 // Skip enemies that had no movement calculated (time stopped etc)
@@ -792,6 +1064,32 @@ for (let i = merchants.length - 1; i >= 0; i--) {
                 let finalX = enemy._pendingMoveX;
                 let finalY = enemy._pendingMoveY;
                 enemy._pendingMoveX = undefined;
+
+                // Enemy-to-enemy separation (like Vampire Survivors) - throttled for performance
+                if ((update._frame + ei) % 3 === 0) {
+                    let sepX = 0, sepY = 0;
+                    const sepRadius = enemy.size * 1.2; // Separation distance
+                    const sepRadiusSq = sepRadius * sepRadius;
+
+                    for (let ej = 0; ej < enemies.length; ej++) {
+                        if (ei === ej) continue;
+                        const other = enemies[ej];
+                        const dx = enemy.x - other.x;
+                        const dy = enemy.y - other.y;
+                        const distSq = dx*dx + dy*dy;
+
+                        if (distSq < sepRadiusSq && distSq > 0.01) {
+                            const dist = Math.sqrt(distSq);
+                            // Stronger repulsion when closer
+                            const force = (1 - dist/sepRadius) * 1.5;
+                            sepX += (dx/dist) * force;
+                            sepY += (dy/dist) * force;
+                        }
+                    }
+                    enemy._sepX = sepX;
+                    enemy._sepY = sepY;
+                }
+                if (enemy._sepX) { finalX += enemy._sepX; finalY += enemy._sepY; }
 
                 if (destructibles.length > 0 && (update._frame + ei) % 4 === 0) {
                     let repX = 0, repY = 0;
@@ -863,7 +1161,25 @@ for (let i = merchants.length - 1; i >= 0; i--) {
                     isPlayerHitShaking = true; playerHitShakeStartTime = now;
                     if (vengeanceNovaActive) { vengeanceNovas.push({ x: player.x, y: player.y, startTime: now, duration: 500, maxRadius: player.size * 3 }); }
                     if (temporalWardActive) { isTimeStopped = true; timeStopEndTime = now + 2000; playSound('levelUpSelect'); }
-                    if (player.lives <= 0) { endGame(); }
+                    if (player.lives <= 0) { 
+                        // Second Life cheat: revive once per run at full health
+                        if (cheats.second_life && !player._hasRevivedWithSecondLife) {
+                            player._hasRevivedWithSecondLife = true;
+                            player.lives = player.maxLives;
+                            floatingTexts.push({ 
+                                text: "SECOND LIFE!", 
+                                x: player.x, 
+                                y: player.y - player.size, 
+                                startTime: now, 
+                                duration: 2000, 
+                                color: '#FFD700',
+                                fontSize: 20
+                            });
+                            playSound('levelUpSelect');
+                        } else {
+                            endGame(); 
+                        }
+                    }
                     handleEnemyDeath(enemy);
                 }
                 if (canGhostDamage && player2 && player2.active) {
@@ -989,6 +1305,73 @@ for (let i = merchants.length - 1; i >= 0; i--) {
                         angle: angleToTarget, isHit: false, lifetime: now + 2000, isHoming: true
                     };
                     dogHomingShots.push(shot); dog.lastHomingShotTime = now; playSound('playerShoot');
+                }
+            }
+
+            // Robot Drone update - autonomous movement and shooting
+            if (robotDroneActive && !isTimeStopped) {
+                // Move autonomously at player base speed
+                robotDrone.x += robotDrone.dx;
+                robotDrone.y += robotDrone.dy;
+                
+                // Bounce off screen borders
+                const halfSize = robotDrone.size / 2;
+                if (robotDrone.x < halfSize) {
+                    robotDrone.x = halfSize;
+                    robotDrone.dx = Math.abs(robotDrone.dx);
+                } else if (robotDrone.x > WORLD_WIDTH - halfSize) {
+                    robotDrone.x = WORLD_WIDTH - halfSize;
+                    robotDrone.dx = -Math.abs(robotDrone.dx);
+                }
+                if (robotDrone.y < halfSize) {
+                    robotDrone.y = halfSize;
+                    robotDrone.dy = Math.abs(robotDrone.dy);
+                } else if (robotDrone.y > WORLD_HEIGHT - halfSize) {
+                    robotDrone.y = WORLD_HEIGHT - halfSize;
+                    robotDrone.dy = -Math.abs(robotDrone.dy);
+                }
+                
+                // Fire at closest enemy every second
+                if (now - robotDrone.lastFireTime > ROBOT_DRONE_FIRE_INTERVAL) {
+                    let closestEnemy = null;
+                    let minDistanceSq = Infinity;
+                    
+                    for (let ei = 0; ei < enemies.length; ei++) {
+                        const enemy = enemies[ei];
+                        if (!enemy.isHit) {
+                            const distSq = (robotDrone.x - enemy.x)**2 + (robotDrone.y - enemy.y)**2;
+                            if (distSq < minDistanceSq) {
+                                minDistanceSq = distSq;
+                                closestEnemy = enemy;
+                            }
+                        }
+                    }
+                    
+                    if (closestEnemy) {
+                        const angle = Math.atan2(closestEnemy.y - robotDrone.y, closestEnemy.x - robotDrone.x);
+                        
+                        // Create bullet from weapon pool
+                        for (const weapon of weaponPool) {
+                            if (!weapon.active) {
+                                weapon.x = robotDrone.x;
+                                weapon.y = robotDrone.y;
+                                weapon.size = ROBOT_DRONE_BULLET_SIZE;
+                                weapon.speed = ROBOT_DRONE_BULLET_SPEED;
+                                weapon.angle = angle;
+                                weapon.dx = Math.cos(angle) * weapon.speed;
+                                weapon.dy = Math.sin(angle) * weapon.speed;
+                                weapon.lifetime = now + 2000;
+                                weapon.hitsLeft = 1;
+                                weapon.hitEnemies.length = 0;
+                                weapon.owner = 'robot_drone';
+                                weapon.active = true;
+                                weapon._isRobotDroneBullet = true;
+                                break;
+                            }
+                        }
+                        playSound('playerShoot');
+                    }
+                    robotDrone.lastFireTime = now;
                 }
             }
 
@@ -1747,7 +2130,25 @@ for (let i = lightningBolts.length - 1; i >= 0; i--) {
                     playSound('playerScream'); playEyeProjectileHitSound(); 
                     updateUIStats(); eyeProj.isHit = true;
                     isPlayerHitShaking = true; playerHitShakeStartTime = now;
-                    if (player.lives <= 0) endGame();
+                    if (player.lives <= 0) {
+                        // Second Life cheat: revive once per run at full health
+                        if (cheats.second_life && !player._hasRevivedWithSecondLife) {
+                            player._hasRevivedWithSecondLife = true;
+                            player.lives = player.maxLives;
+                            floatingTexts.push({ 
+                                text: "SECOND LIFE!", 
+                                x: player.x, 
+                                y: player.y - player.size, 
+                                startTime: now, 
+                                duration: 2000, 
+                                color: '#FFD700',
+                                fontSize: 20
+                            });
+                            playSound('levelUpSelect');
+                        } else {
+                            endGame();
+                        }
+                    }
                 }
             }
             if (puddleTrailActive && now - lastPlayerPuddleSpawnTime > PLAYER_PUDDLE_SPAWN_INTERVAL) {
