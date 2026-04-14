@@ -2237,9 +2237,16 @@ function createBoss() {
             angles.forEach(angle => fireWeaponFromPool(angle, boneShotActive && shooter === player));
             if(dualGunActive && shooter === player) { angles.forEach(angle => fireWeaponFromPool(angle + Math.PI, boneShotActive)); }
             
-            // Dual Revolvers: queue a second bullet 200ms after the first
+            // Dual Revolvers: queue a second bullet after half the current fire interval
+            // This ensures the second shot scales with fire rate boosts (apple pickup, cheats, etc.)
             if(dualRevolversActive && shooter === player) {
-                pendingRevolverShot = { angles: [...angles], fireAt: Date.now() + 200 };
+                let currentInterval = weaponFireInterval;
+                if(fireRateBoostActive) currentInterval /= 2;
+                if(cheats.fastShooting) currentInterval /= 5;
+                if(cheats.double_game_speed) currentInterval /= 2;
+                currentInterval = Math.max(50, currentInterval);
+                // Second shot fires at half the current fire interval (staggered fire pattern)
+                pendingRevolverShot = { angles: [...angles], fireAt: Date.now() + (currentInterval * 0.5) };
             }
 
             if (shooter === player) {
