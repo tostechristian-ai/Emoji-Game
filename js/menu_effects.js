@@ -10,7 +10,7 @@
   'use strict';
 
   // ─── CONSTANTS ────────────────────────────────────────────────────────────
-  const ENEMY_EMOJIS = ['🧟','💀','🦇','👹','👻','😈','🧛‍♀️','🧟‍♀️','🦟','👁️']; // Pool of enemies that fly across the menu
+  const ENEMY_EMOJIS = ['🧟','💀','🦇','👹','👻','😈','🧛‍♀️','�','🦟','👁️']; // Pool of enemies that fly across the menu
   const FLYBY_INTERVAL = 10000; // How often an enemy flies across (ms)
   let lastFlybyTime = 0;
 

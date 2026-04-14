@@ -62,14 +62,14 @@
         id: SKULL_ID,
         name: 'The Skeleton',
         emoji: SKULL_EMOJI,
-        perk: 'V-spread bones (0.5x dmg) + 6-bone dash nova.',
+        perk: 'Piercing bone shots (0.5x dmg, 1 dmg/bone) + 6-bone dash nova.',
         unlockCondition: { type: 'achievement', id: SKULL_ACH_ID }
       };
     } else {
       CHARACTERS[SKULL_ID].name = 'The Skeleton';
       CHARACTERS[SKULL_ID].unlockCondition = { type: 'achievement', id: SKULL_ACH_ID };
       CHARACTERS[SKULL_ID].emoji = SKULL_EMOJI;
-      CHARACTERS[SKULL_ID].perk = 'V-spread bones (0.5x dmg) + 6-bone dash nova.';
+      CHARACTERS[SKULL_ID].perk = 'Piercing bone shots (0.5x dmg, 1 dmg/bone) + 6-bone dash nova.';
     }
 
     // Also register in the unlockable pickups table (for shop display)
@@ -97,17 +97,17 @@
 
     // Apply Skeleton-specific stats to the player
     // - Halves damage (bones are weaker individually)
-    // - Forces V-spread so bones fire in a spread pattern
+    // - Activates bone_shot powerup for piercing spinning bones
     function applySkullToPlayer() {
       if (!player) return;
       player._isSkull = true;
       if (player._skull_damage_backup === undefined) player._skull_damage_backup = player.damageMultiplier;
-      if (player._skull_vshape_backup === undefined) player._skull_vshape_backup = window.vShapeProjectileLevel || 0;
       player.damageMultiplier = player._skull_damage_backup * 0.5; // 0.5x damage
-      if (typeof window.vShapeProjectileLevel !== 'undefined') {
-        window.vShapeProjectileLevel = Math.max(1, player._skull_vshape_backup); // Force V-spread
+      // Activate bone shot powerup for piercing spinning bones
+      if (typeof window.boneShotActive !== 'undefined') {
+        window.boneShotActive = true;
       }
-      log('Skull stats applied: 0.5x damage, V-spread enabled.');
+      log('Skull stats applied: 0.5x damage, bone shot enabled.');
     }
 
     // Restore original player stats when switching away from Skeleton
@@ -119,11 +119,9 @@
         player.damageMultiplier = player._skull_damage_backup;
         delete player._skull_damage_backup;
       }
-      if (player._skull_vshape_backup !== undefined) {
-        if (typeof window.vShapeProjectileLevel !== 'undefined') {
-          window.vShapeProjectileLevel = player._skull_vshape_backup;
-        }
-        delete player._skull_vshape_backup;
+      // Deactivate bone shot when switching away from skull
+      if (typeof window.boneShotActive !== 'undefined') {
+        window.boneShotActive = false;
       }
       log('Skull stats removed.');
     }

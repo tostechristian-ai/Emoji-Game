@@ -412,6 +412,15 @@ let doppelganger = null;
         const ORBIT_RADIUS = 35;
         const ORBIT_SPEED = 0.05;
 
+        // Levitating Books constants - like Vampire Survivors books
+        const LEVITATING_BOOKS_SIZE = 22;
+        const LEVITATING_BOOKS_RADIUS = ORBIT_RADIUS * 3; // 3x farther than orbiter
+        const LEVITATING_BOOKS_SPEED = 0.04;
+        const LEVITATING_BOOKS_FADE_CYCLE = 4000; // Total cycle time (ms)
+        const LEVITATING_BOOKS_VISIBLE_TIME = 2500; // Time visible (ms)
+        const LEVITATING_BOOKS_FADE_TIME = 750; // Fade in/out duration (ms)
+        const LEVITATING_BOOKS_EMOJI = '📖';
+
         let damagingCircleAngle = 0;
         const DAMAGING_CIRCLE_SPIN_SPEED = 0.03;
         const DAMAGING_CIRCLE_RADIUS = 70;
@@ -447,10 +456,10 @@ let doppelganger = null;
         const VAMPIRE_DODGE_DETECTION_RADIUS = 200;
         const VAMPIRE_DODGE_STRENGTH = 1.5;
 
-        const FEMALE_ZOMBIE_EMOJI = '🧟‍♀️';
-        const FEMALE_ZOMBIE_SIZE = 17 * 1.75;
-        const FEMALE_ZOMBIE_HEALTH = 6;
-        const FEMALE_ZOMBIE_SPEED_MULTIPLIER = 0.5;
+        const GENIE_EMOJI = '🧞';
+        const GENIE_SIZE = 24;
+        const GENIE_HEALTH = 8;
+        const GENIE_SPEED_MULTIPLIER = 0.4;
 
         const PLAYER_PUDDLE_SIZE = player.size / 1.5;
         const PLAYER_PUDDLE_SPAWN_INTERVAL = 80;
@@ -643,6 +652,12 @@ let doppelganger = null;
 
         let bombEmitterActive = false; let lastBombEmitMs = 0;
         let orbitingPowerUpActive = false;
+        let levitatingBooksActive = false;
+        let levitatingBooksAngle = 0;
+        let levitatingBooksFadeStartTime = 0;
+        let levitatingBooksAlpha = 0;
+        let levitatingBooksCurrentlyVisible = false;
+        let levitatingBooksPositions = [];
         let damagingCircleActive = false; let lastDamagingCircleDamageTime = 0;
         let lightningProjectileActive = false; let lastLightningSpawnTime = 0;
         let magneticProjectileActive = false;
@@ -653,9 +668,12 @@ let doppelganger = null;
         let autoAimActive = false;
         let explosiveBulletsActive = false;
         let vengeanceNovaActive = false;
+        let dodgeNovaActive = false;
         let dogCompanionActive = false;
+        let catAllyActive = false;
         let antiGravityActive = false; let lastAntiGravityPushTime = 0;
         let ricochetActive = false;
+        let boneShotActive = false;
         let rocketLauncherActive = false;
         let blackHoleActive = false; let lastBlackHoleTime = 0;
         let dualGunActive = false;
@@ -682,9 +700,19 @@ let doppelganger = null;
         const ROBOT_DRONE_FIRE_INTERVAL = 1000; // Fire every 1 second
         const ROBOT_DRONE_BULLET_SIZE = 18;
         const ROBOT_DRONE_BULLET_SPEED = 6;
+
+        // Turret powerup
+        let turretActive = false;
+        let turret = { x: 0, y: 0, size: 35, aimAngle: 0, lastFireTime: 0 };
+        const TURRET_FIRE_INTERVAL = 1000; // Fire every 1 second
+        const TURRET_BULLET_SIZE = 18;
+        const TURRET_BULLET_SPEED = 6;
         
         let dog = { x: 0, y: 0, size: 25, state: 'returning', target: null, lastHomingShotTime: 0 };
         const DOG_HOMING_SHOT_INTERVAL = 3000;
+        
+        let catAlly = { x: 0, y: 0, size: 23, state: 'returning', target: null, carriedItem: null };
+        const CAT_ALLY_SPEED = 2; // Same speed multiplier as dog (2x player speed)
         
         let temporalWardActive = false;
         let isTimeStopped = false;
@@ -1574,7 +1602,7 @@ document.body.addEventListener('touchstart', (e) => {
             '👹': { size: 28 * 0.7, baseHealth: 4, speedMultiplier: 1.8975, type: 'demon', minLevel: 15, initialProps: () => ({ moveState: 'following', lastStateChangeTime: Date.now(), randomDx: 0, randomDy: 0 }) },
             '👻': { size: 22, baseHealth: 4, speedMultiplier: 1.2, type: 'ghost', minLevel: 12, initialProps: () => ({ isVisible: true, lastPhaseChange: Date.now(), phaseDuration: 3000, bobOffset: 0 }) },
             '👁️': { size: 25 * 0.6, baseHealth: 4, speedMultiplier: 1.1 * 1.1, type: 'eye', minLevel: 20, initialProps: () => ({ lastEyeProjectileTime: Date.now() }) },
-            '🧟‍♀️': { size: 17 * 1.75, baseHealth: 6, speedMultiplier: 0.5, type: 'pursuer', minLevel: 25 },
+            '🧞': { size: 24, baseHealth: 8, speedMultiplier: 0.4, type: 'genie', minLevel: 25, spawnWeight: 0.3, initialProps: () => ({ gravityRadius: 80, gravityStrength: 0.15 }) },
             '🧛‍♀️': { size: 20, baseHealth: 5, speedMultiplier: 1.2, type: 'vampire', minLevel: 30 },
             '👾': { size: 22, baseHealth: 1.5, speedMultiplier: 0.9, type: 'invader', minLevel: 2, spawnWeight: 0.05, initialProps: () => ({ zigzagPhase: 0 }) }
         };
@@ -1588,12 +1616,13 @@ document.body.addEventListener('touchstart', (e) => {
         let lastBossLevelSpawned = 0;
 
         // Mega Boss constants
-        const MEGA_BOSS_SPAWN_TIME = 15 * 60 * 1000; // 15 minutes in milliseconds
+        const MEGA_BOSS_SPAWN_TIME = 60 * 1000; // 15 seconds for testing (normally 15 minutes = 15 * 60 * 1000)
         const MEGA_BOSS_HEALTH_MULTIPLIER = 10;
-        const MEGA_BOSS_SIZE_MULTIPLIER = 2;
+        const MEGA_BOSS_SIZE_MULTIPLIER = 4; // 4x larger than normal enemy
         const MEGA_BOSS_SPEED_MULTIPLIER = 0.5;
         const MEGA_BOSS_MINION_SPAWN_INTERVAL = 3000; // 3 seconds
         let megaBossSpawned = false;
+        let megaBossSpawnInitiated = false; // Prevents multiple spawn calls during warning delay
         let megaBossDefeated = false;
         let lastMegaBossMinionSpawnTime = 0;
         let megaBossMusicPlaying = false;
@@ -1743,7 +1772,7 @@ document.body.addEventListener('touchstart', (e) => {
 
             if (enemy.isBoss) {
                 createPickup(enemy.x, enemy.y, BOSS_XP_EMOJI, enemy.size / 2, BOSS_XP_DROP);
-            } else if (enemy.emoji === VAMPIRE_EMOJI || enemy.emoji === FEMALE_ZOMBIE_EMOJI) {
+            } else if (enemy.emoji === VAMPIRE_EMOJI || enemy.emoji === GENIE_EMOJI) {
                 createPickup(enemy.x, enemy.y, '💎', DIAMOND_SIZE, 5);
             } else if (enemy.emoji === '🐌') {
                 createPickup(enemy.x, enemy.y, DIAMOND_EMOJI, DIAMOND_SIZE, DIAMOND_XP_VALUE);
@@ -1796,9 +1825,9 @@ function createBoss() {
                 const currentBaseEnemySpeed = baseEnemySpeed * difficultySpeedMultiplier * (1 + 0.02 * (player.level - 1));
                 const bossSpeed = currentBaseEnemySpeed * config.speedMultiplier * 0.75;
 
-                // Boss size: 2.5× for small enemies, 1.8× for already-large ones
-                const sizeMultiplier = config.size < 20 ? 2.5 : 2.0;
-                const bossSize = config.size * sizeMultiplier;
+                // Boss size: 3x larger than normal enemy
+                const BOSS_SIZE_MULTIPLIER = 3;
+                const bossSize = config.size * BOSS_SIZE_MULTIPLIER;
 
                 // Boss health scales with level — harder bosses as the run progresses
                 const bossHealth = Math.floor(BOSS_HEALTH + player.level * 1.5);
@@ -1827,6 +1856,10 @@ function createBoss() {
         }
 
         function createMegaBoss() {
+            // Prevent multiple spawn attempts during the warning delay
+            if (megaBossSpawnInitiated) return;
+            megaBossSpawnInitiated = true;
+            
             // Show warning first
             visualWarnings.push({ 
                 text: '☠️ MEGA BOSS APPROACHING! ☠️', 
@@ -2056,6 +2089,7 @@ function createBoss() {
                 if (!dualRevolversActive) powerUpChoices.push({id: 'dual_revolvers', name: 'Dual Revolvers', label: 'REV'});
                 if (!bombEmitterActive) powerUpChoices.push({id: 'bomb', name: 'Bomb Emitter', label: 'BMB'});
                 if (!orbitingPowerUpActive) powerUpChoices.push({id: 'orbiter', name: 'Spinning Orbiter', label: 'ORB'});
+                if (!levitatingBooksActive) powerUpChoices.push({id: 'levitating_books', name: 'Levitating Books', label: 'BKS'});
                 if (!lightningProjectileActive) powerUpChoices.push({id: 'lightning_projectile', name: 'Lightning Projectile', label: 'LTN'});
                 if (!bugSwarmActive) powerUpChoices.push({id: 'bug_swarm', name: 'Bug Swarm', label: 'BUG'});
                 if (!lightningStrikeActive) powerUpChoices.push({id: 'lightning_strike', name: 'Lightning Strike', label: 'STK'});
@@ -2063,6 +2097,7 @@ function createBoss() {
                 if (unlocked.ice_cannon && !iceCannonActive) powerUpChoices.push({id: 'ice_cannon', name: 'Ice Cannon', label: 'ICE'});
                 if (unlocked.dynamite && !dynamiteActive) powerUpChoices.push({id: 'dynamite', name: 'Dynamite', label: 'DYN'});
                 if (unlocked.pistol && !player._hasPistol && equippedCharacterID !== 'cowboy') powerUpChoices.push({id: 'pistol', name: 'Pistol', label: 'PST'});
+                if (unlocked.bone_shot && !boneShotActive) powerUpChoices.push({id: 'bone_shot', name: 'Bone Shot', label: 'BON'});
                 if (!hasDashInvincibility) powerUpChoices.push({id: 'dash_invincibility', name: 'Dash Invincibility', label: 'DSH'});
                 if (!playerData.hasReducedDashCooldown) powerUpChoices.push({id: 'dash_cooldown', name: 'Dash Cooldown', label: 'CDN'});
 
@@ -2070,7 +2105,9 @@ function createBoss() {
                 if (unlocked.temporal_ward && !temporalWardActive) powerUpChoices.push({id: 'temporal_ward', name: 'Temporal Ward', label: 'TME'});
                 if (unlocked.circle && !damagingCircleActive) powerUpChoices.push({id:'circle', name: 'Damaging Circle', label: 'CIR'});
                 if (unlocked.vengeance_nova && !vengeanceNovaActive) powerUpChoices.push({id: 'vengeance_nova', name: 'Vengeance Nova', label: 'VNG'});
+                if (unlocked.dodge_nova && !dodgeNovaActive) powerUpChoices.push({id: 'dodge_nova', name: 'Dodge Nova', label: 'DNV'});
                 if (unlocked.dog_companion && !dogCompanionActive) powerUpChoices.push({id: 'dog_companion', name: 'Dog Companion', label: 'DOG'});
+                if (unlocked.cat_ally && !catAllyActive) powerUpChoices.push({id: 'cat_ally', name: 'Cat Ally', label: 'CAT'});
                 if (unlocked.anti_gravity && !antiGravityActive) powerUpChoices.push({id: 'anti_gravity', name: 'Anti-Gravity', label: 'AGV'});
                 if (unlocked.rocket_launcher && !rocketLauncherActive && !shotgunBlastActive) powerUpChoices.push({id: 'rocket_launcher', name: 'Heavy Shells', label: 'RKT'});
                 if (unlocked.black_hole && !blackHoleActive) powerUpChoices.push({id: 'black_hole', name: 'Black Hole', label: 'BLK'});
@@ -2078,6 +2115,7 @@ function createBoss() {
                 if (unlocked.night_owl && !nightOwlActive) powerUpChoices.push({id: 'night_owl', name: 'Night Owl', label: 'OWL'});
                 if (unlocked.whirlwind_axe && !whirlwindAxeActive) powerUpChoices.push({id: 'whirlwind_axe', name: 'Whirlwind Axe', label: 'AXE'});
                 if (unlocked.robot_drone && !robotDroneActive) powerUpChoices.push({id: 'robot_drone', name: 'Robot Drone', label: 'RBT'});
+                if (!turretActive) powerUpChoices.push({id: 'turret', name: 'Turret', label: 'TRT'});
 
                 if (powerUpChoices.length > 0) {
                     const randomChoice = powerUpChoices[Math.floor(Math.random() * powerUpChoices.length)];
@@ -2144,7 +2182,7 @@ function createBoss() {
                 else { weaponAngle = shooter.rotationAngle; }
             }
             
-            const fireWeaponFromPool = (angle) => {
+            const fireWeaponFromPool = (angle, isBoneShot = false) => {
                 for(const weapon of weaponPool) {
                     if(!weapon.active) {
                         // Found a dead weapon, reuse it!
@@ -2155,8 +2193,17 @@ function createBoss() {
                         weapon.angle = angle;
                         weapon.dx = Math.cos(angle) * weapon.speed;
                         weapon.dy = Math.sin(angle) * weapon.speed;
-                        weapon.lifetime = Date.now() + 2000;
-                        weapon.hitsLeft = rocketLauncherActive ? 3 : (ricochetActive ? 2 : 1);
+                        // Bone shots: 5 second lifetime, piercing (999 hits), marked with _isBoneShot
+                        if (isBoneShot) {
+                            weapon.lifetime = Date.now() + 5000; // 5 seconds
+                            weapon.hitsLeft = 999; // Piercing
+                            weapon._isBoneShot = true;
+                            weapon._boneDamage = 1; // Fixed 1 damage
+                        } else {
+                            weapon.lifetime = Date.now() + 2000;
+                            weapon.hitsLeft = rocketLauncherActive ? 3 : (ricochetActive ? 2 : 1);
+                            weapon._isBoneShot = false;
+                        }
                         weapon.hitEnemies.length = 0; // Clear the hit list
                         weapon.owner = (shooter === player) ? 'player' : 'other';
                         weapon.active = true;
@@ -2187,8 +2234,8 @@ function createBoss() {
                 }
             }
             
-            angles.forEach(angle => fireWeaponFromPool(angle));
-            if(dualGunActive && shooter === player) { angles.forEach(angle => fireWeaponFromPool(angle + Math.PI)); }
+            angles.forEach(angle => fireWeaponFromPool(angle, boneShotActive && shooter === player));
+            if(dualGunActive && shooter === player) { angles.forEach(angle => fireWeaponFromPool(angle + Math.PI, boneShotActive)); }
             
             // Dual Revolvers: queue a second bullet 200ms after the first
             if(dualRevolversActive && shooter === player) {
@@ -2456,10 +2503,17 @@ if (firstCard) {
             }
             
             // Companions and targeting
-            if (dogCompanionActive && autoAimActive) {
+            if (dogCompanionActive && catAllyActive && autoAimActive) {
+                icons.push('🐶🐱🎯');
+            } else if (dogCompanionActive && catAllyActive) {
+                icons.push('🐶🐱');
+            } else if (dogCompanionActive && autoAimActive) {
                 icons.push('🐶🎯');
+            } else if (catAllyActive && autoAimActive) {
+                icons.push('🐱🎯');
             } else {
                 if (dogCompanionActive) icons.push('🐶');
+                if (catAllyActive) icons.push('🐱');
                 if (autoAimActive) icons.push('🎯');
             }
             
@@ -2470,6 +2524,7 @@ if (firstCard) {
             if (ricochetActive) icons.push('🔄');
             if (flamingBulletsActive) icons.push('🔥');
             if (flamethrowerActive) icons.push('🔥💨');
+            if (boneShotActive) icons.push('🦴');
             
             // Melee weapons
             if (player.swordActive) icons.push('🗡️');
@@ -2489,6 +2544,7 @@ if (firstCard) {
             
             // Area effects
             if (orbitingPowerUpActive) icons.push('💫');
+            if (levitatingBooksActive) icons.push('📖');
             if (damagingCircleActive) icons.push('⭕');
             if (puddleTrailActive) icons.push('💧');
             if (blackHoleActive) icons.push('⚫');
@@ -2502,6 +2558,7 @@ if (firstCard) {
             if (doppelgangerActive) icons.push('👯');
             if (temporalWardActive) icons.push('⏱️');
             if (vengeanceNovaActive) icons.push('🛡️');
+            if (dodgeNovaActive) icons.push('💨');
             if (hasDashInvincibility) icons.push('🛡️💨');
             if (laserPointerActive) icons.push('🔴');
             
@@ -2624,6 +2681,9 @@ async function tryLoadMusic(retries = 3) {
             if (cheats.dog_companion_start) {
                 activatePowerup('dog_companion');
             }
+            if (cheats.cat_ally_start) {
+                activatePowerup('cat_ally');
+            }
             if (cheats.magnet_mode) {
                 player.magnetRadius = WORLD_WIDTH;
             }
@@ -2639,6 +2699,8 @@ async function tryLoadMusic(retries = 3) {
                 const cloneCount = 3 + Math.floor(Math.random() * 3);
                 if (!window.cloneArmy) window.cloneArmy = [];
                 window.cloneArmy.length = 0;
+                // Store target count for respawn logic
+                window.cloneArmyTargetCount = cloneCount;
                 for (let ci = 0; ci < cloneCount; ci++) {
                     const angle = (ci / cloneCount) * Math.PI * 2;
                     window.cloneArmy.push({
@@ -2647,6 +2709,8 @@ async function tryLoadMusic(retries = 3) {
                         size: player.size * 0.8,
                         rotationAngle: 0,
                         lastFireTime: 0,
+                        hp: 3,
+                        maxHp: 3,
                         endTime: Infinity
                     });
                 }
@@ -2836,6 +2900,7 @@ async function startGame() {
             
             // Reset mega boss state for new game
             megaBossSpawned = false;
+            megaBossSpawnInitiated = false;
             megaBossDefeated = false;
             megaBossMusicPlaying = false;
             normalEnemySpawningPaused = false;
@@ -2846,10 +2911,12 @@ async function startGame() {
             score = 0; lastEnemySpawnTime = 0; enemySpawnInterval = 1000;
             lastWeaponFireTime = 0; weaponFireInterval = 400; enemiesDefeatedCount = 0;
             fireRateBoostActive = false; fireRateBoostEndTime = 0; bombEmitterActive = false; orbitingPowerUpActive = false;
+            levitatingBooksActive = false; levitatingBooksAngle = 0; levitatingBooksFadeStartTime = 0;
+            levitatingBooksAlpha = 0; levitatingBooksCurrentlyVisible = false; levitatingBooksPositions = [];
             damagingCircleActive = false; lastDamagingCircleDamageTime = 0; lightningProjectileActive = false; lastLightningSpawnTime = 0;
             magneticProjectileActive = false; vShapeProjectileLevel = 0; iceProjectileActive = false; puddleTrailActive = false;
             laserPointerActive = false; autoAimActive = false; explosiveBulletsActive = false; vengeanceNovaActive = false;
-            dogCompanionActive = false; antiGravityActive = false; ricochetActive = false; rocketLauncherActive = false;
+            dogCompanionActive = false; catAllyActive = false; dodgeNovaActive = false; antiGravityActive = false; ricochetActive = false; boneShotActive = false; rocketLauncherActive = false;
             blackHoleActive = false; dualGunActive = false; dualRevolversActive = false; pendingRevolverShot = null; flamingBulletsActive = false; flamethrowerActive = false; laserCannonActive = false; hasDashInvincibility = false;
             lastAntiGravityPushTime = 0; lastBlackHoleTime = 0; shotgunBlastActive = false; doppelgangerActive = false;
             shotgunActive = false; lastShotgunTime = 0; iceCannonActive = false; lastIceCannonTime = 0;
@@ -2859,6 +2926,7 @@ async function startGame() {
             bugSwarmActive = false; nightOwlActive = false; whirlwindAxeActive = false; lightningStrikeActive = false; owl = null;
             
             dog = { x: player.x, y: player.y, size: 25, state: 'returning', target: null, lastHomingShotTime: 0 };
+            catAlly = { x: player.x, y: player.y, size: 23, state: 'returning', target: null, carriedItem: null };
             player2 = null;
             merchants.length = 0; // Ensure no merchants at start
 
@@ -3010,6 +3078,35 @@ async function startGame() {
             entity.lastDashTime = now;
             entity.spinStartTime = now; // For spin animation
             playSound('dodge'); // Play dodge sound
+            
+            // Dodge Nova: Fire 6 bullets in all directions when dashing
+            if (entity === player && dodgeNovaActive) {
+                const novaBulletSpeed = 5 * player.projectileSpeedMultiplier;
+                const novaBulletSize = 18 * player.projectileSizeMultiplier;
+                for (let i = 0; i < 6; i++) {
+                    const angle = (i / 6) * Math.PI * 2; // 6 directions evenly spaced
+                    for (const w of weaponPool) {
+                        if (!w.active) {
+                            w.x = player.x;
+                            w.y = player.y;
+                            w.size = novaBulletSize;
+                            w.speed = novaBulletSpeed;
+                            w.angle = angle;
+                            w.dx = Math.cos(angle) * novaBulletSpeed;
+                            w.dy = Math.sin(angle) * novaBulletSpeed;
+                            w.lifetime = now + 1500;
+                            w.hitsLeft = 1;
+                            w.hitEnemies.length = 0;
+                            w.owner = 'player';
+                            w.active = true;
+                            w._isDodgeNova = true;
+                            break;
+                        }
+                    }
+                }
+                playSound('playerShoot');
+            }
+            
             if (entity === player) {
                 playerStats.totalDashes++;
                 if (runStats) runStats.dashesThisRun = (runStats.dashesThisRun || 0) + 1;

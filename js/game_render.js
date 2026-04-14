@@ -275,14 +275,21 @@
                 const emojiToDraw = enemy.isBoss ? enemy.mimics : enemy.emoji;
                 const preRenderedImage = preRenderedEntities[emojiToDraw];
                 if(preRenderedImage) {
+                    // Calculate scale factor based on enemy's actual size vs pre-rendered size
+                    const scaleFactor = enemy.size / preRenderedImage.width;
+                    const drawWidth = preRenderedImage.width * scaleFactor;
+                    const drawHeight = preRenderedImage.height * scaleFactor;
+                    const drawX = enemy.x - drawWidth / 2;
+                    const drawY = enemy.y - drawHeight / 2 + (enemy.bobOffset || 0);
+                    
                     // Apply blue tint for frozen enemies
                     if (enemy.isFrozen) {
                         ctx.save();
                         ctx.filter = 'hue-rotate(180deg) saturate(2)';
-                        ctx.drawImage(preRenderedImage, enemy.x - preRenderedImage.width / 2, enemy.y - preRenderedImage.height / 2 + (enemy.bobOffset || 0));
+                        ctx.drawImage(preRenderedImage, drawX, drawY, drawWidth, drawHeight);
                         ctx.restore();
                     } else {
-                        ctx.drawImage(preRenderedImage, enemy.x - preRenderedImage.width / 2, enemy.y - preRenderedImage.height / 2 + (enemy.bobOffset || 0));
+                        ctx.drawImage(preRenderedImage, drawX, drawY, drawWidth, drawHeight);
                     }
                 }
 
@@ -381,6 +388,24 @@
                     ctx.rotate(weapon._boneSpin);
                     const bonePre = preRenderedEntities && preRenderedEntities['🦴'];
                     if (bonePre) { ctx.drawImage(bonePre, -10, -10, 20, 20); }
+                    ctx.restore();
+                    continue;
+                }
+                // Bone Shot: spinning bones (piercing projectiles)
+                if (weapon._isBoneShot) {
+                    weapon._boneSpin = ((weapon._boneSpin || weapon.angle) + 0.25);
+                    ctx.rotate(weapon._boneSpin);
+                    const bonePre = preRenderedEntities && preRenderedEntities['🦴'];
+                    const bSize = weapon.size * 0.6; // Scale with projectile size upgrades
+                    if (bonePre) {
+                        ctx.drawImage(bonePre, -bSize/2, -bSize/2, bSize, bSize);
+                    } else {
+                        ctx.rotate(weapon.angle);
+                        ctx.font = `${weapon.size}px sans-serif`;
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText('🦴', 0, 0);
+                    }
                     ctx.restore();
                     continue;
                 }
@@ -837,6 +862,20 @@
                 if (doppelganger.rotationAngle > Math.PI / 2 || doppelganger.rotationAngle < -Math.PI / 2) { ctx.scale(1, -1); }
                 ctx.drawImage(sprites.gun, gunXOffset, gunYOffset, gunWidth, gunHeight);
                 ctx.restore();
+
+                // Draw HP bar above doppelganger
+                const hpBarWidth = doppelganger.size;
+                const hpBarHeight = 4;
+                const hpBarX = doppelganger.x - hpBarWidth / 2;
+                const hpBarY = doppelganger.y - doppelganger.size / 2 - 10;
+                const hpPercent = (doppelganger.hp || 3) / (doppelganger.maxHp || 3);
+
+                // Background (empty)
+                ctx.fillStyle = '#333';
+                ctx.fillRect(hpBarX, hpBarY, hpBarWidth, hpBarHeight);
+                // Health fill
+                ctx.fillStyle = hpPercent > 0.5 ? '#00ff00' : (hpPercent > 0.3 ? '#ffff00' : '#ff0000');
+                ctx.fillRect(hpBarX, hpBarY, hpBarWidth * hpPercent, hpBarHeight);
             }
 
             // Clone army cheat rendering
@@ -846,6 +885,20 @@
                     ctx.globalAlpha = 0.7; ctx.filter = 'hue-rotate(90deg)';
                     ctx.drawImage(playerSprite, clone.x - clone.size / 2, clone.y - clone.size / 2, clone.size, clone.size);
                     ctx.restore();
+
+                    // Draw HP bar above clone
+                    const hpBarWidth = clone.size;
+                    const hpBarHeight = 3;
+                    const hpBarX = clone.x - hpBarWidth / 2;
+                    const hpBarY = clone.y - clone.size / 2 - 8;
+                    const hpPercent = (clone.hp || 3) / (clone.maxHp || 3);
+
+                    // Background (empty)
+                    ctx.fillStyle = '#333';
+                    ctx.fillRect(hpBarX, hpBarY, hpBarWidth, hpBarHeight);
+                    // Health fill
+                    ctx.fillStyle = hpPercent > 0.5 ? '#00ff00' : (hpPercent > 0.3 ? '#ffff00' : '#ff0000');
+                    ctx.fillRect(hpBarX, hpBarY, hpBarWidth * hpPercent, hpBarHeight);
                 });
             }
 
@@ -857,6 +910,33 @@
                 ctx.translate(orbitX, orbitY);
                 ctx.rotate(orbitingImageAngle);
                 ctx.drawImage(sprites.spinninglight, -ORBIT_POWER_UP_SIZE / 2, -ORBIT_POWER_UP_SIZE / 2, ORBIT_POWER_UP_SIZE, ORBIT_POWER_UP_SIZE);
+                ctx.restore();
+            }
+
+            // Levitating Books - two books orbiting opposite each other with fade effect
+            if (levitatingBooksActive && levitatingBooksAlpha > 0 && levitatingBooksPositions.length === 2) {
+                ctx.save();
+                ctx.globalAlpha = levitatingBooksAlpha;
+                
+                // Draw both books
+                for (const bookPos of levitatingBooksPositions) {
+                    const preRendered = preRenderedEntities[LEVITATING_BOOKS_EMOJI];
+                    if (preRendered) {
+                        ctx.drawImage(preRendered, 
+                            bookPos.x - LEVITATING_BOOKS_SIZE / 2, 
+                            bookPos.y - LEVITATING_BOOKS_SIZE / 2, 
+                            LEVITATING_BOOKS_SIZE, 
+                            LEVITATING_BOOKS_SIZE
+                        );
+                    } else {
+                        // Fallback to drawing emoji directly
+                        ctx.font = `${LEVITATING_BOOKS_SIZE}px serif`;
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText(LEVITATING_BOOKS_EMOJI, bookPos.x, bookPos.y);
+                    }
+                }
+                
                 ctx.restore();
             }
 
@@ -874,6 +954,33 @@
             if (dogCompanionActive) {
                 const preRendered = preRenderedEntities['🐶'];
                 if(preRendered) ctx.drawImage(preRendered, dog.x - preRendered.width/2, dog.y - preRendered.height/2);
+            }
+            
+            // Cat Ally rendering - shows cat emoji and carried item if any
+            if (catAllyActive) {
+                const preRendered = preRenderedEntities['🐱'];
+                if(preRendered) {
+                    ctx.drawImage(preRendered, catAlly.x - preRendered.width/2, catAlly.y - preRendered.height/2);
+                    
+                    // Draw carried item above cat if carrying something
+                    if (catAlly.carriedItem) {
+                        let carriedEmoji = '💎';
+                        if (catAlly.carriedItem.type === 'apple') carriedEmoji = '🍎';
+                        else if (catAlly.carriedItem.type === 'box') carriedEmoji = '📦';
+                        else if (catAlly.carriedItem.type === 'xp') {
+                            // Show appropriate XP emoji based on value
+                            if (catAlly.carriedItem.xpValue >= DEMON_XP_VALUE) carriedEmoji = DEMON_XP_EMOJI;
+                            else if (catAlly.carriedItem.xpValue >= RING_SYMBOL_XP_VALUE) carriedEmoji = RING_SYMBOL_EMOJI;
+                            else if (catAlly.carriedItem.xpValue >= DIAMOND_XP_VALUE) carriedEmoji = DIAMOND_EMOJI;
+                            else carriedEmoji = COIN_EMOJI;
+                        }
+                        
+                        ctx.font = '14px sans-serif';
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText(carriedEmoji, catAlly.x, catAlly.y - catAlly.size);
+                    }
+                }
             }
             
             // Robot Drone rendering with blue outline and drop shadow
@@ -912,7 +1019,55 @@
                 
                 ctx.restore();
             }
-            
+
+            // Turret rendering with green outline (ally indicator) and pistol aiming
+            if (turretActive) {
+                const preRendered = preRenderedEntities['🏛️'];
+
+                ctx.save();
+
+                // Draw drop shadow under turret
+                const shadowY = turret.y + turret.size * 0.4;
+                const shadowRadiusX = turret.size * 0.5;
+                const shadowRadiusY = turret.size * 0.2;
+                ctx.beginPath();
+                ctx.ellipse(turret.x, shadowY, shadowRadiusX, shadowRadiusY, 0, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+                ctx.fill();
+
+                // Draw green outline (ally indicator - opposite of enemy red outline)
+                const outlineSize = turret.size * 0.6;
+                ctx.beginPath();
+                ctx.arc(turret.x, turret.y, outlineSize / 2, 0, Math.PI * 2);
+                ctx.strokeStyle = 'rgba(0, 200, 0, 0.6)';
+                ctx.lineWidth = 3;
+                ctx.stroke();
+
+                // Draw the turret base (classical building emoji)
+                if (preRendered) {
+                    ctx.drawImage(preRendered, turret.x - preRendered.width / 2, turret.y - preRendered.height / 2);
+                } else {
+                    ctx.font = `${turret.size}px sans-serif`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText('🏛️', turret.x, turret.y);
+                }
+
+                // Draw pistol gun pointing at aim angle
+                ctx.save();
+                ctx.translate(turret.x, turret.y);
+                ctx.rotate(turret.aimAngle);
+                if (turret.aimAngle > Math.PI / 2 || turret.aimAngle < -Math.PI / 2) { ctx.scale(1, -1); }
+                const gunWidth = turret.size * 0.8;
+                const gunHeight = gunWidth * (sprites.gun.height / sprites.gun.width);
+                const gunXOffset = turret.size / 4;
+                const gunYOffset = -gunHeight / 2;
+                ctx.drawImage(sprites.gun, gunXOffset, gunYOffset, gunWidth, gunHeight);
+                ctx.restore();
+
+                ctx.restore();
+            }
+
             if (player2 && player2.active) {
                 ctx.fillStyle = 'rgba(255, 255, 0, 0.5)';
                 ctx.beginPath(); ctx.arc(player2.x, player2.y, player2.size / 2, 0, Math.PI * 2); ctx.fill();

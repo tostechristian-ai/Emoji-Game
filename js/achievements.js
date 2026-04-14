@@ -101,6 +101,7 @@ const CHEATS = {
     'one_hit_kill': { name: "One-Hit Kill", desc: "All bullets instantly kill enemies." },
     'rainbow_bullets': { name: "Rainbow Bullets", desc: "Bullets cycle through colors every shot." },
     'rain_of_bullets': { name: "Rain of Bullets", desc: "Bullets randomly fall from the sky every second." },
+    'fastShooting': { name: "Rapid Fire", desc: "5x faster firing rate for all weapons." },
     
     // ─── ENEMY CHEATS ───────────────────────────────────────────────────────
     'horde_mode': { name: "Horde Mode", desc: "2x enemy spawn rate and 2x spawn cap. Prepare for chaos!" },
@@ -108,6 +109,7 @@ const CHEATS = {
     'zombie_enemies': { name: "Zombie Enemies", desc: "Enemies revive once with half health." },
     'fastEnemies': { name: "Fast Enemies", desc: "Enemies move 50% faster." },
     'slowEnemies': { name: "Slow Enemies", desc: "Enemies move 50% slower." },
+    'noSpawnCap': { name: "Infinite Enemies", desc: "Remove the enemy spawn cap entirely." },
     
     // ─── PLAYER POWER CHEATS ────────────────────────────────────────────────
     'nuke_touch': { name: "Nuke Touch", desc: "If touched by an enemy, all alive enemies are wiped out." },
@@ -120,6 +122,7 @@ const CHEATS = {
     
     // ─── COMPANION CHEATS ───────────────────────────────────────────────────
     'dog_companion_start': { name: "Dog Companion Start", desc: "Always start with dog companion." },
+    'cat_ally_start': { name: "Cat Ally Start", desc: "Always start with cat ally that collects pickups." },
     'clone_army': { name: "Clone Army", desc: "Spawns 3–5 permanent doppelgangers that fight with you." },
     
     // ─── HEALTH CHEATS ──────────────────────────────────────────────────────
@@ -154,7 +157,10 @@ const CHEATS = {
     
     // ─── NEW SURVIVAL CHEATS ───────────────────────────────────────────────
     'time_warp': { name: "Time Warp", desc: "Time slows down when enemies get close to you." },
-    'second_life': { name: "Second Life", desc: "Once per run, revive at full health instead of dying." }
+    'second_life': { name: "Second Life", desc: "Once per run, revive at full health instead of dying." },
+    
+    // ─── MASTER UNLOCK CHEAT ───────────────────────────────
+    'unlock_everything': { name: "UNLOCK EVERYTHING", desc: "UNLOCKED: All cheats are now available! Toggle any cheat on/off regardless of trophies." }
 };
 
 // Storage for which cheats are currently enabled
@@ -194,7 +200,7 @@ const TROPHY_UNLOCKS_CHEAT = {
     'speed_demon': 'mirror_mode',
     'chaos_survivor': 'zombie_enemies',
     'friend_or_foe': 'enemy_possession',
-    'immortal_legend': 'mirror_mode',
+    'immortal_legend': 'vampire_mode',
     
     // New achievement → cheat mappings
     'pyromaniac': 'inferno_mode',
@@ -203,7 +209,7 @@ const TROPHY_UNLOCKS_CHEAT = {
     'marathon_runner': 'infinite_stamina',
     'iron_soul': 'time_warp',
     'berserker': 'second_life',
-    'run_completed': 'all_powerups_start'
+    'run_completed': 'unlock_everything'
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -612,16 +618,22 @@ function displayAchievements() {
 function displayCheats() {
     cheatsContainer.innerHTML = '';
     
+    // Check if master unlock cheat is active (unlocks everything)
+    const hasMasterUnlock = ACHIEVEMENTS['run_completed']?.unlocked || false;
+    
     for (const id in CHEATS) {
         const cheat = CHEATS[id];
+        
+        // Skip the master unlock cheat itself from the list
+        if (id === 'unlock_everything') continue;
         
         // Find which trophy unlocks this cheat
         const unlockedByTrophyId = Object.keys(TROPHY_UNLOCKS_CHEAT).find(
             key => TROPHY_UNLOCKS_CHEAT[key] === id
         );
         
-        // Check if the trophy is unlocked
-        const isUnlocked = unlockedByTrophyId && ACHIEVEMENTS[unlockedByTrophyId]?.unlocked;
+        // Check if the trophy is unlocked OR if master unlock is active
+        const isUnlocked = hasMasterUnlock || (unlockedByTrophyId && ACHIEVEMENTS[unlockedByTrophyId]?.unlocked);
         
         // Create cheat card
         const card = document.createElement('div');
@@ -635,10 +647,18 @@ function displayCheats() {
             </label>
         ` : '<span>🔒</span>';
 
+        // Build description text
+        let descText = cheat.desc;
+        if (!isUnlocked && unlockedByTrophyId) {
+            descText = `Unlock the "${ACHIEVEMENTS[unlockedByTrophyId]?.name}" trophy.`;
+        } else if (hasMasterUnlock) {
+            descText = cheat.desc + ' [UNLOCKED]';
+        }
+
         card.innerHTML = `
             <div class="cheat-info">
                 <h4>${cheat.name}</h4>
-                <p>${isUnlocked ? cheat.desc : `Unlock the "${ACHIEVEMENTS[unlockedByTrophyId]?.name}" trophy.`}</p>
+                <p>${descText}</p>
             </div>
             ${toggleHTML}
         `;
@@ -652,5 +672,19 @@ function displayCheats() {
                 saveCheats();
             });
         }
+    }
+    
+    // Show master unlock status at the bottom if unlocked
+    if (hasMasterUnlock) {
+        const masterCard = document.createElement('div');
+        masterCard.className = 'cheat-card master-unlocked';
+        masterCard.innerHTML = `
+            <div class="cheat-info">
+                <h4>🏆 ${CHEATS['unlock_everything'].name}</h4>
+                <p>${CHEATS['unlock_everything'].desc}</p>
+            </div>
+            <span>✓</span>
+        `;
+        cheatsContainer.appendChild(masterCard);
     }
 }

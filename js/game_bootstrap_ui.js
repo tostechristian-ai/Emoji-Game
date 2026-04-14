@@ -116,6 +116,7 @@ const UNLOCKABLE_PICKUPS = {
   whirlwind_axe:{ name: "Whirlwind Axe", desc: "Unlocks a large, damaging orbiting axe.",     cost: 1000, icon: '🪓' },
   doppelganger: { name: "Doppelganger",  desc: "Unlocks the doppelganger pickup.",             cost: 1200, icon: '👯' },
   dog_companion:{ name: "Dog Companion", desc: "Unlocks the loyal dog companion pickup.",      cost: 500,  icon: '🐶' },
+  cat_ally:     { name: "Cat Ally",      desc: "Unlocks the cat that collects pickups for you.", cost: 600,  icon: '🐱' },
   // ─── SPECIAL POWERUPS ─────────────────────────────────────────────────────
   anti_gravity: { name: "Anti-Gravity",  desc: "Unlocks the enemy-repelling pulse pickup.",   cost: 600,  icon: '💨' },
   temporal_ward:{ name: "Temporal Ward", desc: "Unlocks the time-freezing defensive pickup.", cost: 800,  icon: '⏱️' },
@@ -124,6 +125,7 @@ const UNLOCKABLE_PICKUPS = {
   flaming_bullets:{ name: "Flaming Bullets",desc: "Unlocks bullets that ignite enemies.",     cost: 1150, icon: '🔥' },
   black_hole:   { name: "Black Hole",    desc: "Unlocks the enemy-vortex pickup.",            cost: 1180, icon: '⚫' },
   vengeance_nova:{ name: "Vengeance Nova",desc: "Unlocks the defensive blast pickup.",        cost: 700,  icon: '🛡️' },
+  dodge_nova:   { name: "Dodge Nova",    desc: "Unlocks dodge nova - fires 6 bullets when dashing.", cost: 850, icon: '💨' },
   robot_drone:  { name: "Robot Drone",   desc: "Unlocks the autonomous combat drone.",       cost: 900,  icon: '🤖' },
   game_speed:   { name: "Game Speed",      desc: "Unlocks game speed control (0.5x, 1x, 2x, 3x).", cost: 1200, icon: '⏩' },
   // ─── WEAPON PICKUPS ───────────────────────────────────────────────────────
@@ -131,6 +133,7 @@ const UNLOCKABLE_PICKUPS = {
   ice_cannon:   { name: "Ice Cannon",      desc: "Unlocks the ice cannon powerup.",            cost: 1000, icon: '❄️' },
   dynamite:     { name: "Dynamite",        desc: "Unlocks the dynamite throwing powerup.",     cost: 1100, icon: '🧨' },
   pistol:       { name: "Pistol",          desc: "Unlocks pistol for non-cowboy characters.",  cost: 800,  icon: '🔫' },
+  bone_shot:    { name: "Bone Shot",       desc: "Unlocks piercing spinning bone projectiles.", cost: 850,  icon: '🦴' },
   // ─── QUALITY OF LIFE ──────────────────────────────────────────────────────
   fourth_heart: { name: "4th Heart",       desc: "Start each run with 4 hearts instead of 3.", cost: 3000, icon: '❤️' },
   four_choices: { name: "4 Level Choices", desc: "Get 4 choices on level up instead of 3.",  cost: 3500, icon: '📋' }

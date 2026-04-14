@@ -57,10 +57,38 @@
             if (!update._lastAchievementCheck || now - update._lastAchievementCheck > 1000) {
                 checkAchievements();
                 update._lastAchievementCheck = now;
+
+                // Timer: Add 157 score every second
+                score += 157;
+
+                // Timer visual effects: pulse trigger
+                if (gameTimerSpan) {
+                    const elapsedMs = now - gameStartTime - gameTimeOffset;
+                    const elapsedSeconds = Math.floor(elapsedMs / 1000);
+                    const progress = Math.min(1, elapsedMs / MEGA_BOSS_SPAWN_TIME); // 0 to 1 approaching 15 min
+
+                    // Color transition: green (120° hue) to red (0° hue)
+                    const hue = Math.floor(120 * (1 - progress)); // 120 -> 0
+                    const color = `hsl(${hue}, 100%, 50%)`;
+                    gameTimerSpan.style.color = color;
+
+                    // Pulse intensity: base scale 1.0, max scale increases as we approach 15 min
+                    // Base pulse: 1.0 -> 1.15, at 15 min: 1.0 -> 1.4
+                    const minScale = 1.0;
+                    const maxScale = 1.15 + (0.25 * progress); // 1.15 to 1.4
+                    const pulseScale = minScale + (maxScale - minScale) * 0.5; // Mid-point for CSS animation
+
+                    // Apply pulse animation with dynamic intensity
+                    gameTimerSpan.style.transition = 'transform 0.1s ease-out, color 0.5s ease';
+                    gameTimerSpan.style.transform = `scale(${maxScale})`;
+                    setTimeout(() => {
+                        if (gameTimerSpan) gameTimerSpan.style.transform = `scale(${minScale})`;
+                    }, 100);
+                }
             }
 
             // Check for mega boss spawn at 15 minutes
-            if (!megaBossSpawned && gameActive && (now - gameStartTime >= MEGA_BOSS_SPAWN_TIME)) {
+            if (!megaBossSpawned && !megaBossSpawnInitiated && gameActive && (now - gameStartTime >= MEGA_BOSS_SPAWN_TIME)) {
                 createMegaBoss();
             }
 
@@ -1027,6 +1055,29 @@ for (let i = merchants.length - 1; i >= 0; i--) {
                         moveY += (Math.sin(baseAngle) * effectiveEnemySpeed) + (perpY * zigzagOffset);
                         break;
                     }
+                    case 'genie': {
+                        // Genie: stays at medium distance to maximize gravity field effectiveness
+                        const distToTarget = Math.sqrt(minTargetDistSq);
+                        const GENIE_IDEAL_DISTANCE = 120; // Stay at this distance from player
+                        const GENIE_COMFORT_ZONE = 40; // +/- this range is acceptable
+                        
+                        if (distToTarget < GENIE_IDEAL_DISTANCE - GENIE_COMFORT_ZONE) {
+                            // Too close - back away
+                            moveX -= Math.cos(angleToTarget) * effectiveEnemySpeed;
+                            moveY -= Math.sin(angleToTarget) * effectiveEnemySpeed;
+                        } else if (distToTarget > GENIE_IDEAL_DISTANCE + GENIE_COMFORT_ZONE) {
+                            // Too far - approach
+                            moveX += Math.cos(angleToTarget) * effectiveEnemySpeed;
+                            moveY += Math.sin(angleToTarget) * effectiveEnemySpeed;
+                        }
+                        // If in comfort zone, strafe slowly sideways
+                        else {
+                            const strafeAngle = angleToTarget + Math.PI / 2;
+                            moveX += Math.cos(strafeAngle) * effectiveEnemySpeed * 0.5;
+                            moveY += Math.sin(strafeAngle) * effectiveEnemySpeed * 0.5;
+                        }
+                        break;
+                    }
                     default:
                         // Handle stopping zombies (1 in 4) - move 3-4s, stop 0.5s
                         if (enemy.isStoppingZombie) {
@@ -1197,16 +1248,91 @@ for (let i = merchants.length - 1; i >= 0; i--) {
                     const dx_dop = doppelganger.x - enemy.x;
                     const dy_dop = doppelganger.y - enemy.y;
                     if((dx_dop*dx_dop + dy_dop*dy_dop) < combinedRadiusDop*combinedRadiusDop) {
-                        createBloodSplatter(doppelganger.x, doppelganger.y); createBloodPuddle(doppelganger.x, doppelganger.y, doppelganger.size);
-                        doppelganger = null; doppelgangerActive = false;
-                        runStats.lastDoppelgangerStartTime = 0;
-                        updatePowerupIconsUI(); handleEnemyDeath(enemy);
+                        createBloodSplatter(doppelganger.x, doppelganger.y);
+                        createBloodPuddle(doppelganger.x, doppelganger.y, doppelganger.size);
+                        // HP system: subtract 1 HP per hit
+                        doppelganger.hp--;
+                        // Show floating text for damage
+                        floatingTexts.push({
+                            text: `-${doppelganger.hp > 0 ? '1' : 'DEAD'}`,
+                            x: doppelganger.x,
+                            y: doppelganger.y - doppelganger.size,
+                            startTime: now,
+                            duration: 800,
+                            color: doppelganger.hp > 0 ? '#ff4444' : '#ff0000',
+                            fontSize: doppelganger.hp > 0 ? 14 : 18
+                        });
+                        if (doppelganger.hp <= 0) {
+                            doppelganger = null;
+                            doppelgangerActive = false;
+                            runStats.lastDoppelgangerStartTime = 0;
+                            updatePowerupIconsUI();
+                        }
+                        handleEnemyDeath(enemy);
                     }
                 }
             });
             
             // Clone army cheat: update and fire from each clone
-            if (cheats.clone_army && window.cloneArmy && window.cloneArmy.length > 0) {
+            // Track target count for respawn
+            if (cheats.clone_army && !window.cloneArmyTargetCount) {
+                window.cloneArmyTargetCount = window.cloneArmy ? window.cloneArmy.length : 3 + Math.floor(Math.random() * 3);
+            }
+
+            if (cheats.clone_army && window.cloneArmy) {
+                // Check for enemy collisions with clones (HP system)
+                window.cloneArmy.forEach((clone, cloneIndex) => {
+                    enemies.forEach(enemy => {
+                        const canGhostDamage = enemy.emoji !== '👻' || (enemy.emoji === '👻' && enemy.isVisible);
+                        if (canGhostDamage && !enemy.isHit) {
+                            const combinedRadius = (clone.size / 2) + (enemy.size / 2);
+                            const dx = clone.x - enemy.x;
+                            const dy = clone.y - enemy.y;
+                            if ((dx*dx + dy*dy) < combinedRadius*combinedRadius) {
+                                createBloodSplatter(clone.x, clone.y);
+                                createBloodPuddle(clone.x, clone.y, clone.size);
+                                // HP system: subtract 1 HP per hit
+                                clone.hp = (clone.hp || 3) - 1;
+                                // Show floating text for damage
+                                floatingTexts.push({
+                                    text: `-${clone.hp > 0 ? '1' : 'DEAD'}`,
+                                    x: clone.x,
+                                    y: clone.y - clone.size,
+                                    startTime: now,
+                                    duration: 800,
+                                    color: clone.hp > 0 ? '#ff4444' : '#ff0000',
+                                    fontSize: clone.hp > 0 ? 14 : 18
+                                });
+                                if (clone.hp <= 0) {
+                                    // Mark clone as dead (will respawn)
+                                    clone._dead = true;
+                                }
+                                handleEnemyDeath(enemy);
+                            }
+                        }
+                    });
+                });
+
+                // Remove dead clones
+                window.cloneArmy = window.cloneArmy.filter(clone => !clone._dead);
+
+                // Respawn clones to maintain target count
+                const targetCount = window.cloneArmyTargetCount || 3;
+                while (window.cloneArmy.length < targetCount) {
+                    const angle = Math.random() * Math.PI * 2;
+                    window.cloneArmy.push({
+                        x: player.x + Math.cos(angle) * 60,
+                        y: player.y + Math.sin(angle) * 60,
+                        size: player.size * 0.8,
+                        rotationAngle: 0,
+                        lastFireTime: 0,
+                        hp: 3,
+                        maxHp: 3,
+                        endTime: Infinity
+                    });
+                }
+
+                // Update remaining clones
                 window.cloneArmy.forEach(clone => {
                     let closestEnemy = null; let minDistanceSq = Infinity;
                     enemies.forEach(enemy => {
@@ -1231,25 +1357,54 @@ for (let i = merchants.length - 1; i >= 0; i--) {
             }
 
             if (doppelganger) {
-                if (now > doppelganger.endTime) {
-                    doppelganger = null; doppelgangerActive = false;
-                    runStats.lastDoppelgangerStartTime = 0;
-                    updatePowerupIconsUI();
-                } else {
-                    let closestEnemy = null; let minDistanceSq = Infinity;
-                    enemies.forEach(enemy => {
-                        if (!enemy.isHit) {
-                            const distSq = (doppelganger.x - enemy.x)**2 + (doppelganger.y - enemy.y)**2;
-                            if (distSq < minDistanceSq) { minDistanceSq = distSq; closestEnemy = enemy; }
-                        }
-                    });
-                    if (closestEnemy) {
-                        doppelganger.rotationAngle = Math.atan2(closestEnemy.y - doppelganger.y, closestEnemy.x - doppelganger.x);
-                        if (now - doppelganger.lastFireTime > DOPPELGANGER_FIRE_INTERVAL) {
-                            createWeapon(doppelganger, doppelganger.rotationAngle);
-                            doppelganger.lastFireTime = now;
-                        }
+                // Find closest enemy for both fleeing and firing
+                let closestEnemy = null;
+                let minDistanceSq = Infinity;
+                enemies.forEach(enemy => {
+                    if (!enemy.isHit) {
+                        const distSq = (doppelganger.x - enemy.x)**2 + (doppelganger.y - enemy.y)**2;
+                        if (distSq < minDistanceSq) { minDistanceSq = distSq; closestEnemy = enemy; }
                     }
+                });
+
+                if (closestEnemy) {
+                    const distance = Math.sqrt(minDistanceSq);
+                    const DANGER_DISTANCE = 150; // Distance to start fleeing
+                    const FLEE_DISTANCE = 80; // Distance to maintain from enemies
+
+                    // Calculate angle to enemy
+                    const angleToEnemy = Math.atan2(closestEnemy.y - doppelganger.y, closestEnemy.x - doppelganger.x);
+
+                    // FLEEING BEHAVIOR: If enemy is too close, run away
+                    if (distance < DANGER_DISTANCE) {
+                        // Run away from enemy (opposite direction)
+                        const fleeAngle = angleToEnemy + Math.PI;
+                        const fleeSpeed = player.speed * 1.2; // Slightly faster than player
+                        doppelganger.x += Math.cos(fleeAngle) * fleeSpeed;
+                        doppelganger.y += Math.sin(fleeAngle) * fleeSpeed;
+
+                        // Keep within world bounds
+                        doppelganger.x = Math.max(doppelganger.size/2, Math.min(WORLD_WIDTH - doppelganger.size/2, doppelganger.x));
+                        doppelganger.y = Math.max(doppelganger.size/2, Math.min(WORLD_HEIGHT - doppelganger.size/2, doppelganger.y));
+                    } else {
+                        // Safe distance: slowly orbit player
+                        const angle = Math.atan2(player.y - doppelganger.y, player.x - doppelganger.x) + 0.02;
+                        doppelganger.x += (player.x + Math.cos(angle) * 100 - doppelganger.x) * 0.03;
+                        doppelganger.y += (player.y + Math.sin(angle) * 100 - doppelganger.y) * 0.03;
+                    }
+
+                    // Always aim at closest enemy and fire when safe (not fleeing)
+                    doppelganger.rotationAngle = angleToEnemy;
+                    if (distance > FLEE_DISTANCE && now - doppelganger.lastFireTime > DOPPELGANGER_FIRE_INTERVAL) {
+                        createWeapon(doppelganger, doppelganger.rotationAngle);
+                        doppelganger.lastFireTime = now;
+                    }
+                } else {
+                    // No enemies: orbit player slowly
+                    const angle = Math.atan2(player.y - doppelganger.y, player.x - doppelganger.x) + 0.02;
+                    doppelganger.x += (player.x + Math.cos(angle) * 80 - doppelganger.x) * 0.03;
+                    doppelganger.y += (player.y + Math.sin(angle) * 80 - doppelganger.y) * 0.03;
+                    doppelganger.rotationAngle = player.rotationAngle;
                 }
             }
 
@@ -1305,6 +1460,152 @@ for (let i = merchants.length - 1; i >= 0; i--) {
                         angle: angleToTarget, isHit: false, lifetime: now + 2000, isHoming: true
                     };
                     dogHomingShots.push(shot); dog.lastHomingShotTime = now; playSound('playerShoot');
+                }
+            }
+
+            // Cat Ally - fetches pickups and XP items for the player (does not attack enemies)
+            if (catAllyActive && !isTimeStopped) {
+                const CAT_SPEED = player.speed * CAT_ALLY_SPEED;
+                
+                if (catAlly.state === 'returning') {
+                    // Move towards player
+                    const dx = player.x - catAlly.x;
+                    const dy = player.y - catAlly.y;
+                    const distSq = dx*dx + dy*dy;
+                    
+                    if (distSq < (player.size/2)**2) {
+                        // Reached player - deliver any carried item
+                        if (catAlly.carriedItem) {
+                            // Apply the item's effect immediately
+                            const item = catAlly.carriedItem;
+                            if (item.type === 'xp') {
+                                const xpGainMultiplier = 1 + (playerData.upgrades.xpGain || 0) * PERMANENT_UPGRADES.xpGain.effect;
+                                const actualXp = item.xpValue * xpGainMultiplier;
+                                player.xp += actualXp;
+                                score += Math.floor(actualXp);
+                                floatingTexts.push({ text: `+${Math.floor(actualXp)} XP`, x: player.x, y: player.y - 20, startTime: now, duration: 1000, color: '#00ffff' });
+                                playSound('coinCollect');
+                            } else if (item.type === 'coin') {
+                                player.coins += item.value;
+                                floatingTexts.push({ text: `+${item.value} ${COIN_EMOJI}`, x: player.x, y: player.y - 20, startTime: now, duration: 1000, color: '#FFD700' });
+                                playSound('coinCollect');
+                            } else if (item.type === 'apple') {
+                                if (player.lives < player.maxLives) {
+                                    player.lives++;
+                                    updateLivesDisplay();
+                                    floatingTexts.push({ text: '+1 ❤️', x: player.x, y: player.y - 20, startTime: now, duration: 1000, color: '#ff0000' });
+                                    playSound('coinCollect');
+                                }
+                            } else if (item.type === 'box') {
+                                // Process box pickup - activate the powerup directly
+                                if (item.powerupId) {
+                                    activatePowerup(item.powerupId);
+                                    playSound('boxPickup');
+                                    floatingTexts.push({ 
+                                        text: item.powerupName + "!", 
+                                        x: player.x, 
+                                        y: player.y - player.size, 
+                                        startTime: now, 
+                                        duration: 1500 
+                                    });
+                                    updatePowerupIconsUI();
+                                    playerStats.totalBoxesOpened++;
+                                }
+                            }
+                            catAlly.carriedItem = null;
+                        }
+                        catAlly.state = 'seeking';
+                        catAlly.target = null;
+                    } else {
+                        const angleToPlayer = Math.atan2(dy, dx);
+                        catAlly.x += Math.cos(angleToPlayer) * CAT_SPEED;
+                        catAlly.y += Math.sin(angleToPlayer) * CAT_SPEED;
+                    }
+                } else if (catAlly.state === 'seeking') {
+                    // Already carrying something, go back to player
+                    if (catAlly.carriedItem) {
+                        catAlly.state = 'returning';
+                        catAlly.target = null;
+                    } else if (!catAlly.target) {
+                        // Find nearest pickup item
+                        if (!catAlly._lastTargetSearch || now - catAlly._lastTargetSearch > 200) {
+                            let closestItem = null;
+                            let minDistanceSq = Infinity;
+                            
+                            // Search through pickupItems (XP, coins, diamonds, etc.)
+                            for (let pi = 0; pi < pickupItems.length; pi++) {
+                                const item = pickupItems[pi];
+                                const distSq = (catAlly.x - item.x)**2 + (catAlly.y - item.y)**2;
+                                if (distSq < minDistanceSq) {
+                                    minDistanceSq = distSq;
+                                    closestItem = { item: item, array: 'pickupItems', index: pi, type: 'xp', xpValue: item.xpValue || COIN_XP_VALUE };
+                                }
+                            }
+                            
+                            // Search through appleItems
+                            for (let ai = 0; ai < appleItems.length; ai++) {
+                                const item = appleItems[ai];
+                                const distSq = (catAlly.x - item.x)**2 + (catAlly.y - item.y)**2;
+                                if (distSq < minDistanceSq) {
+                                    minDistanceSq = distSq;
+                                    closestItem = { item: item, array: 'appleItems', index: ai, type: 'apple' };
+                                }
+                            }
+                            
+                            // Search through pickups (boxes)
+                            for (let bi = 0; bi < pickups.length; bi++) {
+                                const item = pickups[bi];
+                                if (item.type === 'box') {
+                                    const distSq = (catAlly.x - item.x)**2 + (catAlly.y - item.y)**2;
+                                    if (distSq < minDistanceSq) {
+                                        minDistanceSq = distSq;
+                                        closestItem = { item: item, array: 'pickups', index: bi, type: 'box' };
+                                    }
+                                }
+                            }
+                            
+                            catAlly.target = closestItem;
+                            catAlly._lastTargetSearch = now;
+                        }
+                    }
+                    
+                    if (catAlly.target) {
+                        const target = catAlly.target.item;
+                        const dx = target.x - catAlly.x;
+                        const dy = target.y - catAlly.y;
+                        const distSq = dx*dx + dy*dy;
+                        const combinedRadius = (catAlly.size / 2) + (target.size / 2 || 15);
+                        
+                        if (distSq < combinedRadius*combinedRadius) {
+                            // Pick up the item
+                            catAlly.carriedItem = {
+                                type: catAlly.target.type,
+                                xpValue: catAlly.target.xpValue,
+                                value: catAlly.target.value || 1,
+                                powerupId: catAlly.target.item.powerupId,
+                                powerupName: catAlly.target.item.powerupName
+                            };
+                            
+                            // Remove the item from the world
+                            if (catAlly.target.array === 'pickupItems') {
+                                pickupItems.splice(catAlly.target.index, 1);
+                            } else if (catAlly.target.array === 'appleItems') {
+                                appleItems.splice(catAlly.target.index, 1);
+                            } else if (catAlly.target.array === 'pickups') {
+                                pickups.splice(catAlly.target.index, 1);
+                            }
+                            
+                            catAlly.target = null;
+                            catAlly.state = 'returning';
+                        } else {
+                            const angleToTarget = Math.atan2(dy, dx);
+                            catAlly.x += Math.cos(angleToTarget) * CAT_SPEED;
+                            catAlly.y += Math.sin(angleToTarget) * CAT_SPEED;
+                        }
+                    } else {
+                        // No items found, return to player
+                        catAlly.state = 'returning';
+                    }
                 }
             }
 
@@ -1372,6 +1673,54 @@ for (let i = merchants.length - 1; i >= 0; i--) {
                         playSound('playerShoot');
                     }
                     robotDrone.lastFireTime = now;
+                }
+            }
+
+            // Turret update - stationary and shoots at nearest enemy
+            if (turretActive && !isTimeStopped) {
+                // Find closest enemy
+                let closestEnemy = null;
+                let minDistanceSq = Infinity;
+
+                for (let ei = 0; ei < enemies.length; ei++) {
+                    const enemy = enemies[ei];
+                    if (!enemy.isHit) {
+                        const distSq = (turret.x - enemy.x)**2 + (turret.y - enemy.y)**2;
+                        if (distSq < minDistanceSq) {
+                            minDistanceSq = distSq;
+                            closestEnemy = enemy;
+                        }
+                    }
+                }
+
+                if (closestEnemy) {
+                    // Update aim angle to point at closest enemy
+                    turret.aimAngle = Math.atan2(closestEnemy.y - turret.y, closestEnemy.x - turret.x);
+
+                    // Fire at closest enemy every second
+                    if (now - turret.lastFireTime > TURRET_FIRE_INTERVAL) {
+                        // Create bullet from weapon pool
+                        for (const weapon of weaponPool) {
+                            if (!weapon.active) {
+                                weapon.x = turret.x;
+                                weapon.y = turret.y;
+                                weapon.size = TURRET_BULLET_SIZE;
+                                weapon.speed = TURRET_BULLET_SPEED;
+                                weapon.angle = turret.aimAngle;
+                                weapon.dx = Math.cos(weapon.angle) * weapon.speed;
+                                weapon.dy = Math.sin(weapon.angle) * weapon.speed;
+                                weapon.lifetime = now + 2000;
+                                weapon.hitsLeft = 1;
+                                weapon.hitEnemies.length = 0;
+                                weapon.owner = 'turret';
+                                weapon.active = true;
+                                weapon._isTurretBullet = true;
+                                break;
+                            }
+                        }
+                        playSound('playerShoot');
+                        turret.lastFireTime = now;
+                    }
                 }
             }
 
@@ -1527,6 +1876,31 @@ if (pendingRevolverShot && now >= pendingRevolverShot.fireAt) {
                         weapon.dy = Math.sin(weapon.angle) * weapon.speed;
                     }
                 }
+                
+                // Genie gravity field: repels bullets but they can still hit if close/fast enough
+                for (const enemy of enemies) {
+                    if (enemy.emoji !== '🧞' || enemy.isHit) continue;
+                    const dx = weapon.x - enemy.x;
+                    const dy = weapon.y - enemy.y;
+                    const distSq = dx * dx + dy * dy;
+                    const gravityRadius = enemy.gravityRadius || 80;
+                    const gravityRadiusSq = gravityRadius * gravityRadius;
+                    
+                    if (distSq < gravityRadiusSq && distSq > 0) {
+                        const dist = Math.sqrt(distSq);
+                        // Calculate repulsion strength (stronger when closer)
+                        const strength = (enemy.gravityStrength || 0.15) * (1 - dist / gravityRadius);
+                        // Normalize and apply repulsion perpendicular to bullet path
+                        const nx = dx / dist;
+                        const ny = dy / dist;
+                        // Add perpendicular deflection (warp effect)
+                        weapon.dx += nx * strength * weapon.speed * 0.3;
+                        weapon.dy += ny * strength * weapon.speed * 0.3;
+                        // Update angle to match new direction
+                        weapon.angle = Math.atan2(weapon.dy, weapon.dx);
+                    }
+                }
+                
                 weapon.x += weapon.dx;
                 weapon.y += weapon.dy;
                 // Deactivate if off world bounds — no point tracking them
@@ -1595,6 +1969,10 @@ if (pendingRevolverShot && now >= pendingRevolverShot.fireAt) {
                 
                 // --- ALL YOUR ORIGINAL COLLISION LOGIC IS COPIED HERE ---
                 let damageToDeal = player.damageMultiplier;
+                // Turret bullets do base damage (1) without scaling
+                if (weapon._isTurretBullet) { damageToDeal = 1; }
+                // Bone shots do fixed 1 damage (piercing)
+                if (weapon._isBoneShot) { damageToDeal = weapon._boneDamage || 1; }
                 if (weapon._isIceCannon) { damageToDeal = ICE_CANNON_DAMAGE * player.damageMultiplier; }
                 if (rocketLauncherActive) { damageToDeal *= 2; }
                 if (cheats.one_hit_kill) damageToDeal = Infinity;
@@ -1680,23 +2058,28 @@ if (pendingRevolverShot && now >= pendingRevolverShot.fireAt) {
                     enemy.lastIgnitionDamageTime = Date.now();
                 }
             if (enemy.health <= 0) { handleEnemyDeath(enemy); }
-                weapon.hitsLeft--;
-                if (weapon.hitsLeft > 0 && ricochetActive && !rocketLauncherActive) {
-                    let newTarget = null; let minDistanceSq = Infinity;
-                    enemies.forEach(otherEnemy => {
-                        if (!weapon.hitEnemies.includes(otherEnemy) && !otherEnemy.isHit) {
-                            const distSq = (weapon.x - otherEnemy.x)**2 + (weapon.y - otherEnemy.y)**2;
-                            if (distSq < minDistanceSq) { minDistanceSq = distSq; newTarget = otherEnemy; }
-                        }
-                    });
-                    if (newTarget) {
-                        if (explosiveBulletsActive) { explosions.push({ x: weapon.x, y: weapon.y, radius: enemy.size * 2, startTime: Date.now(), duration: 300 }); }
-                        const angle = Math.atan2(newTarget.y - weapon.y, newTarget.x - weapon.x);
-                        weapon.angle = angle;
-                        weapon.dx = Math.cos(angle) * weapon.speed;
-                        weapon.dy = Math.sin(angle) * weapon.speed;
+                // Bone shots pierce through enemies - don't decrement hitsLeft or deactivate
+                if (weapon._isBoneShot) {
+                    // Piercing - continue through enemy without deactivating
+                } else {
+                    weapon.hitsLeft--;
+                    if (weapon.hitsLeft > 0 && ricochetActive && !rocketLauncherActive) {
+                        let newTarget = null; let minDistanceSq = Infinity;
+                        enemies.forEach(otherEnemy => {
+                            if (!weapon.hitEnemies.includes(otherEnemy) && !otherEnemy.isHit) {
+                                const distSq = (weapon.x - otherEnemy.x)**2 + (weapon.y - otherEnemy.y)**2;
+                                if (distSq < minDistanceSq) { minDistanceSq = distSq; newTarget = otherEnemy; }
+                            }
+                        });
+                        if (newTarget) {
+                            if (explosiveBulletsActive) { explosions.push({ x: weapon.x, y: weapon.y, radius: enemy.size * 2, startTime: Date.now(), duration: 300 }); }
+                            const angle = Math.atan2(newTarget.y - weapon.y, newTarget.x - weapon.x);
+                            weapon.angle = angle;
+                            weapon.dx = Math.cos(angle) * weapon.speed;
+                            weapon.dy = Math.sin(angle) * weapon.speed;
+                        } else { weapon.active = false; }
                     } else { weapon.active = false; }
-                } else { weapon.active = false; }
+                }
 
                 // Break from the inner loop if the weapon is gone
                 if (!weapon.active) {
@@ -1770,6 +2153,101 @@ if (pendingRevolverShot && now >= pendingRevolverShot.fireAt) {
                     }
                 }
             }
+
+            // Levitating Books - like Vampire Survivors books
+            // Two books orbit opposite each other, fade in/out, only damage when visible
+            if (levitatingBooksActive) {
+                // Update rotation angle
+                levitatingBooksAngle = (levitatingBooksAngle + LEVITATING_BOOKS_SPEED) % (Math.PI * 2);
+                
+                // Calculate fade cycle
+                const cycleTime = (now - levitatingBooksFadeStartTime) % LEVITATING_BOOKS_FADE_CYCLE;
+                let booksAlpha = 0;
+                let booksVisible = false;
+                
+                // Fade in phase
+                if (cycleTime < LEVITATING_BOOKS_FADE_TIME) {
+                    booksAlpha = cycleTime / LEVITATING_BOOKS_FADE_TIME;
+                    booksVisible = true;
+                }
+                // Fully visible phase
+                else if (cycleTime < LEVITATING_BOOKS_FADE_TIME + LEVITATING_BOOKS_VISIBLE_TIME) {
+                    booksAlpha = 1;
+                    booksVisible = true;
+                }
+                // Fade out phase
+                else if (cycleTime < LEVITATING_BOOKS_FADE_TIME * 2 + LEVITATING_BOOKS_VISIBLE_TIME) {
+                    const fadeOutProgress = (cycleTime - (LEVITATING_BOOKS_FADE_TIME + LEVITATING_BOOKS_VISIBLE_TIME)) / LEVITATING_BOOKS_FADE_TIME;
+                    booksAlpha = 1 - fadeOutProgress;
+                    booksVisible = true;
+                }
+                // Hidden phase - books disappear
+                else {
+                    booksAlpha = 0;
+                    booksVisible = false;
+                }
+                
+                // Store alpha for rendering
+                levitatingBooksAlpha = booksAlpha;
+                levitatingBooksCurrentlyVisible = booksVisible && booksAlpha > 0.3;
+                
+                // Calculate positions for both books (opposite each other)
+                const book1X = player.x + LEVITATING_BOOKS_RADIUS * Math.cos(levitatingBooksAngle);
+                const book1Y = player.y + LEVITATING_BOOKS_RADIUS * Math.sin(levitatingBooksAngle);
+                const book2X = player.x + LEVITATING_BOOKS_RADIUS * Math.cos(levitatingBooksAngle + Math.PI);
+                const book2Y = player.y + LEVITATING_BOOKS_RADIUS * Math.sin(levitatingBooksAngle + Math.PI);
+                
+                // Store positions for rendering
+                levitatingBooksPositions = [
+                    { x: book1X, y: book1Y },
+                    { x: book2X, y: book2Y }
+                ];
+                
+                // Only deal damage when books are visible (faded in)
+                if (levitatingBooksCurrentlyVisible) {
+                    // Check collision for both books
+                    const bookPositions = [ { x: book1X, y: book1Y }, { x: book2X, y: book2Y } ];
+                    
+                    for (const bookPos of bookPositions) {
+                        for (let i = enemies.length - 1; i >= 0; i--) {
+                            const enemy = enemies[i];
+                            const dx = bookPos.x - enemy.x;
+                            const dy = bookPos.y - enemy.y;
+                            const collisionDist = ((LEVITATING_BOOKS_SIZE / 2) + (enemy.size / 2));
+                            
+                            if (dx*dx + dy*dy < collisionDist * collisionDist) {
+                                // Same damage as orbiter
+                                if (!enemy.isHit && !enemy.isHitByBook) {
+                                    const damage = player.damageMultiplier;
+                                    enemy.health -= damage;
+                                    createBloodSplatter(enemy.x, enemy.y);
+                                    enemy.isHitByBook = true;
+                                    
+                                    // Damage number
+                                    if (floatingTexts.length < 30) {
+                                        const dmg = Math.round(damage * 10) / 10;
+                                        floatingTexts.push({
+                                            text: String(dmg),
+                                            x: enemy.x + (Math.random() - 0.5) * enemy.size,
+                                            y: enemy.y - enemy.size * 0.5,
+                                            startTime: now, duration: 600,
+                                            color: '#ffff00', fontSize: 12
+                                        });
+                                    }
+                                    
+                                    if (enemy.health <= 0) { handleEnemyDeath(enemy); }
+                                }
+                            } else {
+                                // Reset hit flag when enemy moves away
+                                if (enemy.isHitByBook && (dx*dx + dy*dy > (collisionDist * 1.5) ** 2)) {
+                                    enemy.isHitByBook = false;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
              if (whirlwindAxeActive) {
                 whirlwindAxeAngle -= WHIRLWIND_AXE_SPEED;
                 const axeX = player.x + WHIRLWIND_AXE_RADIUS * Math.cos(whirlwindAxeAngle);

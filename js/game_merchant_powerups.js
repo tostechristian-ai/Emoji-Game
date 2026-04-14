@@ -130,6 +130,7 @@ function showMerchantShop() {
         // Active abilities
         { id: 'bomb',                 name: 'Bomb Emitter',      icon: '💣', active: bombEmitterActive },
         { id: 'orbiter',              name: 'Spinning Orbiter',  icon: '💫', active: orbitingPowerUpActive },
+        { id: 'levitating_books',     name: 'Levitating Books',  icon: '📖', active: levitatingBooksActive },
         { id: 'circle',               name: 'Damaging Circle',   icon: '⭕', active: damagingCircleActive, locked: !playerData.unlockedPickups.circle },
         { id: 'lightning_projectile', name: 'Lightning Bolt',    icon: '⚡', active: lightningProjectileActive },
         { id: 'lightning_strike',     name: 'Lightning Strike',  icon: '⚡', active: lightningStrikeActive },
@@ -139,14 +140,18 @@ function showMerchantShop() {
         { id: 'ice_cannon',           name: 'Ice Cannon',        icon: '❄️', active: iceCannonActive, locked: !playerData.unlockedPickups.ice_cannon },
         { id: 'dynamite',             name: 'Dynamite',          icon: '🧨', active: dynamiteActive, locked: !playerData.unlockedPickups.dynamite },
         { id: 'pistol',                name: 'Pistol',            icon: '🔫', active: player._hasPistol, locked: !playerData.unlockedPickups.pistol || equippedCharacterID === 'cowboy' },
+        { id: 'bone_shot',              name: 'Bone Shot',         icon: '🦴', active: boneShotActive, locked: !playerData.unlockedPickups.bone_shot },
         { id: 'anti_gravity',         name: 'Anti-Gravity',      icon: '💨', active: antiGravityActive, locked: !playerData.unlockedPickups.anti_gravity },
         { id: 'black_hole',           name: 'Black Hole',        icon: '⚫', active: blackHoleActive, locked: !playerData.unlockedPickups.black_hole },
         { id: 'vengeance_nova',       name: 'Vengeance Nova',    icon: '🛡️', active: vengeanceNovaActive, locked: !playerData.unlockedPickups.vengeance_nova },
+        { id: 'dodge_nova',           name: 'Dodge Nova',        icon: '💨', active: dodgeNovaActive, locked: !playerData.unlockedPickups.dodge_nova },
         { id: 'robot_drone',         name: 'Robot Drone',       icon: '🤖', active: robotDroneActive, locked: !playerData.unlockedPickups.robot_drone },
+        { id: 'turret',               name: 'Turret',            icon: '🏛️', active: turretActive },
         
         // Companions
         { id: 'doppelganger',         name: 'Doppelganger',      icon: '👯', active: doppelgangerActive, locked: !playerData.unlockedPickups.doppelganger },
         { id: 'dog_companion',        name: 'Dog Companion',     icon: '🐶', active: dogCompanionActive, locked: !playerData.unlockedPickups.dog_companion },
+        { id: 'cat_ally',             name: 'Cat Ally',          icon: '🐱', active: catAllyActive, locked: !playerData.unlockedPickups.cat_ally },
         { id: 'night_owl',            name: 'Night Owl',         icon: '🦉', active: nightOwlActive, locked: !playerData.unlockedPickups.night_owl },
         { id: 'whirlwind_axe',        name: 'Whirlwind Axe',     icon: '🪓', active: whirlwindAxeActive, locked: !playerData.unlockedPickups.whirlwind_axe },
         
@@ -363,15 +368,17 @@ function activatePowerup(id) {
     if (id === 'doppelganger') {
         doppelgangerActive = true;
         runStats.lastDoppelgangerStartTime = Date.now();
-        
-        // Create doppelganger object
+
+        // Create doppelganger object with HP system (3 HP, no duration limit)
         doppelganger = {
             x: player.x - player.size * 2,
             y: player.y,
             size: player.size,
             rotationAngle: 0,
             lastFireTime: 0,
-            endTime: Date.now() + DOPPELGANGER_DURATION
+            hp: 3,
+            maxHp: 3,
+            endTime: Infinity // No time limit, dies when HP reaches 0
         };
     }
     else if (id === 'dog_companion') {
@@ -380,21 +387,26 @@ function activatePowerup(id) {
         dog.y = player.y;
         dog.state = 'returning';
     }
-    else if (id === 'night_owl') {
-        nightOwlActive = true;
+    else if (id === 'cat_ally') {
+        catAllyActive = true;
+        catAlly.x = player.x;
+        catAlly.y = player.y;
+        catAlly.state = 'returning';
+        catAlly.target = null;
+        catAlly.carriedItem = null;
     }
-    else if (id === 'robot_drone') {
-        robotDroneActive = true;
-        // Initialize robot position near player
-        robotDrone.x = player.x + 50;
-        robotDrone.y = player.y;
-        // Random diagonal direction
-        const angle = Math.random() * Math.PI * 2;
-        robotDrone.dx = Math.cos(angle) * ROBOT_DRONE_SPEED;
-        robotDrone.dy = Math.sin(angle) * ROBOT_DRONE_SPEED;
-        robotDrone.lastFireTime = Date.now();
+    else if (id === 'dodge_nova') {
+        dodgeNovaActive = true;
     }
-    
+    else if (id === 'turret') {
+        turretActive = true;
+        // Turret spawns at player position (stationary)
+        turret.x = player.x;
+        turret.y = player.y;
+        turret.aimAngle = 0;
+        turret.lastFireTime = Date.now();
+    }
+
     // ─── DEFENSIVE POWERUPS ─────────────────────────────────────────────────
     else if (id === 'dash_invincibility') {
         hasDashInvincibility = true;
@@ -466,6 +478,11 @@ function activatePowerup(id) {
         orbitingPowerUpActive = true;
         player.orbitAngle = 0;
     }
+    else if (id === 'levitating_books') {
+        levitatingBooksActive = true;
+        levitatingBooksAngle = 0;
+        levitatingBooksFadeStartTime = Date.now();
+    }
     else if (id === 'circle') {
         damagingCircleActive = true;
         lastDamagingCircleDamageTime = Date.now();
@@ -517,6 +534,9 @@ function activatePowerup(id) {
     }
     else if (id === 'pistol') {
         player._hasPistol = true;
+    }
+    else if (id === 'bone_shot') {
+        boneShotActive = true;
     }
 
     // ─── ACHIEVEMENT TRACKING ───────────────────────────────────────────────

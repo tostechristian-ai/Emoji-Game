@@ -79,7 +79,7 @@
             preRenderEnemyEmoji('👹', 28 * 0.7);        // Demon - alternating behavior
             preRenderEnemyEmoji('👻', 22);              // Ghost - phases in/out
             preRenderEnemyEmoji('👁️', 25 * 0.6);       // Eye - ranged attacker
-            preRenderEnemyEmoji('🧟‍♀️', 17 * 1.75);    // Female Zombie - large & slow
+            preRenderEnemyEmoji('�', 24);            // Genie - warps bullets with gravity field
             preRenderEnemyEmoji('🧛‍♀️', 20);           // Vampire - dodges bullets
             preRenderEnemyEmoji('👾', 22);             // Invader - zigzag movement, teleports
             
@@ -95,6 +95,7 @@
             preRenderEmoji('🪓', WHIRLWIND_AXE_SIZE);  // Whirlwind axe powerup
             preRenderEmoji('🕸️', 25);              // Spider web - slowing effect
             preRenderEmoji('🐶', 25);              // Dog companion
+            preRenderEmoji('🐱', 23);              // Cat ally
             preRenderEmoji('🦉', 30);              // Owl companion
             preRenderEmoji('🧱', 30);              // Brick wall - destructible
             preRenderEmoji('🛢️', 15);             // Barrel - explodes when destroyed
@@ -102,6 +103,7 @@
             preRenderEmoji('❄️', 16);              // Snowflake - Snowman bullets
             preRenderEmoji('⛄', 35);              // Snowman character
             preRenderEmoji('🧑‍🌾', 35);            // Farmer character
+            preRenderEmoji('📖', LEVITATING_BOOKS_SIZE); // Levitating Books powerup
             
             console.log("All emojis have been pre-rendered to memory.");
         }
