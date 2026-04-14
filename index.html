@@ -157,6 +157,14 @@
             <li><strong>Gamepad</strong> — Left stick: move · Right stick: aim · RT: dash · Start/B: pause</li>
           </ul>
 
+          <h3>👥 Player 2 Controls</h3>
+          <ul>
+            <li><strong>Numpad 8</strong> — Aim/Shoot Up</li>
+            <li><strong>Numpad 5</strong> — Aim/Shoot Down</li>
+            <li><strong>Numpad 4</strong> — Aim/Shoot Left</li>
+            <li><strong>Numpad 6</strong> — Aim/Shoot Right</li>
+          </ul>
+
           <h3>⚔️ How to Play</h3>
           <ul>
             <li><strong>Survive</strong> endless waves of corrupted emoji enemies that grow stronger over time.</li>
@@ -202,7 +210,8 @@
           <ul>
             <li>🧟 <strong>Zombie</strong> — Basic pursuer, slow but relentless (appears lvl 1+)</li>
             <li>💀 <strong>Skull</strong> — Faster pursuer, more aggressive (appears lvl 5+)</li>
-            <li>🌀 <strong>Snail</strong> — Slow but leaves slowing puddles behind (appears lvl 4+, RARE spawn)</li>
+            <li>🌀 <strong>Snail</strong> — Slow but leaves slowing puddles behind (appears lvl 4+)</li>
+            <li>👾 <strong>Invader</strong> — Fast erratic zig-zag movement (appears lvl 2+)</li>
             <li>🦟 <strong>Mosquito</strong> — Erratic movement, leaves damaging puddles (appears lvl 7+)</li>
             <li>🕷️ <strong>Spider</strong> — Jumps diagonally towards you, leaves slowing webs (appears lvl 7+)</li>
             <li>🦇 <strong>Bat</strong> — Pauses then dashes at you unpredictably (appears lvl 10+)</li>
@@ -239,6 +248,8 @@
             <li>💥 <strong>Shotgun Blast</strong> — Replace your gun with an 8-pellet shotgun spread</li>
             <li>🔥💨 <strong>Flamethrower</strong> — NEW! Emit flames from your gun that ignite enemies (scales with fire rate)</li>
             <li>🟢 <strong>Laser Cannon</strong> — NEW! Fire a piercing green beam every 5 seconds that hits all enemies in its path</li>
+            <li>🧨 <strong>Dynamite</strong> — Throw dynamite at enemies · Stops after 1 second · Explodes after 3 seconds with fire damage</li>
+            <li>🔫 <strong>Pistol</strong> — Standard gun for non-cowboy characters · Unlocks pistol pickup for other characters</li>
           </ul>
 
           <h3>🔓 Unlockable Power-Ups (buy in Upgrades shop)</h3>
@@ -254,6 +265,14 @@
             <li>🪰 <strong>Bug Swarm</strong> — Send a swarm of flies to attack enemies every 9 seconds</li>
             <li>⚡ <strong>Lightning Strike</strong> — Strike a random enemy with lightning every 7 seconds</li>
             <li>🛡️💨 <strong>Dash Invincibility</strong> — Become invincible while dashing (game-changer!)</li>
+            <li>🤖 <strong>Robot Drone</strong> — Autonomous drone that fires at enemies (appears lvl 2+)</li>
+            <li>⏩ <strong>Game Speed Control</strong> — Adjust game speed: 0.5x, 1x, 2x, or 3x</li>
+            <li>🔫💥 <strong>Shotgun</strong> — Unlock the shotgun blast powerup (was always available)</li>
+            <li>❄️❄️ <strong>Ice Cannon</strong> — Unlock the ice cannon powerup (was always available)</li>
+            <li>🧨 <strong>Dynamite</strong> — Unlock the dynamite throwing powerup</li>
+            <li>🔫 <strong>Pistol</strong> — Unlock pistol pickup for non-cowboy characters</li>
+            <li>❤️ <strong>4th Heart</strong> — Start each run with 4 hearts instead of 3 (3000 🪙)</li>
+            <li>📋 <strong>4 Level Choices</strong> — Get 4 upgrade choices on level up instead of 3 (3500 🪙)</li>
           </ul>
 
           <h3>🧑‍🤝‍🧑 Playable Characters</h3>
@@ -261,7 +280,11 @@
             <li>🤠 <strong>Cowboy</strong> — The default hero with balanced stats and a trusty gun</li>
             <li>💀 <strong>Skeleton</strong> — Unlock via "Slayer" trophy · Shoots bones in a V-spread · Dash fires a 6-bone nova</li>
             <li>🪓 <strong>Lumberjack</strong> — Buy in Upgrades shop (500 🪙) · Throws spinning axes · No gun · Dash fires an 8-axe nova</li>
-            <li>🛡️ <strong>Knight</strong> — Unlock via achievements · Unique abilities and playstyle</li>
+            <li>🛡️ <strong>Knight</strong> — Buy in Upgrades shop (600 🪙) · Auto-sword attacks · No gun · Sprite flips when aiming</li>
+            <li>🧑‍🌾 <strong>Farmer</strong> — Buy in Upgrades shop (500 🪙) · Starts with permanent Shotgun power-up</li>
+            <li>⛄ <strong>Snowman</strong> — Buy in Upgrades shop (550 🪙) · Ice projectiles always active · Shoots snowflake bullets · Sprite flips when aiming</li>
+            <li>👽 <strong>Alien</strong> — Buy in Upgrades shop (600 🪙) · Slime trail does 0.25 damage to enemies · No gun shooting · Green damage numbers</li>
+            <li>🎃 <strong>Jack O Lantern</strong> — Buy in Upgrades shop (650 🪙) · Starts with Dynamite powerup · Throws explosive pumpkins</li>
           </ul>
 
           <h3>🧙‍♂️ The Wandering Merchant</h3>
@@ -281,6 +304,7 @@
             <li><strong>Unlock Power-Ups:</strong> Purchase unlockable power-ups to add them to the drop pool.</li>
             <li><strong>Unlock Characters:</strong> Buy new playable characters with unique abilities.</li>
             <li><strong>Unlock Maps:</strong> Purchase new battlegrounds with different themes and challenges.</li>
+            <li><strong>Quality of Life Upgrades:</strong> 4th Heart (3000 🪙) and 4 Level Choices (3500 🪙) — powerful permanent bonuses!</li>
             <li><strong>Pro Tip:</strong> Invest in permanent damage and speed early for easier runs!</li>
           </ul>
 
@@ -338,11 +362,13 @@
     <div id="gameStartOverlay">
       <h2 id="gameStartText"></h2>
       <p id="gameStartDifficulty"></p>
+      <p id="gameStartObjective" style="font-size: 16px; color: #FFD700; margin-top: 10px; font-style: italic;">Survive 15 minutes and beat the Mega Boss!</p>
     </div>
   </div>
 
   <!-- Game Stats -->
   <div id="gameStats">
+    <p id="gameTimer" style="font-size: 18px; font-weight: bold; color: #FFD700; margin-bottom: 5px;">00:00</p>
     <p>Level: <span id="currentLevel">1</span></p>
     <p>Score: <span id="currentScore">0</span></p>
     <div id="xpBarContainer">
@@ -409,6 +435,10 @@
   <script src="js/skull_character_plugin.js"></script>
   <script src="js/lumberjack_character_plugin.js"></script>
   <script src="js/knight_character_plugin.js"></script>
+  <script src="js/farmer_character_plugin.js"></script>
+  <script src="js/snowman_character_plugin.js"></script>
+  <script src="js/alien_character_plugin.js"></script>
+  <script src="js/jackolantern_character_plugin.js"></script>
   <script src="js/menu_effects.js"></script>
   
 </body>

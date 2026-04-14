@@ -1426,8 +1426,19 @@
             90% { bottom: 20px; opacity: 1; }
             100% { bottom: -100px; opacity: 0; }
         }
+        @keyframes banner-out-quick {
+            0% { bottom: 20px; opacity: 1; }
+            100% { bottom: -100px; opacity: 0; }
+        }
         #achievement-banner.show {
             animation: banner-in-out 5s forwards;
+            cursor: pointer;
+        }
+        #achievement-banner.show:active {
+            transform: translateX(-50%) scale(0.95);
+        }
+        #achievement-banner.dismiss {
+            animation: banner-out-quick 0.3s forwards !important;
         }
         
         .cheat-card {
