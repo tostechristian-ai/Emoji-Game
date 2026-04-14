@@ -1460,6 +1460,14 @@ document.body.addEventListener('touchstart', (e) => {
                 } = getJoystickInput(touch.clientX, touch.clientY, firestickBase, firestickCap);
                 aimDx = dx;
                 aimDy = dy;
+                
+                // --- CLICK TO FIRE CHEAT FOR MOBILE ---
+                // When click_to_fire cheat is enabled, touching the fire stick fires a bullet
+                if (cheats.click_to_fire && (aimDx !== 0 || aimDy !== 0)) {
+                    const angle = Math.atan2(aimDy, aimDx);
+                    createWeapon(player, angle);
+                }
+                // --- END CLICK TO FIRE CHEAT ---
             }
         }
     }
