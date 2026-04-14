@@ -1076,35 +1076,36 @@ function handleGamepadInput() {
         });
 
         window.addEventListener('mousemove', (e) => {
-            if (gamePaused || gameOver || !gameActive) return;
+            if (!gameActive) return;
             const rect = canvas.getBoundingClientRect();
-            mouseX = e.clientX - rect.left;
-            mouseY = e.clientY - rect.top;
-            const playerScreenX = player.x - cameraOffsetX;
-            const playerScreenY = player.y - cameraOffsetY;
-            aimDx = mouseX - playerScreenX;
-            aimDy = mouseY - playerScreenY;
+            // Clamp mouse position to canvas bounds
+            mouseX = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
+            mouseY = Math.max(0, Math.min(e.clientY - rect.top, rect.height));
+            // Only update aim direction when game is not paused/over
+            if (!gamePaused && !gameOver) {
+                const playerScreenX = player.x - cameraOffsetX;
+                const playerScreenY = player.y - cameraOffsetY;
+                aimDx = mouseX - playerScreenX;
+                aimDy = mouseY - playerScreenY;
+            }
         });
 
         canvas.addEventListener('mouseenter', () => { if (gameActive && !document.body.classList.contains('is-mobile')) { isMouseInCanvas = true; } });
         canvas.addEventListener('mouseleave', () => { if (gameActive) { isMouseInCanvas = false; } });
         canvas.addEventListener('mousedown', (e) => {
-    if (e.button === 0 && gameActive && !gamePaused && !gameOver) {
-        if (cheats.click_to_fire) {
-            // Calculate angle from player to mouse click position directly
-            const rect = canvas.getBoundingClientRect();
-            const mx = e.clientX - rect.left;
-            const my = e.clientY - rect.top;
-            const playerScreenX = player.x - cameraOffsetX;
-            const playerScreenY = player.y - cameraOffsetY;
-            const clickAngle = Math.atan2(my - playerScreenY, mx - playerScreenX);
-            createWeapon(player, clickAngle);
-            lastWeaponFireTime = Date.now();
-        } else {
-            triggerDash(player);
-        }
-    }
-});
+            if (e.button === 0 && gameActive && !gamePaused && !gameOver) {
+                if (cheats.click_to_fire) {
+                    // Use clamped mouseX/mouseY for consistent aim
+                    const playerScreenX = player.x - cameraOffsetX;
+                    const playerScreenY = player.y - cameraOffsetY;
+                    const clickAngle = Math.atan2(mouseY - playerScreenY, mouseX - playerScreenX);
+                    createWeapon(player, clickAngle);
+                    lastWeaponFireTime = Date.now();
+                } else {
+                    triggerDash(player);
+                }
+            }
+        });
         
         // ===== ENHANCED VIBRATION/HAPTIC FEEDBACK SYSTEM =====
         // Supports both mobile device vibration and gamepad rumble

@@ -234,23 +234,32 @@
             enemies.forEach(enemy => {
                 if (!inView(enemy.x, enemy.y, enemy.size)) return;
                 ctx.save();
-                
+
+                // Draw light shadow under enemy
+                const shadowY = enemy.y + enemy.size * 0.4;
+                const shadowRadiusX = enemy.size * 0.5;
+                const shadowRadiusY = enemy.size * 0.2;
+                ctx.beginPath();
+                ctx.ellipse(enemy.x, shadowY, shadowRadiusX, shadowRadiusY, 0, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+                ctx.fill();
+
                 // White flash when hit
                 const now = Date.now();
                 if (enemy.hitFlashTime && now - enemy.hitFlashTime < 100) {
                     ctx.globalCompositeOperation = 'lighter';
                     ctx.globalAlpha = 0.8;
                 }
-                
+
                 if (enemy.emoji === '👻') {
                     ctx.globalAlpha = enemy.isVisible ? 1.0 : 0.2;
                 }
-                
+
                 // Frozen: blue tint
                 if (enemy.isFrozen) {
                     ctx.globalAlpha = (ctx.globalAlpha || 1) * 0.7;
                 }
-                
+
                 const emojiToDraw = enemy.isBoss ? enemy.mimics : enemy.emoji;
                 const preRenderedImage = preRenderedEntities[emojiToDraw];
                 if(preRenderedImage) {
@@ -556,7 +565,18 @@
                 case 'right': playerSprite = sprites.playerRight; break;
                 default: playerSprite = sprites.playerDown;
             }
-            
+
+            // Draw light shadow under player
+            ctx.save();
+            const playerShadowY = player.y + player.size * 0.35 + bobOffset;
+            const playerShadowRadiusX = player.size * 0.4;
+            const playerShadowRadiusY = player.size * 0.15;
+            ctx.beginPath();
+            ctx.ellipse(player.x, playerShadowY, playerShadowRadiusX, playerShadowRadiusY, 0, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.15)';
+            ctx.fill();
+            ctx.restore();
+
             ctx.save();
             ctx.translate(player.x, player.y + bobOffset);
             if (isSpinning) {
@@ -893,6 +913,9 @@
                 ctx.globalCompositeOperation = 'source-over';
                 ctx.restore();
             }
+
+            // Restore context to exit camera zoom transform - crosshair draws in screen space
+            ctx.restore();
 
             if (isMouseInCanvas && gameActive && sprites.crosshair) {
                 const reticleSize = 24;

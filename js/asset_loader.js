@@ -66,7 +66,7 @@
         function initializePreRenders() {
             // ─── ENEMY EMOJIS ───────────────────────────────────────────────────
             const preRenderEnemyEmoji = (emoji, size) => preRenderEmoji(emoji, size, {
-                outlineColor: '#FF0000',
+                outlineColor: 'rgba(255, 0, 0, 0.5)',
                 outlineWidth: Math.max(1.2, size * 0.08)
             });
             preRenderEnemyEmoji('🧟', 17);              // Zombie - basic enemy
