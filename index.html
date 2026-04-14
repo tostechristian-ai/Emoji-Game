@@ -23,7 +23,42 @@
 
   <!-- Loading Screen -->
   <div id="loadingScreen">
-    <p id="loadingText">Loading Assets...</p>
+    <div class="loading-container">
+      <div class="loading-emoji">🎮</div>
+      <h1 class="loading-title">EMOJI SURVIVORS</h1>
+      <p id="loadingText">Loading Assets...</p>
+      
+      <div class="loading-progress-container">
+        <div class="loading-progress-bar">
+          <div id="loadingProgressFill" class="loading-progress-fill"></div>
+        </div>
+        <div id="loadingPercentage" class="loading-percentage">0%</div>
+      </div>
+      
+      <div class="loading-categories">
+        <div class="loading-category">
+          <span class="category-icon">🖼️</span>
+          <span class="category-name">Sprites</span>
+          <span id="spritesProgress" class="category-count">0/0</span>
+        </div>
+        <div class="loading-category">
+          <span class="category-icon">🔊</span>
+          <span class="category-name">Audio</span>
+          <span id="audioProgress" class="category-count">0/0</span>
+        </div>
+        <div class="loading-category">
+          <span class="category-icon">🗺️</span>
+          <span class="category-name">Maps</span>
+          <span id="mapsProgress" class="category-count">0/0</span>
+        </div>
+      </div>
+      
+      <div id="currentFile" class="current-file">Initializing...</div>
+      
+      <div class="loading-particles">
+        <span>⭐</span><span>🎲</span><span>🏆</span><span>💎</span><span>⚡</span>
+      </div>
+    </div>
   </div>
 
   <!-- Splash Screen -->
