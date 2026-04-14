@@ -986,6 +986,13 @@
         .pause-controls button#resumeButton:hover {
             background-color: #45a049;
         }
+        .pause-controls button#gameSpeedButton {
+            background-color: #9C27B0;
+            box-shadow: 0 5px 15px rgba(156, 39, 176, 0.3);
+        }
+        .pause-controls button#gameSpeedButton:hover {
+            background-color: #7B1FA2;
+        }
 
         .toggle-switch-container {
             display: flex;
@@ -1531,6 +1538,7 @@
             background-color: #F44336;
             color: white;
             border: none;
+            transition: transform 0.2s, box-shadow 0.2s;
             padding: 12px 25px;
             border-radius: 30px;
             font-size: 20px;
@@ -1540,6 +1548,16 @@
             box-shadow: 0 5px 15px rgba(255, 0, 0, 0.3);
         }
 
+        #merchantShop button.gamepad-focus {
+            transform: scale(1.1);
+            box-shadow: 0 0 20px #FFD700, 0 5px 15px rgba(255, 0, 0, 0.3);
+            border: 3px solid #FFD700;
+        }
+
+        #merchantShop button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 20px rgba(255, 0, 0, 0.5);
+        }
 
         /* --- MOBILE OPTIMIZATIONS --- */
         #mobile-bottom-buttons {
@@ -2206,7 +2224,8 @@
         /* ── Gamepad focus for shop / achievement / cheat cards ─────────── */
         .permanent-upgrade-card.gamepad-focus,
         .achievement-card.gamepad-focus,
-        .cheat-card.gamepad-focus {
+        .cheat-card.gamepad-focus,
+        .merchant-card.gamepad-focus {
             outline: 3px solid #FFD700 !important;
             box-shadow: 0 0 16px #FFD700 !important;
             transform: scale(1.04) !important;

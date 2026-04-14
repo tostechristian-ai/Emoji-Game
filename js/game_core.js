@@ -268,6 +268,7 @@
         const effectsVolumeSlider = document.getElementById('effectsVolume');
         const pauseRestartButton = document.getElementById('pauseRestartButton');
         const resumeButton = document.getElementById('resumeButton');
+        const gameSpeedButton = document.getElementById('gameSpeedButton');
         const startButton = document.getElementById('startButton');
         const gameStats = document.getElementById('gameStats');
         const gameStartOverlay = document.getElementById('gameStartOverlay');
@@ -527,11 +528,15 @@ let doppelganger = null;
         const LIGHTNING_STRIKE_DAMAGE = 1;
         let hasDashInvincibility = false;
 
-        let iceShardCannonActive = false;
-        let lastIceShardTime = 0;
-        const ICE_SHARD_INTERVAL = 1800; // ms between shard bursts
-        const ICE_SHARD_FREEZE_DURATION = 1500; // ms enemies stay frozen
-        const ICE_SHARD_SHATTER_RADIUS = 60; // AoE when frozen enemy is killed
+        let shotgunActive = false;
+        let lastShotgunTime = 0;
+        const SHOTGUN_INTERVAL = 1800; // ms between shotgun bursts
+
+        let iceCannonActive = false;
+        let lastIceCannonTime = 0;
+        const ICE_CANNON_INTERVAL = 1500; // ms between ice cannon shots
+        const ICE_CANNON_FREEZE_DURATION = 2000; // ms enemies stay frozen
+        const ICE_CANNON_DAMAGE = 0.3;
 
         const APPLE_ITEM_EMOJI = '🍎';
         const APPLE_ITEM_SIZE = 15;
@@ -569,6 +574,9 @@ let doppelganger = null;
         let lastFrameTime = 0;
         let lastCircleSpawnEventTime = 0; 
         let lastBarrelSpawnTime = 0;
+
+        let gameSpeedLevel = 1; // 1, 2, or 3 (x speed)
+        let gameTimeScale = 1; // Actual time multiplier
         
         const UPGRADE_BORDER_COLORS = {
             "speed": "#66bb6a", "fireRate": "#8B4513", "magnetRadius": "#800080",
@@ -759,9 +767,10 @@ function handleGamepadInput() {
         const onGuide       = gameGuideModal       && gameGuideModal.style.display       !== 'none';
         const onAchieve     = achievementsModal    && achievementsModal.style.display    !== 'none';
         const onCheats      = cheatsModal          && cheatsModal.style.display          !== 'none';
+        const onMerchant    = merchantShop         && merchantShop.style.display         !== 'none';
 
         // Detect screen changes — only initialise focus once on entry
-        const currentScreen = onDifficulty ? 'difficulty' : onMap ? 'map' : onCharacter ? 'character' : onUpgradeShop ? 'shop' : onGuide ? 'guide' : onAchieve ? 'achieve' : onCheats ? 'cheats' : 'none';
+        const currentScreen = onDifficulty ? 'difficulty' : onMap ? 'map' : onCharacter ? 'character' : onUpgradeShop ? 'shop' : onGuide ? 'guide' : onAchieve ? 'achieve' : onCheats ? 'cheats' : onMerchant ? 'merchant' : 'none';
         if (currentScreen !== _gpNav.lastScreen) {
             _gpNav.lastScreen = currentScreen;
             _gpNav.menuIndex = 0;
@@ -780,6 +789,37 @@ function handleGamepadInput() {
 
         // Only process directional/confirm input after the debounce delay
         if (now - lastGamepadUpdate < GAMEPAD_INPUT_DELAY) return;
+
+        // ── Merchant shop ──
+        if (onMerchant) {
+            const merchantCards = Array.from(merchantOptionsContainer.querySelectorAll('.merchant-card'));
+            const leaveBtn = document.getElementById('leaveMerchantButton');
+            const allItems = [...merchantCards];
+            if (leaveBtn) allItems.push(leaveBtn);
+            
+            if (allItems.length > 0) {
+                if (_gpNav.lastScreen !== 'merchant') {
+                    _gpNav.lastScreen = 'merchant';
+                    _gpNav.menuIndex = 0;
+                    allItems.forEach((el, i) => el.classList.toggle('gamepad-focus', i === 0));
+                }
+                if (btnDown || btnRight) { moveFocus(allItems, 1); return; }
+                if (btnUp   || btnLeft)  { moveFocus(allItems, -1); return; }
+                if (btnA) {
+                    allItems[_gpNav.menuIndex]?.click();
+                    vibrateUI('select');
+                    lastGamepadUpdate = now;
+                    return;
+                }
+            }
+            if (btnB) { 
+                clearFocus(allItems); 
+                _gpNav.menuIndex = 0; 
+                lastGamepadUpdate = now; 
+                leaveMerchantButton?.click(); 
+                return; 
+            }
+        }
 
         // ── Difficulty screen ──
         if (onDifficulty) {
@@ -1748,7 +1788,8 @@ function createBoss() {
                 if (!lightningProjectileActive) powerUpChoices.push({id: 'lightning_projectile', name: 'Lightning Projectile', label: 'LTN'});
                 if (!bugSwarmActive) powerUpChoices.push({id: 'bug_swarm', name: 'Bug Swarm', label: 'BUG'});
                 if (!lightningStrikeActive) powerUpChoices.push({id: 'lightning_strike', name: 'Lightning Strike', label: 'STK'});
-                if (!iceShardCannonActive) powerUpChoices.push({id: 'ice_shard_cannon', name: 'Ice Shard Cannon', label: 'ISC'});
+                if (!shotgunActive) powerUpChoices.push({id: 'shotgun', name: 'Shotgun', label: 'SGN'});
+                if (!iceCannonActive) powerUpChoices.push({id: 'ice_cannon', name: 'Ice Cannon', label: 'ICE'});
                 if (!hasDashInvincibility) powerUpChoices.push({id: 'dash_invincibility', name: 'Dash Invincibility', label: 'DSH'});
                 if (!playerData.hasReducedDashCooldown) powerUpChoices.push({id: 'dash_cooldown', name: 'Dash Cooldown', label: 'CDN'});
 
@@ -1952,7 +1993,8 @@ function createBoss() {
             player.xp -= player.xpToNextLevel;
             if (player.xp < 0) player.xp = 0;
             if(cheats.instantLevelUp) player.xp = player.xpToNextLevel;
-            else player.xpToNextLevel += 1; 
+            else if (player.level < 10) player.xpToNextLevel += 1;
+            else player.xpToNextLevel = Math.floor(player.xpToNextLevel * 1.25);
             Tone.Transport.bpm.value = 120 * (player.level >= 30 ? 2.5 : player.level >= 20 ? 2 : player.level >= 10 ? 1.5 : 1);
             updateUIStats();
             vibrateLevelUp();
@@ -2558,6 +2600,16 @@ async function startGame() {
                 const pauseBtns = Array.from(pauseOverlay.querySelectorAll('button'));
                 pauseBtns.forEach(el => el.classList.remove('gamepad-focus'));
             }
+        }
+
+        function toggleGameSpeed() {
+            gameSpeedLevel = gameSpeedLevel >= 3 ? 1 : gameSpeedLevel + 1;
+            gameTimeScale = gameSpeedLevel;
+            if (gameSpeedButton) {
+                gameSpeedButton.textContent = `Speed: ${gameSpeedLevel}x`;
+            }
+            playUISound('uiClick');
+            vibrateUI();
         }
         
         function triggerDash(entity) {

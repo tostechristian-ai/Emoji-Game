@@ -128,7 +128,8 @@ function showMerchantShop() {
         { id: 'lightning_strike',     name: 'Lightning Strike',  icon: '⚡', active: lightningStrikeActive },
         { id: 'flamethrower',         name: 'Flamethrower',      icon: '🔥', active: flamethrowerActive },
         { id: 'laser_cannon',         name: 'Laser Cannon',      icon: '🟢', active: laserCannonActive },
-        { id: 'ice_shard_cannon',     name: 'Ice Shard Cannon',  icon: '❄️', active: iceShardCannonActive },
+        { id: 'shotgun',              name: 'Shotgun',           icon: '🔫', active: shotgunActive },
+        { id: 'ice_cannon',           name: 'Ice Cannon',        icon: '❄️', active: iceCannonActive },
         { id: 'anti_gravity',         name: 'Anti-Gravity',      icon: '💨', active: antiGravityActive, locked: !playerData.unlockedPickups.anti_gravity },
         { id: 'black_hole',           name: 'Black Hole',        icon: '⚫', active: blackHoleActive, locked: !playerData.unlockedPickups.black_hole },
         { id: 'vengeance_nova',       name: 'Vengeance Nova',    icon: '🛡️', active: vengeanceNovaActive, locked: !playerData.unlockedPickups.vengeance_nova },
@@ -234,6 +235,7 @@ function purchaseFromMerchant(option) {
         
         // Check if player leveled up
         if (player.xp >= player.xpToNextLevel) {
+            closeMerchantShop();
             setTimeout(() => levelUp(), 200);
         }
     }
@@ -267,6 +269,7 @@ function purchaseFromMerchant(option) {
         });
         
         if (player.xp >= player.xpToNextLevel) {
+            closeMerchantShop();
             setTimeout(() => levelUp(), 200);
         }
     }
@@ -465,9 +468,13 @@ function activatePowerup(id) {
         laserCannonActive = true;
         lastLaserCannonFireTime = Date.now();
     }
-    else if (id === 'ice_shard_cannon') {
-        iceShardCannonActive = true;
-        lastIceShardTime = Date.now();
+    else if (id === 'shotgun') {
+        shotgunActive = true;
+        lastShotgunTime = Date.now();
+    }
+    else if (id === 'ice_cannon') {
+        iceCannonActive = true;
+        lastIceCannonTime = Date.now();
     }
 
     // ─── ACHIEVEMENT TRACKING ───────────────────────────────────────────────

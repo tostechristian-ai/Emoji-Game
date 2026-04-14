@@ -359,6 +359,16 @@
                     ctx.restore();
                     continue;
                 }
+                // Ice Cannon: snowflakes instead of bullets
+                if (weapon._isIceCannon) {
+                    const snowflakePre = preRenderedEntities && preRenderedEntities['❄️'];
+                    if (snowflakePre) {
+                        ctx.rotate(weapon.angle + Math.PI / 2); // Align snowflake
+                        ctx.drawImage(snowflakePre, -12, -12, 24, 24);
+                    }
+                    ctx.restore();
+                    continue;
+                }
                 ctx.rotate(weapon.angle);
                 const bSize = weapon.size * 1.4;
                 const bH = bSize * 0.5;

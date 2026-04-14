@@ -39,10 +39,10 @@
                 checkAchievements();
                 update._lastAchievementCheck = now;
             }
-            
-            if (Date.now() - lastMerchantSpawnTime >= MERCHANT_SPAWN_INTERVAL) {
-    spawnMerchant(player.x + 200, player.y); 
-    lastMerchantSpawnTime = Date.now(); // Reset the timer right after spawning
+
+            if (now - lastMerchantSpawnTime >= MERCHANT_SPAWN_INTERVAL) {
+    spawnMerchant(player.x + 200, player.y);
+    lastMerchantSpawnTime = now;
 }
 
 // Loop through all active merchants to check for collision.
@@ -392,18 +392,18 @@ for (let i = merchants.length - 1; i >= 0; i--) {
                 }
             }
 
-            // Ice Shard Cannon — fires 3 snowflake shards in a spread, freezes on hit
-            if (iceShardCannonActive && !isTimeStopped && now - lastIceShardTime > ICE_SHARD_INTERVAL) {
-                let shardTarget = null; let minDist = Infinity;
+            // Shotgun — fires 3 bullets in a spread
+            if (shotgunActive && !isTimeStopped && now - lastShotgunTime > SHOTGUN_INTERVAL) {
+                let sgTarget = null; let minDist = Infinity;
                 for (let si = 0; si < enemies.length; si++) {
                     const e = enemies[si];
-                    if (!e.isHit && !e.isFrozen) {
+                    if (!e.isHit) {
                         const d = (player.x - e.x)**2 + (player.y - e.y)**2;
-                        if (d < minDist) { minDist = d; shardTarget = e; }
+                        if (d < minDist) { minDist = d; sgTarget = e; }
                     }
                 }
-                if (shardTarget) {
-                    const baseAngle = Math.atan2(shardTarget.y - player.y, shardTarget.x - player.x);
+                if (sgTarget) {
+                    const baseAngle = Math.atan2(sgTarget.y - player.y, sgTarget.x - player.x);
                     const spread = Math.PI / 10;
                     for (let si = -1; si <= 1; si++) {
                         const angle = baseAngle + si * spread;
@@ -420,13 +420,51 @@ for (let i = merchants.length - 1; i >= 0; i--) {
                                 w.hitEnemies.length = 0;
                                 w.owner = 'player';
                                 w.active = true;
-                                w._isIceShard = true;
+                                w._isShotgun = true;
                                 break;
                             }
                         }
                     }
                     playSound('playerShoot');
-                    lastIceShardTime = now;
+                    lastShotgunTime = now;
+                }
+            }
+
+            // Ice Cannon — fires 2 snowflakes perpendicular to aim direction, freezes on hit
+            if (iceCannonActive && !isTimeStopped && now - lastIceCannonTime > ICE_CANNON_INTERVAL) {
+                let iceTarget = null; let minDist = Infinity;
+                for (let si = 0; si < enemies.length; si++) {
+                    const e = enemies[si];
+                    if (!e.isHit && !e.isFrozen) {
+                        const d = (player.x - e.x)**2 + (player.y - e.y)**2;
+                        if (d < minDist) { minDist = d; iceTarget = e; }
+                    }
+                }
+                if (iceTarget) {
+                    const aimAngle = Math.atan2(iceTarget.y - player.y, iceTarget.x - player.x);
+                    // Fire 2 shots perpendicular to aim (left and right)
+                    const perpAngles = [aimAngle - Math.PI / 2, aimAngle + Math.PI / 2];
+                    for (const angle of perpAngles) {
+                        for (const w of weaponPool) {
+                            if (!w.active) {
+                                w.x = player.x; w.y = player.y;
+                                w.size = 18 * player.projectileSizeMultiplier;
+                                w.speed = 5 * player.projectileSpeedMultiplier;
+                                w.angle = angle;
+                                w.dx = Math.cos(angle) * w.speed;
+                                w.dy = Math.sin(angle) * w.speed;
+                                w.lifetime = now + 2500;
+                                w.hitsLeft = 999;
+                                w.hitEnemies.length = 0;
+                                w.owner = 'player';
+                                w.active = true;
+                                w._isIceCannon = true;
+                                break;
+                            }
+                        }
+                    }
+                    playSound('playerShoot');
+                    lastIceCannonTime = now;
                 }
             }
 
@@ -1173,6 +1211,7 @@ if (pendingRevolverShot && now >= pendingRevolverShot.fireAt) {
                 
                 // --- ALL YOUR ORIGINAL COLLISION LOGIC IS COPIED HERE ---
                 let damageToDeal = player.damageMultiplier;
+                if (weapon._isIceCannon) { damageToDeal = ICE_CANNON_DAMAGE * player.damageMultiplier; }
                 if (rocketLauncherActive) { damageToDeal *= 2; }
                 if (cheats.one_hit_kill) damageToDeal = Infinity;
 
@@ -1189,12 +1228,19 @@ if (pendingRevolverShot && now >= pendingRevolverShot.fireAt) {
                 if (!enemy._lastDmgNum || now - enemy._lastDmgNum > 180) {
                     if (floatingTexts.length < 30) {
                         const dmg = damageToDeal === Infinity ? 999 : Math.round(damageToDeal * 10) / 10;
-                        const t = Math.min(1, dmg / 5); // 0→1 over 0–5 damage
-                        const fontSize = Math.floor(10 + t * 8); // 10–18px
-                        // White at low damage → bright yellow at high damage
-                        const r = 255;
-                        const g = Math.floor(255 - t * 80); // 255→175
-                        const color = `rgb(${r},${g},50)`;
+                        // Ice cannon gets blue damage numbers
+                        let color, fontSize;
+                        if (weapon._isIceCannon) {
+                            fontSize = 12;
+                            color = '#00aaff'; // Blue for ice
+                        } else {
+                            const t = Math.min(1, dmg / 5); // 0→1 over 0–5 damage
+                            fontSize = Math.floor(10 + t * 8); // 10–18px
+                            // White at low damage → bright yellow at high damage
+                            const r = 255;
+                            const g = Math.floor(255 - t * 80); // 255→175
+                            color = `rgb(${r},${g},50)`;
+                        }
                         floatingTexts.push({
                             text: dmg === 999 ? '💥' : String(dmg),
                             x: enemy.x + (Math.random() - 0.5) * enemy.size,
@@ -1234,9 +1280,14 @@ if (pendingRevolverShot && now >= pendingRevolverShot.fireAt) {
                     enemy.x += normDx * knockbackDistance;
                     enemy.y += normDy * knockbackDistance;
                 }
-                if (iceProjectileActive || weapon._isIceShard) { 
+                if (iceProjectileActive) { 
                     enemy.isFrozen = true;
-                    enemy.freezeEndTime = Date.now() + (weapon._isIceShard ? ICE_SHARD_FREEZE_DURATION : 250);
+                    enemy.freezeEndTime = Date.now() + 250;
+                    playerStats.totalEnemiesFrozen++;
+                }
+                if (weapon._isIceCannon) {
+                    enemy.isFrozen = true;
+                    enemy.freezeEndTime = Date.now() + ICE_CANNON_FREEZE_DURATION;
                     playerStats.totalEnemiesFrozen++;
                 }
                 if (flamingBulletsActive) {

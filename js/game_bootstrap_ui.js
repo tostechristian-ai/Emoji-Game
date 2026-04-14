@@ -15,7 +15,11 @@
 // Main game loop — runs every frame (~60fps) while the game is active
 // Order matters: update logic first, then draw, then refresh UI text
 function gameLoop() {
-  update();            // Move everything, check collisions, spawn enemies
+  // Game speed: run update multiple times per frame for faster speeds
+  const ticks = gameTimeScale || 1;
+  for (let i = 0; i < ticks; i++) {
+    update();            // Move everything, check collisions, spawn enemies
+  }
   handleGamepadInput(); // Poll gamepad buttons/sticks
   draw();              // Render everything to the canvas
   updateUIStats();     // Refresh HUD text (level, score, XP bar, etc.)
@@ -75,7 +79,8 @@ const ALWAYS_AVAILABLE_PICKUPS = {
   lightning_projectile: { id: 'lightning_projectile', name: 'Lightning Projectile' },
   flamethrower: { id: 'flamethrower', name: 'Flamethrower' },
   laser_cannon: { id: 'laser_cannon', name: 'Laser Cannon' },
-  ice_shard_cannon: { id: 'ice_shard_cannon', name: 'Ice Shard Cannon' }
+  shotgun: { id: 'shotgun', name: 'Shotgun' },
+  ice_cannon: { id: 'ice_cannon', name: 'Ice Cannon' }
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -341,6 +346,13 @@ window.onload = function() {
     const resumeAction = (e) => { e.preventDefault(); vibrateUI(); playUISound('uiClick'); togglePause(); };
     resumeButton.addEventListener('click', resumeAction);
     resumeButton.addEventListener('touchstart', resumeAction);
+  }
+
+  // ─── GAME SPEED BUTTON ────────────────────────────────────────────────────
+  if (gameSpeedButton) {
+    const speedAction = (e) => { e.preventDefault(); toggleGameSpeed(); };
+    gameSpeedButton.addEventListener('click', speedAction);
+    gameSpeedButton.addEventListener('touchstart', speedAction);
   }
 
   // ─── MERCHANT LEAVE BUTTON ────────────────────────────────────────────────
