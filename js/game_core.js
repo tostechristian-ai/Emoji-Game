@@ -1616,7 +1616,7 @@ document.body.addEventListener('touchstart', (e) => {
         let lastBossLevelSpawned = 0;
 
         // Mega Boss constants
-        const MEGA_BOSS_SPAWN_TIME = 60 * 1000; // 15 seconds for testing (normally 15 minutes = 15 * 60 * 1000)
+        const MEGA_BOSS_SPAWN_TIME = 15 * 60 * 1000; // 15 minutes
         const MEGA_BOSS_HEALTH_MULTIPLIER = 10;
         const MEGA_BOSS_SIZE_MULTIPLIER = 4; // 4x larger than normal enemy
         const MEGA_BOSS_SPEED_MULTIPLIER = 0.5;
