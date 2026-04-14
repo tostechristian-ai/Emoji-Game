@@ -1024,6 +1024,14 @@ function handleGamepadInput() {
         
         let mouseX = 0; let mouseY = 0;
         let isMouseInCanvas = false;
+        let isPointerLocked = false;
+
+        function screenToWorldZoom(sx, sy) {
+            return {
+                x: (sx - canvas.width / 2 * (1 - cameraZoom)) / cameraZoom + cameraOffsetX,
+                y: (sy - canvas.height / 2 * (1 - cameraZoom)) / cameraZoom + cameraOffsetY
+            };
+        }
 
         const keys = {};
         window.addEventListener('keydown', (e) => {
@@ -1078,15 +1086,36 @@ function handleGamepadInput() {
         window.addEventListener('mousemove', (e) => {
             if (!gameActive) return;
             const rect = canvas.getBoundingClientRect();
-            // Clamp mouse position to canvas bounds
-            mouseX = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
-            mouseY = Math.max(0, Math.min(e.clientY - rect.top, rect.height));
-            // Only update aim direction when game is not paused/over
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+
+            if (isPointerLocked) {
+                // Pointer locked: accumulate movement deltas (confined to canvas)
+                mouseX += e.movementX * scaleX;
+                mouseY += e.movementY * scaleY;
+            } else {
+                // Pointer free: use absolute position, converted to canvas pixels
+                mouseX = (e.clientX - rect.left) * scaleX;
+                mouseY = (e.clientY - rect.top) * scaleY;
+            }
+
+            // Clamp to canvas bounds
+            mouseX = Math.max(0, Math.min(mouseX, canvas.width));
+            mouseY = Math.max(0, Math.min(mouseY, canvas.height));
+
+            // Update isMouseInCanvas
+            if (isPointerLocked) {
+                isMouseInCanvas = true;
+            } else {
+                isMouseInCanvas = (e.clientX >= rect.left && e.clientX <= rect.right &&
+                                   e.clientY >= rect.top && e.clientY <= rect.bottom);
+            }
+
+            // Update aim direction when not paused/over (zoom-aware)
             if (!gamePaused && !gameOver) {
-                const playerScreenX = player.x - cameraOffsetX;
-                const playerScreenY = player.y - cameraOffsetY;
-                aimDx = mouseX - playerScreenX;
-                aimDy = mouseY - playerScreenY;
+                const worldMouse = screenToWorldZoom(mouseX, mouseY);
+                aimDx = worldMouse.x - player.x;
+                aimDy = worldMouse.y - player.y;
             }
         });
 
