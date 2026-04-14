@@ -236,12 +236,13 @@
                 ctx.save();
 
                 // Draw light shadow under enemy
+                const isMobile = document.body.classList.contains('is-mobile');
                 const shadowY = enemy.y + enemy.size * 0.4;
-                const shadowRadiusX = enemy.size * 0.5;
-                const shadowRadiusY = enemy.size * 0.2;
+                const shadowRadiusX = enemy.size * 0.5 * (isMobile ? 1.1 : 1);
+                const shadowRadiusY = enemy.size * 0.2 * (isMobile ? 1.1 : 1);
                 ctx.beginPath();
                 ctx.ellipse(enemy.x, shadowY, shadowRadiusX, shadowRadiusY, 0, 0, Math.PI * 2);
-                ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+                ctx.fillStyle = isMobile ? 'rgba(0, 0, 0, 0.55)' : 'rgba(0, 0, 0, 0.3)';
                 ctx.fill();
 
                 // White flash when hit
@@ -917,7 +918,7 @@
             // Restore context to exit camera zoom transform - crosshair draws in screen space
             ctx.restore();
 
-            if (isMouseInCanvas && gameActive && sprites.crosshair) {
+            if (isMouseInCanvas && gameActive && sprites.crosshair && !document.body.classList.contains('is-mobile')) {
                 const reticleSize = 24;
                 ctx.save();
                 // Orange-red circle glow behind the crosshair sprite
