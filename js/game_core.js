@@ -255,7 +255,7 @@
 
         const difficultyContainer = document.getElementById('difficultyContainer');
         const difficultyScreen = document.getElementById('difficultyScreen');
-        const difficultyButtons = document.querySelectorAll('.difficulty-buttons button:not(#howToPlayButton):not(#desktopUpgradesButton):not(#characterSelectButton)');
+        const difficultyButtons = document.querySelectorAll('.difficulty-buttons button:not(#howToPlayButton):not(#desktopUpgradesButton):not(#characterSelectButton):not(#mobileAchievementsButton):not(#mobileUpgradesButton):not(#mobileResetGameButton)');
         const howToPlayButton = document.getElementById('howToPlayButton');
         const gameGuideModal = document.getElementById('gameGuideModal');
         const backToDifficultyButton = document.getElementById('backToDifficultyButton');
