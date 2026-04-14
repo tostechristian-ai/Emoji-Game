@@ -1377,8 +1377,7 @@ for (let i = merchants.length - 1; i >= 0; i--) {
 
             for (let i = pickupItems.length - 1; i >= 0; i--) {
                 const item = pickupItems[i];
-                // Expire pickups after 30 seconds so they don't pile up forever
-                if (item.spawnTime && now - item.spawnTime > 30000) { pickupItems.splice(i, 1); continue; }
+                // XP gems and powerup boxes persist indefinitely - no expiration timer
                 const dx = player.x - item.x;
                 const dy = player.y - item.y;
                 const distanceSq = dx*dx + dy*dy;
@@ -1424,7 +1423,9 @@ for (let i = merchants.length - 1; i >= 0; i--) {
             }
             for (let i = appleItems.length - 1; i >= 0; i--) {
                 const apple = appleItems[i];
-                if (now - apple.spawnTime > apple.lifetime) { appleItems.splice(i, 1); continue; }
+                // Account for paused time when checking apple lifetime
+                const effectiveElapsed = now - apple.spawnTime - (appleTotalPausedDuration || 0);
+                if (effectiveElapsed > apple.lifetime) { appleItems.splice(i, 1); continue; }
                 const dx = player.x - apple.x;
                 const dy = player.y - apple.y;
                 const distanceSq = dx*dx + dy*dy;

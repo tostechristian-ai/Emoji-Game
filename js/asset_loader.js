@@ -189,31 +189,122 @@
         // Total count of all assets to load (for progress tracking)
         const totalAssets = totalSprites + totalAudio + totalBackgrounds;
         
+        // Category-specific counters for detailed progress
+        let spritesLoadedCount = 0;
+        let audioLoadedCount = 0;
+        let backgroundsLoadedCount = 0;
+        
         // Detect if the player is on a mobile device
         const isMobileDevice = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
        
 
+        // ─── LOADING SCREEN UI UPDATE FUNCTIONS ─────────────────────────────────
+        
+        // Update the loading screen UI with current progress
+        function updateLoadingUI(currentFile) {
+            // Calculate overall percentage
+            const percentage = Math.round((assetsLoadedCount / totalAssets) * 100);
+            
+            // Update progress bar
+            const progressFill = document.getElementById('loadingProgressFill');
+            const percentageText = document.getElementById('loadingPercentage');
+            const currentFileText = document.getElementById('currentFile');
+            
+            if (progressFill) progressFill.style.width = percentage + '%';
+            if (percentageText) percentageText.textContent = percentage + '%';
+            if (currentFileText && currentFile) {
+                currentFileText.textContent = 'Loading: ' + currentFile.split('/').pop();
+            }
+            
+            // Update category counters
+            const spritesProgress = document.getElementById('spritesProgress');
+            const audioProgress = document.getElementById('audioProgress');
+            const mapsProgress = document.getElementById('mapsProgress');
+            
+            if (spritesProgress) spritesProgress.textContent = `${spritesLoadedCount}/${totalSprites}`;
+            if (audioProgress) audioProgress.textContent = `${audioLoadedCount}/${totalAudio}`;
+            if (mapsProgress) mapsProgress.textContent = `${backgroundsLoadedCount}/${totalBackgrounds}`;
+            
+            // Add completion styling to categories
+            const categoryElements = document.querySelectorAll('.loading-category');
+            if (categoryElements.length >= 3) {
+                if (spritesLoadedCount === totalSprites) categoryElements[0].classList.add('complete');
+                if (audioLoadedCount === totalAudio) categoryElements[1].classList.add('complete');
+                if (backgroundsLoadedCount === totalBackgrounds) categoryElements[2].classList.add('complete');
+            }
+            
+            // Update loading text based on what's being loaded
+            const loadingText = document.getElementById('loadingText');
+            if (loadingText) {
+                if (spritesLoadedCount < totalSprites) {
+                    loadingText.textContent = 'Loading Sprites...';
+                } else if (audioLoadedCount < totalAudio) {
+                    loadingText.textContent = 'Loading Audio...';
+                } else if (backgroundsLoadedCount < totalBackgrounds) {
+                    loadingText.textContent = 'Loading Maps...';
+                } else {
+                    loadingText.textContent = 'Finalizing...';
+                }
+            }
+        }
+        
+        // Show completion state before transitioning
+        function showLoadingComplete() {
+            const loadingText = document.getElementById('loadingText');
+            const progressFill = document.getElementById('loadingProgressFill');
+            const percentageText = document.getElementById('loadingPercentage');
+            const currentFile = document.getElementById('currentFile');
+            
+            if (loadingText) loadingText.textContent = 'Ready!';
+            if (progressFill) {
+                progressFill.style.width = '100%';
+                progressFill.style.background = 'linear-gradient(90deg, #66bb6a, #4fc3f7, #66bb6a)';
+            }
+            if (percentageText) {
+                percentageText.textContent = '100%';
+                percentageText.style.color = '#4fc3f7';
+            }
+            if (currentFile) currentFile.textContent = 'All assets loaded successfully!';
+            
+            // Add complete class to all categories
+            document.querySelectorAll('.loading-category').forEach(cat => cat.classList.add('complete'));
+        }
+
         // ─── ASSET LOADING FUNCTIONS ────────────────────────────────────────────
         
         // Called each time an asset finishes loading
         // When all assets are loaded, hide loading screen and show start button
-        function assetLoaded() {
+        function assetLoaded(category, fileName) {
             assetsLoadedCount++;
+            
+            // Update category counters
+            if (category === 'sprite') spritesLoadedCount++;
+            else if (category === 'audio') audioLoadedCount++;
+            else if (category === 'background') backgroundsLoadedCount++;
+            
+            // Update the loading UI
+            updateLoadingUI(fileName);
             
             // Check if all assets have finished loading
             if (assetsLoadedCount === totalAssets) {
                 console.log('All game assets loaded successfully.');
+                
+                // Show completion state
+                showLoadingComplete();
                 
                 // Set the level up box image source
                 document.getElementById('levelUpBox').src = sprites.levelUpBox.src;
                 
                 // Pre-render all emojis for better performance
                 initializePreRenders();
-
-                // Hide loading screen and show start button
-                document.getElementById('loadingScreen').style.display = 'none';
-                document.getElementById('startScreen').style.display = 'flex';
+                
+                // Delay slightly to show 100% completion, then transition
+                setTimeout(() => {
+                    // Hide loading screen and show start button
+                    document.getElementById('loadingScreen').style.display = 'none';
+                    document.getElementById('startScreen').style.display = 'flex';
+                }, 800);
             }
         }
         
@@ -223,22 +314,27 @@
         function loadSprite(name, path) {
             const img = new Image();
             img.src = path;
+            updateLoadingUI(path); // Show current file being loaded
             img.onload = () => {
                 sprites[name] = img;
-                assetLoaded(); // Increment loaded count
+                assetLoaded('sprite', path); // Increment loaded count
             };
-            img.onerror = () => console.error(`Failed to load sprite: ${path}`);
+            img.onerror = () => {
+                console.error(`Failed to load sprite: ${path}`);
+                assetLoaded('sprite', path); // Still increment to avoid hanging
+            };
         }
 
         // Load a single audio file using Tone.js
         // @param name - The key to store the audio player under
         // @param path - The file path to the audio
         function loadAudio(name, path) {
+            updateLoadingUI(path); // Show current file being loaded
             const player = new Tone.Player({
                 url: path,
                 autostart: false,
                 loop: name === 'mainMenu', // Only loop the main menu music
-                onload: assetLoaded // Increment loaded count when ready
+                onload: () => assetLoaded('audio', path) // Increment loaded count when ready
             }).toDestination();
             audioPlayers[name] = player;
         }
@@ -249,14 +345,21 @@
         function loadBackground(path, index) {
             const img = new Image();
             img.src = path;
+            updateLoadingUI(path); // Show current file being loaded
             img.onload = () => {
                 backgroundImages[index] = img; // Store at specific index
-                assetLoaded(); // Increment loaded count
+                assetLoaded('background', path); // Increment loaded count
             };
-            img.onerror = () => console.error(`Failed to load background: ${path}`);
+            img.onerror = () => {
+                console.error(`Failed to load background: ${path}`);
+                assetLoaded('background', path); // Still increment to avoid hanging
+            };
         }
 
         // ─── START LOADING ALL ASSETS ───────────────────────────────────────────
+        // Initialize category counters display
+        updateLoadingUI('Starting...');
+        
         // These loops kick off the loading process for all game assets
         for (const [name, path] of Object.entries(spritePaths)) loadSprite(name, path);
         for (const [name, path] of Object.entries(audioPaths)) loadAudio(name, path);

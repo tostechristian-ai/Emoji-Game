@@ -215,6 +215,7 @@ window.onload = function() {
   // ─── HIDE ALL SCREENS ON STARTUP ──────────────────────────────────────────
   // Everything is hidden; asset_loader.js will show the start button when ready
   resizeCanvas();
+  startScreen.style.display = 'none';           // Hidden until assets load
   gameContainer.style.display = 'none';
   difficultyContainer.style.display = 'none';
   mapSelectContainer.style.display = 'none';

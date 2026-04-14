@@ -579,6 +579,10 @@ let doppelganger = null;
         let gameStartTime = 0;
         let gameTimeOffset = 0; // Accumulates paused time to keep timer accurate
         let gameTimePausedAt = 0; // When the timer was paused
+        
+        // Track paused time for apple lifetime pausing during menus
+        let applePauseStartTime = 0;
+        let appleTotalPausedDuration = 0;
         let animationFrameId;
         let enemiesDefeatedCount = 0;
         let lastFrameTime = 0;
@@ -2253,6 +2257,8 @@ function createBoss() {
 
         function levelUp() {
             gamePaused = true;
+            // Record pause start time for apple lifetime pausing
+            applePauseStartTime = Date.now();
             player.level++;
             if (typeof runStats !== 'undefined') {
                 if (typeof runStats.levelsGainedThisRun !== 'number' || !Number.isFinite(runStats.levelsGainedThisRun)) runStats.levelsGainedThisRun = 0;
@@ -2359,6 +2365,11 @@ if (firstCard) {
                     fireRateBoostEndTime += pauseDuration;
                 }
                 gameTimePausedAt = 0;
+            }
+            // Accumulate paused time for apple lifetime tracking
+            if (applePauseStartTime > 0) {
+                appleTotalPausedDuration += Date.now() - applePauseStartTime;
+                applePauseStartTime = 0;
             }
             gamePaused = false;
             isGamepadUpgradeMode = false;
@@ -2819,6 +2830,10 @@ async function startGame() {
 
             [enemies, pickupItems, appleItems, eyeProjectiles, playerPuddles, snailPuddles, mosquitoPuddles, spiderWebs, bombs, floatingTexts, visualWarnings, explosions, blackHoles, bloodSplatters, bloodPuddles, antiGravityPulses, vengeanceNovas, dogHomingShots, destructibles, flameAreas, flies, owlProjectiles, lightningStrikes, smokeParticles, flameProjectiles, laserCannonBeams].forEach(arr => arr.length = 0);
             
+            // Reset apple pause duration tracking for new game
+            appleTotalPausedDuration = 0;
+            applePauseStartTime = 0;
+            
             // Reset mega boss state for new game
             megaBossSpawned = false;
             megaBossDefeated = false;
@@ -2938,6 +2953,8 @@ async function startGame() {
                 if (Tone.Transport) Tone.Transport.pause();
                 // Record when we paused for timer and fire rate boost
                 gameTimePausedAt = Date.now();
+                // Record pause start time for apple lifetime pausing
+                applePauseStartTime = Date.now();
                 // Update game speed button visibility when opening pause menu
                 if (typeof window.updateGameSpeedButtonVisibility === 'function') {
                     window.updateGameSpeedButtonVisibility();
@@ -2955,6 +2972,11 @@ async function startGame() {
                         fireRateBoostEndTime += pauseDuration;
                     }
                     gameTimePausedAt = 0;
+                }
+                // Accumulate paused time for apple lifetime tracking
+                if (applePauseStartTime > 0) {
+                    appleTotalPausedDuration += Date.now() - applePauseStartTime;
+                    applePauseStartTime = 0;
                 }
                 // Reset pause nav state so it re-initialises cleanly next open
                 if (typeof _gpNav !== 'undefined') { _gpNav.lastScreen = ''; _gpNav.menuIndex = 0; }

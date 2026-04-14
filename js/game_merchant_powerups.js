@@ -13,6 +13,11 @@
 // Close the merchant shop and resume gameplay
 function closeMerchantShop() {
     merchantShop.style.display = 'none';
+    // Accumulate paused time for apple lifetime tracking
+    if (typeof applePauseStartTime !== 'undefined' && applePauseStartTime > 0) {
+        appleTotalPausedDuration += Date.now() - applePauseStartTime;
+        applePauseStartTime = 0;
+    }
     gamePaused = false;
     // Note: The merchant NPC is removed upon collision, not when closing shop
 }
@@ -21,6 +26,8 @@ function closeMerchantShop() {
 // Pauses the game and generates 3 random items to purchase
 function showMerchantShop() {
     gamePaused = true;
+    // Record pause start time for apple lifetime pausing
+    applePauseStartTime = Date.now();
     merchantOptionsContainer.innerHTML = '';
     playUISound('levelUp');
 

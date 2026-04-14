@@ -75,12 +75,10 @@
       if (!player) return;
       player._isJackOLantern = true;
 
-      // Dynamite is Jack's core ability — activate it for free
+      // Dynamite is Jack's core ability — activate it for free (regardless of shop unlock)
       window._jack_dynamiteWasActive = dynamiteActive;
-      if (playerData.unlockedPickups && playerData.unlockedPickups.dynamite) {
-        dynamiteActive = true;
-        lastDynamiteTime = Date.now();
-      }
+      dynamiteActive = true;
+      lastDynamiteTime = Date.now();
 
       log('Jack O Lantern applied with dynamite.');
     }
