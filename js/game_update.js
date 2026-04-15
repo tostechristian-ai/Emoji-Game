@@ -660,7 +660,7 @@ for (let i = merchants.length - 1; i >= 0; i--) {
 
             // Enemy cap: fixed per difficulty for consistent challenge
             // Hard: 100, Medium: 80, Easy: 60 - no box scaling to prevent overcrowding
-            const enemySpawnCap = cheats.noSpawnCap ? Infinity : (currentDifficulty === 'hard' ? 100 : currentDifficulty === 'medium' ? 80 : 60);
+            let enemySpawnCap = cheats.noSpawnCap ? Infinity : (currentDifficulty === 'hard' ? 100 : currentDifficulty === 'medium' ? 80 : 60);
             
             // Horde mode: double the spawn cap
             if (cheats.horde_mode) {
