@@ -2870,7 +2870,7 @@ async function startGame() {
                 if (movementStickBase) movementStickBase.style.display = 'flex';
                 if (firestickBase) firestickBase.style.display = 'flex';
                 if (mobileResetButton) mobileResetButton.style.display = 'none'; // Hide mobile reset button
-                cameraZoom = 1.4; zoomToggle.checked = true;
+                cameraZoom = 1.68; zoomToggle.checked = true;
             } else {
                 if (movementStickBase) movementStickBase.style.display = 'none';
                 if (firestickBase) firestickBase.style.display = 'none';
