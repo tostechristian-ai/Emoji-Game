@@ -641,9 +641,16 @@
                 const preRendered = preRenderedEntities[APPLE_ITEM_EMOJI];
                 if(preRendered) ctx.drawImage(preRendered, item.x - preRendered.width/2, item.y - preRendered.height/2);
             });
-            eyeProjectiles.forEach(proj => { 
+            eyeProjectiles.forEach(proj => {
                 const preRendered = preRenderedEntities[proj.emoji];
-                if(preRendered) ctx.drawImage(preRendered, proj.x - preRendered.width/2, proj.y - preRendered.height/2);
+                if(preRendered) {
+                    // Draw red outline like enemies have
+                    ctx.save();
+                    ctx.shadowColor = 'rgba(255, 0, 0, 0.8)';
+                    ctx.shadowBlur = 4;
+                    ctx.drawImage(preRendered, proj.x - preRendered.width/2, proj.y - preRendered.height/2);
+                    ctx.restore();
+                }
             });
             
             merchants.forEach(m => {
@@ -719,10 +726,10 @@
                 if (knPre) ctx.drawImage(knPre, -player.size / 2, -player.size / 2, player.size, player.size);
                 else { ctx.font = `${player.size}px sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('🤺', 0, 0); }
             } else if (player._isSnowman) {
-                // ⛄ flips based on aim direction (like Knight)
-                // Snowman faces right by default, so mirror for left
-                if (player.facing === 'left') {
-                    ctx.scale(-1, 1); // mirror = faces left
+                // ⛄ flips based on aim direction
+                // Snowman faces left by default, so mirror for right
+                if (player.facing === 'right') {
+                    ctx.scale(-1, 1); // mirror = faces right
                 }
                 const smPre = preRenderedEntities && preRenderedEntities['⛄'];
                 if (smPre) ctx.drawImage(smPre, -player.size / 2, -player.size / 2, player.size, player.size);
@@ -741,9 +748,9 @@
                 if (alienPre) ctx.drawImage(alienPre, -player.size / 2, -player.size / 2, player.size, player.size);
                 else { ctx.font = `${player.size}px sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('👽', 0, 0); }
             } else if (player._isJackOLantern) {
-                // 🎃 Jack O Lantern - faces left by default, flip for right
-                if (player.facing === 'right') {
-                    ctx.scale(-1, 1); // mirror = faces right
+                // 🎃 Jack O Lantern - faces right by default, flip for left
+                if (player.facing === 'left') {
+                    ctx.scale(-1, 1); // mirror = faces left
                 }
                 const pumpkinPre = preRenderedEntities && preRenderedEntities['🎃'];
                 if (pumpkinPre) ctx.drawImage(pumpkinPre, -player.size / 2, -player.size / 2, player.size, player.size);

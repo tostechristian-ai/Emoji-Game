@@ -135,12 +135,14 @@
     (function patchWeaponFiring() {
       if (typeof createWeapon !== 'function') { setTimeout(patchWeaponFiring, 100); return; }
       const orig = window.createWeapon;
-      window.createWeapon = function(source, angle, isSecondShot = false, isDelayed = false, preCreatedWeapon = null) {
+      window.createWeapon = function(shooter, customAngle) {
         // If player is Jack O Lantern and has dynamite, don't create pistol bullets
-        if (player && player._isJackOLantern && dynamiteActive && source === player) {
-          return null; // Don't fire pistol bullets
+        // Default shooter is player when called with no arguments
+        const actualShooter = shooter || player;
+        if (player && player._isJackOLantern && dynamiteActive && actualShooter === player) {
+          return; // Don't fire pistol bullets - createWeapon doesn't return anything
         }
-        return orig.call(this, source, angle, isSecondShot, isDelayed, preCreatedWeapon);
+        return orig.call(this, shooter, customAngle);
       };
       log('createWeapon() patched for Jack O Lantern (pistol disabled when dynamite active).');
     })();

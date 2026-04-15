@@ -453,7 +453,16 @@ function showMapSelectScreen() {
         "Desert Dunes",       // Map 17 - Unlockable
         "Mossy Rocks",        // Map 18 - Unlockable
         "Golden Caves",       // Map 19 - Unlockable
-        "Grid Map"            // Map 20 - Unlockable
+        "Grid Map",           // Map 20 - Unlockable
+        "Tiled Floor",        // Map 21
+        "Crossroads",         // Map 22
+        "Rusted Metal",       // Map 23
+        "Rusted Fields",      // Map 24
+        "Alien Planet",       // Map 25
+        "Sandy Beach",        // Map 26
+        "Milky Fields",       // Map 27
+        "Drout Lands",        // Map 28
+        "Grassy Lands"        // Map 29
     ];
 
     // Define which maps require unlocks

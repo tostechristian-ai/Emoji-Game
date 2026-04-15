@@ -158,6 +158,29 @@
         // Storage for loaded audio players (using Tone.js)
         const audioPlayers = {};
         const totalAudio = Object.keys(audioPaths).length;
+
+        // ─── BACKGROUND MUSIC PATHS ───────────────────────────────────────────────
+        // Array of background music tracks that play during gameplay
+        const backgroundMusicPaths = [
+            'audio/background_music.mp3',   'audio/background_music1.mp3',
+            'audio/background_music2.mp3',  'audio/background_music3.mp3',
+            'audio/background_music4.mp3',  'audio/background_music5.mp3',
+            'audio/background_music6.mp3',  'audio/background_music7.mp3',
+            'audio/background_music8.mp3',  'audio/background_music9.mp3',
+            'audio/background_music10.mp3', 'audio/background_music11.mp3',
+            'audio/background_music12.mp3', 'audio/background_music13.mp3',
+            'audio/background_music14.mp3', 'audio/background_music15.mp3',
+            'audio/background_music16.mp3', 'audio/background_music17.mp3',
+            'audio/background_music18.mp3', 'audio/background_music19.mp3',
+            'audio/background_music20.mp3', 'audio/background_music21.mp3',
+            'audio/background_music22.mp3', 'audio/background_music23.mp3',
+            'audio/background_music24.mp3', 'audio/background_music25.mp3'
+        ];
+
+        // Storage for preloaded background music players
+        const backgroundMusicPlayers = [];
+        const totalMusic = backgroundMusicPaths.length;
+
         // ─── BACKGROUND MAP IMAGES ──────────────────────────────────────────────
         // Array of background images for different maps
         // Players can unlock additional maps through the upgrade shop
@@ -181,7 +204,16 @@
             'sprites/Background18.png',  // Map 17: Desert Dunes (unlockable)
             'sprites/Background19.png',  // Map 18: Mossy Rocks (unlockable)
             'sprites/Background20.png',  // Map 19: Golden Caves (unlockable)
-            'sprites/Background21.png'   // Map 20: Grid Map (unlockable)
+            'sprites/Background21.png',  // Map 20: Grid Map (unlockable)
+            'sprites/Background22.png',  // Map 21: Tiled Floor
+            'sprites/Background23.png',  // Map 22: Crossroads
+            'sprites/Background24.png',  // Map 23: Rusted Metal
+            'sprites/Background25.png',  // Map 24: Rusted Fields
+            'sprites/Background26.png',  // Map 25: Alien Planet
+            'sprites/Background27.png',  // Map 26: Sandy Beach
+            'sprites/Background28.png',  // Map 27: Milky Fields
+            'sprites/Background29.png',  // Map 28: Drout Lands
+            'sprites/Background30.png'   // Map 29: Grassy Lands
         ];
         
         // Storage for loaded background images
@@ -189,12 +221,13 @@
         const totalBackgrounds = backgroundPaths.length;
         
         // Total count of all assets to load (for progress tracking)
-        const totalAssets = totalSprites + totalAudio + totalBackgrounds;
-        
+        const totalAssets = totalSprites + totalAudio + totalBackgrounds + totalMusic;
+
         // Category-specific counters for detailed progress
         let spritesLoadedCount = 0;
         let audioLoadedCount = 0;
         let backgroundsLoadedCount = 0;
+        let musicLoadedCount = 0;
         
         // Detect if the player is on a mobile device
         const isMobileDevice = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
@@ -223,17 +256,20 @@
             const spritesProgress = document.getElementById('spritesProgress');
             const audioProgress = document.getElementById('audioProgress');
             const mapsProgress = document.getElementById('mapsProgress');
-            
+            const musicProgress = document.getElementById('musicProgress');
+
             if (spritesProgress) spritesProgress.textContent = `${spritesLoadedCount}/${totalSprites}`;
             if (audioProgress) audioProgress.textContent = `${audioLoadedCount}/${totalAudio}`;
             if (mapsProgress) mapsProgress.textContent = `${backgroundsLoadedCount}/${totalBackgrounds}`;
-            
+            if (musicProgress) musicProgress.textContent = `${musicLoadedCount}/${totalMusic}`;
+
             // Add completion styling to categories
             const categoryElements = document.querySelectorAll('.loading-category');
-            if (categoryElements.length >= 3) {
+            if (categoryElements.length >= 4) {
                 if (spritesLoadedCount === totalSprites) categoryElements[0].classList.add('complete');
                 if (audioLoadedCount === totalAudio) categoryElements[1].classList.add('complete');
                 if (backgroundsLoadedCount === totalBackgrounds) categoryElements[2].classList.add('complete');
+                if (musicLoadedCount === totalMusic) categoryElements[3].classList.add('complete');
             }
             
             // Update loading text based on what's being loaded
@@ -245,6 +281,8 @@
                     loadingText.textContent = 'Loading Audio...';
                 } else if (backgroundsLoadedCount < totalBackgrounds) {
                     loadingText.textContent = 'Loading Maps...';
+                } else if (musicLoadedCount < totalMusic) {
+                    loadingText.textContent = 'Loading Music...';
                 } else {
                     loadingText.textContent = 'Finalizing...';
                 }
@@ -284,6 +322,7 @@
             if (category === 'sprite') spritesLoadedCount++;
             else if (category === 'audio') audioLoadedCount++;
             else if (category === 'background') backgroundsLoadedCount++;
+            else if (category === 'music') musicLoadedCount++;
             
             // Update the loading UI
             updateLoadingUI(fileName);
@@ -358,12 +397,33 @@
             };
         }
 
+        // Load a single background music track
+        // @param path - The file path to the music
+        // @param index - The array index to store it at
+        function loadBackgroundMusic(path, index) {
+            updateLoadingUI(path); // Show current file being loaded
+            const player = new Tone.Player({
+                url: path,
+                autostart: false,
+                loop: true,
+                onload: () => {
+                    backgroundMusicPlayers[index] = player;
+                    assetLoaded('music', path);
+                },
+                onerror: () => {
+                    console.error(`Failed to load music: ${path}`);
+                    assetLoaded('music', path); // Still increment to avoid hanging
+                }
+            }).toDestination();
+        }
+
         // ─── START LOADING ALL ASSETS ───────────────────────────────────────────
         // Initialize category counters display
         updateLoadingUI('Starting...');
-        
+
         // These loops kick off the loading process for all game assets
         for (const [name, path] of Object.entries(spritePaths)) loadSprite(name, path);
         for (const [name, path] of Object.entries(audioPaths)) loadAudio(name, path);
         backgroundPaths.forEach((path, index) => loadBackground(path, index));
+        backgroundMusicPaths.forEach((path, index) => loadBackgroundMusic(path, index));
 

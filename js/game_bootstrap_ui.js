@@ -425,9 +425,14 @@ window.onload = function() {
   });
 
   // ─── ZOOM TOGGLE ──────────────────────────────────────────────────────────
-  // Toggles camera zoom in/out (1.0 = normal, 1.4 = zoomed in)
+  // Toggles camera zoom in/out (desktop: 1.0 normal / 1.4 zoomed, mobile: 1.5 normal / 2.0 zoomed)
   zoomToggle.addEventListener('change', (e) => {
-    cameraZoom = e.target.checked ? 1.4 : 1.0;
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    if (isMobile) {
+      cameraZoom = e.target.checked ? 2.0 : 1.5;
+    } else {
+      cameraZoom = e.target.checked ? 1.4 : 1.0;
+    }
   });
 
   // ─── PAUSE MENU RESTART ───────────────────────────────────────────────────

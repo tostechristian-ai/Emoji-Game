@@ -445,7 +445,7 @@ let doppelganger = null;
         const EYE_TOO_FAR_DISTANCE = WORLD_WIDTH / 4;
         const EYE_PROJECTILE_EMOJI = '🧿';
         const EYE_PROJECTILE_SIZE = EYE_SIZE / 2;
-        const EYE_PROJECTILE_SPEED = 5.6;
+        const EYE_PROJECTILE_SPEED = 2.8;
         const EYE_PROJECTILE_LIFETIME = 4000;
         const EYE_PROJECTILE_INTERVAL = 2000;
 
@@ -1339,17 +1339,8 @@ function handleGamepadInput() {
         const swordSwingSynth = new Tone.Synth({ oscillator: { type: "sine" }, envelope: { attack: 0.005, decay: 0.1, sustain: 0.01, release: 0.05 } }).toDestination();
         const eyeProjectileHitSynth = new Tone.Synth({ oscillator: { type: "triangle" }, envelope: { attack: 0.001, decay: 0.08, sustain: 0.01, release: 0.1 } }).toDestination();
         const bombExplosionSynth = new Tone.Synth({ oscillator: { type: "sawtooth" }, envelope: { attack: 0.001, decay: 0.1, sustain: 0.01, release: 0.2 } }).toDestination();
-        
-        const backgroundMusicPaths = [
-            'audio/background_music.mp3',  'audio/background_music1.mp3',
-            'audio/background_music2.mp3', 'audio/background_music3.mp3', 'audio/background_music4.mp3',
-            'audio/background_music5.mp3', 'audio/background_music6.mp3', 'audio/background_music7.mp3',
-            'audio/background_music8.mp3', 'audio/background_music9.mp3', 'audio/background_music10.mp3',
-            'audio/background_music11.mp3', 'audio/background_music12.mp3', 'audio/background_music13.mp3',
-            'audio/background_music14.mp3', 'audio/background_music15.mp3', 'audio/background_music16.mp3',
-            'audio/background_music17.mp3', 'audio/background_music18.mp3', 'audio/background_music19.mp3',
-            'audio/background_music20.mp3'
-        ];
+
+        // Background music players are preloaded in asset_loader.js
         let currentBGMPlayer = null;
 
         function startBGM() { if (currentBGMPlayer && currentBGMPlayer.state !== 'started') { currentBGMPlayer.start(); } Tone.Transport.start(); }
@@ -1366,32 +1357,40 @@ function handleGamepadInput() {
         }
 
         function playRandomMainMenuMusic() {
-            // Shuffle through all background music tracks for main menu
-            const randomTrack = backgroundMusicPaths[Math.floor(Math.random() * backgroundMusicPaths.length)];
-            if (currentBGMPlayer) { 
-                currentBGMPlayer.stop(); 
-                currentBGMPlayer.dispose(); 
+            // Use preloaded music players from asset_loader.js
+            if (typeof backgroundMusicPlayers === 'undefined' || backgroundMusicPlayers.length === 0) {
+                console.error("No preloaded background music available for main menu.");
+                return;
             }
-            currentBGMPlayer = new Tone.Player({ 
-                url: randomTrack, 
-                loop: true, 
-                autostart: false, 
-                volume: -10 
-            }).toDestination();
-            
+
+            // Filter out valid preloaded players
+            const availablePlayers = backgroundMusicPlayers.filter(p => p && p.loaded);
+            if (availablePlayers.length === 0) {
+                console.error("No loaded background music players available.");
+                return;
+            }
+
+            // Stop current player if exists
+            if (currentBGMPlayer) {
+                currentBGMPlayer.stop();
+            }
+
+            // Pick a random preloaded player
+            const randomIndex = Math.floor(Math.random() * availablePlayers.length);
+            currentBGMPlayer = availablePlayers[randomIndex];
+
+            // Set up onstop callback to play another random track when this one ends
             currentBGMPlayer.onstop = () => {
-                // When track ends, play another random one
                 if (!gameActive) {
                     setTimeout(() => playRandomMainMenuMusic(), 100);
                 }
             };
-            
-            Tone.loaded().then(() => {
-                if (currentBGMPlayer && currentBGMPlayer.state !== 'started') {
-                    currentBGMPlayer.start();
-                    musicVolumeSlider.dispatchEvent(new Event('input'));
-                }
-            });
+
+            // Apply volume and start playing
+            musicVolumeSlider.dispatchEvent(new Event('input'));
+            if (currentBGMPlayer.state !== 'started') {
+                currentBGMPlayer.start();
+            }
         }
 
         function stopMainMenuBGM() { if (audioPlayers['mainMenu'] && audioPlayers['mainMenu'].state === 'started') { audioPlayers['mainMenu'].stop(); } }
@@ -1601,7 +1600,7 @@ document.body.addEventListener('touchstart', (e) => {
         };
 
         const ENEMY_CONFIGS = {
-            '🧟': { size: 17, baseHealth: 1, speedMultiplier: 1, type: 'pursuer', minLevel: 1 },
+            '🧟': { size: 20, baseHealth: 1, speedMultiplier: 1, type: 'pursuer', minLevel: 1 },
             '💀': { size: 20, baseHealth: 2, speedMultiplier: 1.15 * 1.5, type: 'skull', minLevel: 5, initialProps: () => ({ skullState: 'approach', lastSkullStateChange: Date.now() }) },
             '🐌': { size: 22, baseHealth: 3, speedMultiplier: 0.6, type: 'snail', minLevel: 4, spawnWeight: 0.05, initialProps: () => ({ lastPuddleSpawnTime: Date.now(), directionAngle: Math.random() * 2 * Math.PI, lastDirChange: Date.now() }) },
             '🦟': { size: 15, baseHealth: 2, speedMultiplier: 1.5, type: 'mosquito', minLevel: 7, initialProps: () => ({ lastDirectionUpdateTime: Date.now(), currentMosquitoDirection: null, lastPuddleSpawnTime: Date.now() }) },
@@ -2658,29 +2657,33 @@ if (firstCard) {
         }
 
 async function tryLoadMusic(retries = 3) {
-            if (backgroundMusicPaths.length === 0) {
-                console.error("No background music paths available.");
+            // Use preloaded music players from asset_loader.js
+            if (typeof backgroundMusicPlayers === 'undefined' || backgroundMusicPlayers.length === 0) {
+                console.error("No preloaded background music available.");
                 return;
             }
-            let availableTracks = [...backgroundMusicPaths];
-            for(let i = 0; i < retries; i++) {
-                try {
-                    if(availableTracks.length === 0) availableTracks = [...backgroundMusicPaths]; // Reset if all failed
-                    const musicIndex = Math.floor(Math.random() * availableTracks.length);
-                    const randomMusicPath = availableTracks.splice(musicIndex, 1)[0];
 
-                    if (currentBGMPlayer) { currentBGMPlayer.stop(); currentBGMPlayer.dispose(); }
-                    
-                    currentBGMPlayer = new Tone.Player({ url: randomMusicPath, loop: true, autostart: false, volume: -10 }).toDestination();
-                    musicVolumeSlider.dispatchEvent(new Event('input'));
-                    await Tone.loaded();
-                    startBGM();
-                    return; // Success
-                } catch (error) {
-                    console.error(`Failed to load music track. Attempt ${i + 1}/${retries}.`, error);
-                }
+            // Filter out valid preloaded players
+            const availablePlayers = backgroundMusicPlayers.filter(p => p && p.loaded);
+            if (availablePlayers.length === 0) {
+                console.error("No loaded background music players available.");
+                return;
             }
-            console.error("Failed to load any background music after multiple retries.");
+
+            // Stop current player if exists
+            if (currentBGMPlayer) {
+                currentBGMPlayer.stop();
+            }
+
+            // Pick a random preloaded player
+            const randomIndex = Math.floor(Math.random() * availablePlayers.length);
+            currentBGMPlayer = availablePlayers[randomIndex];
+
+            // Apply volume setting
+            musicVolumeSlider.dispatchEvent(new Event('input'));
+
+            // Start playing
+            startBGM();
         }
 
         function applyCheats() {
@@ -2829,6 +2832,7 @@ async function startGame() {
                 const unlockedMapIndices = [];
                 for (let i = 0; i < backgroundImages.length; i++) {
                     // Maps 13-19 require unlocks (index 13=Junkyard, 14=Log Cabin, 15=Cellar, 16=Desert Dunes, 17=Mossy Rocks, 18=Golden Caves, 19=Grid Map)
+                    // Maps 20-29 are available by default (Tiled Floor, Crossroads, Rusted Metal, Rusted Fields, Alien Planet, Sandy Beach, Milky Fields, Drout Lands, Grassy Lands)
                     if (i === 13 && !playerData.unlockedPickups.map_junkyard) continue;
                     if (i === 14 && !playerData.unlockedPickups.map_log_cabin) continue;
                     if (i === 15 && !playerData.unlockedPickups.map_cellar) continue;
