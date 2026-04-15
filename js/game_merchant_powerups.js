@@ -123,12 +123,14 @@ function showMerchantShop() {
         
         // Passive effects
         { id: 'sword',                name: 'Auto-Sword',        icon: '🗡️', active: player.swordActive },
+        { id: 'spear',                name: 'Spear',             icon: '🔘', active: spearActive },
         { id: 'puddle_trail',         name: 'Slime Trail',       icon: '💧', active: puddleTrailActive },
         { id: 'laser_pointer',        name: 'Laser Pointer',     icon: '🔴', active: laserPointerActive },
         { id: 'auto_aim',             name: 'Auto-Aim',          icon: '🎯', active: autoAimActive },
         
         // Active abilities
         { id: 'bomb',                 name: 'Bomb Emitter',      icon: '💣', active: bombEmitterActive },
+        { id: 'pea_shooter',         name: 'Pea Shooter',       icon: '🟢', active: peaShooterActive },
         { id: 'orbiter',              name: 'Spinning Orbiter',  icon: '💫', active: orbitingPowerUpActive },
         { id: 'levitating_books',     name: 'Levitating Books',  icon: '📖', active: levitatingBooksActive },
         { id: 'circle',               name: 'Damaging Circle',   icon: '⭕', active: damagingCircleActive, locked: !playerData.unlockedPickups.circle },
@@ -136,6 +138,7 @@ function showMerchantShop() {
         { id: 'lightning_strike',     name: 'Lightning Strike',  icon: '⚡', active: lightningStrikeActive },
         { id: 'flamethrower',         name: 'Flamethrower',      icon: '🔥', active: flamethrowerActive },
         { id: 'laser_cannon',         name: 'Laser Cannon',      icon: '🟢', active: laserCannonActive },
+        { id: 'laser_cross',          name: 'Laser Cross',       icon: '🔵', active: laserCrossActive },
         { id: 'shotgun',              name: 'Shotgun',           icon: '🔫', active: shotgunActive, locked: !playerData.unlockedPickups.shotgun },
         { id: 'ice_cannon',           name: 'Ice Cannon',        icon: '❄️', active: iceCannonActive, locked: !playerData.unlockedPickups.ice_cannon },
         { id: 'dynamite',             name: 'Dynamite',          icon: '🧨', active: dynamiteActive, locked: !playerData.unlockedPickups.dynamite },
@@ -143,9 +146,13 @@ function showMerchantShop() {
         { id: 'bone_shot',              name: 'Bone Shot',         icon: '🦴', active: boneShotActive, locked: !playerData.unlockedPickups.bone_shot },
         { id: 'anti_gravity',         name: 'Anti-Gravity',      icon: '💨', active: antiGravityActive, locked: !playerData.unlockedPickups.anti_gravity },
         { id: 'black_hole',           name: 'Black Hole',        icon: '⚫', active: blackHoleActive, locked: !playerData.unlockedPickups.black_hole },
+        { id: 'time_freeze',          name: 'Time Freeze',       icon: '⏳', active: timeFreezeActive, locked: !playerData.unlockedPickups.time_freeze },
         { id: 'vengeance_nova',       name: 'Vengeance Nova',    icon: '🛡️', active: vengeanceNovaActive, locked: !playerData.unlockedPickups.vengeance_nova },
         { id: 'dodge_nova',           name: 'Dodge Nova',        icon: '💨', active: dodgeNovaActive, locked: !playerData.unlockedPickups.dodge_nova },
         { id: 'robot_drone',         name: 'Robot Drone',       icon: '🤖', active: robotDroneActive, locked: !playerData.unlockedPickups.robot_drone },
+        { id: 'boomerang',           name: 'Boomerang',         icon: '🪃', active: boomerangActive, locked: !playerData.unlockedPickups.boomerang },
+        { id: 'chain_lightning',     name: 'Chain Lightning',   icon: '⚡', active: chainLightningActive, locked: !playerData.unlockedPickups.chain_lightning },
+        { id: 'flying_turret',       name: 'Flying Turret',     icon: '🪽', active: flyingTurretActive, locked: !playerData.unlockedPickups.flying_turret },
         { id: 'turret',               name: 'Turret',            icon: '🏛️', active: turretActive },
         
         // Companions
@@ -157,6 +164,7 @@ function showMerchantShop() {
         
         // Special
         { id: 'temporal_ward',        name: 'Temporal Ward',     icon: '⏱️', active: temporalWardActive, locked: !playerData.unlockedPickups.temporal_ward },
+        { id: 'stone_glare',          name: 'Stone Glare',       icon: '👁️', active: stoneGlareActive },
     ];
 
     // Filter to only available powerups (not active, not locked)
@@ -359,7 +367,7 @@ function activatePowerup(id) {
     // Track weapon unlocks for weapon_collector achievement
     const weaponIds = ['dynamite', 'pistol', 'shotgun', 'rocket_launcher', 'dual_gun', 
                       'dual_revolvers', 'flamethrower', 'laser_cannon', 'ice_cannon', 
-                      'bug_swarm', 'night_owl', 'whirlwind_axe'];
+                      'bug_swarm', 'night_owl', 'whirlwind_axe', 'boomerang', 'chain_lightning'];
     if (weaponIds.includes(id) && runStats && runStats.uniqueWeaponsUnlocked) {
         runStats.uniqueWeaponsUnlocked[id] = true;
     }
@@ -458,6 +466,10 @@ function activatePowerup(id) {
         player.swordActive = true;
         player.lastSwordSwingTime = Date.now() - SWORD_SWING_INTERVAL;
     }
+    else if (id === 'spear') {
+        spearActive = true;
+        lastSpearSwingTime = Date.now() - SPEAR_SWING_INTERVAL;
+    }
     else if (id === 'puddle_trail') {
         puddleTrailActive = true;
         lastPlayerPuddleSpawnTime = Date.now() - PLAYER_PUDDLE_SPAWN_INTERVAL;
@@ -473,6 +485,11 @@ function activatePowerup(id) {
     else if (id === 'bomb') {
         bombEmitterActive = true;
         lastBombEmitMs = Date.now();
+    }
+    else if (id === 'pea_shooter') {
+        peaShooterActive = true;
+        lastPeaShootTime = Date.now();
+        peaShooterSpinAngle = 0;
     }
     else if (id === 'orbiter') {
         orbitingPowerUpActive = true;
@@ -503,8 +520,15 @@ function activatePowerup(id) {
         blackHoleActive = true;
         lastBlackHoleTime = Date.now();
     }
+    else if (id === 'time_freeze') {
+        timeFreezeActive = true;
+        lastTimeFreezeTime = Date.now();
+    }
     else if (id === 'whirlwind_axe') {
         whirlwindAxeActive = true;
+    }
+    else if (id === 'stone_glare') {
+        stoneGlareActive = true;
     }
     else if (id === 'bug_swarm') {
         bugSwarmActive = true;
@@ -516,9 +540,34 @@ function activatePowerup(id) {
         flamethrowerActive = true;
         lastFlameEmitTime = Date.now();
     }
+    else if (id === 'boomerang') {
+        boomerangActive = true;
+        lastBoomerangTime = Date.now();
+    }
+    else if (id === 'chain_lightning') {
+        chainLightningActive = true;
+        lastChainLightningTime = Date.now();
+    }
+    else if (id === 'flying_turret') {
+        flyingTurretActive = true;
+        // Spawn at player position with random diagonal direction
+        flyingTurret.x = player.x;
+        flyingTurret.y = player.y;
+        flyingTurret.lastFireTime = Date.now();
+        // Random diagonal direction (NE, NW, SE, SW)
+        const dirX = Math.random() > 0.5 ? 1 : -1;
+        const dirY = Math.random() > 0.5 ? 1 : -1;
+        flyingTurret.dx = dirX * FLYING_TURRET_SPEED;
+        flyingTurret.dy = dirY * FLYING_TURRET_SPEED;
+    }
     else if (id === 'laser_cannon') {
         laserCannonActive = true;
         lastLaserCannonFireTime = Date.now();
+    }
+    else if (id === 'laser_cross') {
+        laserCrossActive = true;
+        laserCrossAngle = 0;
+        laserCrossLastDamageTime = Date.now();
     }
     else if (id === 'shotgun') {
         shotgunActive = true;
@@ -527,6 +576,10 @@ function activatePowerup(id) {
     else if (id === 'ice_cannon') {
         iceCannonActive = true;
         lastIceCannonTime = Date.now();
+    }
+    else if (id === 'smoke_bomb') {
+        smokeBombActive = true;
+        lastSmokeBombTime = Date.now() - SMOKE_BOMB_BASE_INTERVAL; // Ready to use immediately
     }
     else if (id === 'dynamite') {
         dynamiteActive = true;

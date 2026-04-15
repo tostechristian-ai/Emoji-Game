@@ -82,6 +82,10 @@
             preRenderEnemyEmoji('�', 24);            // Genie - warps bullets with gravity field
             preRenderEnemyEmoji('🧛‍♀️', 20);           // Vampire - dodges bullets
             preRenderEnemyEmoji('👾', 22);             // Invader - zigzag movement, teleports
+            preRenderEnemyEmoji('🪬', 24);             // Charger - charges at player with arrow
+            preRenderEnemyEmoji('🌀', 22);             // Vortex - spinning gravity pull enemy
+            preRenderEnemyEmoji('🧿', 26);             // Pulsing Eye - expanding damage ring
+            preRenderEnemyEmoji('🦂', 20);             // Scorpion - strafing side to side
             
             // ─── PICKUP & EFFECT EMOJIS ─────────────────────────────────────────
             preRenderEmoji('🔸', COIN_SIZE);       // Coin - basic XP

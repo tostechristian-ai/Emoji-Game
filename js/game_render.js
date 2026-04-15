@@ -62,11 +62,98 @@
             ctx.translate(-finalCameraOffsetX, -finalCameraOffsetY);
             
             destructibles.forEach(obs => {
+                // Draw shadow under destructibles (like enemies have)
+                const isMobile = document.body.classList.contains('is-mobile');
+                const shadowY = obs.y + obs.size * 0.4;
+                const shadowRadiusX = obs.size * 0.5 * (isMobile ? 1.1 : 1);
+                const shadowRadiusY = obs.size * 0.2 * (isMobile ? 1.1 : 1);
+                ctx.beginPath();
+                ctx.ellipse(obs.x, shadowY, shadowRadiusX, shadowRadiusY, 0, 0, Math.PI * 2);
+                ctx.fillStyle = isMobile ? 'rgba(0, 0, 0, 0.55)' : 'rgba(0, 0, 0, 0.3)';
+                ctx.fill();
+
                 if(obs.health !== Infinity) ctx.globalAlpha = 0.5 + (obs.health / obs.maxHealth) * 0.5;
                 const preRendered = preRenderedEntities[obs.emoji];
                 if(preRendered) {
                     ctx.drawImage(preRendered, obs.x - preRendered.width / 2, obs.y - preRendered.height / 2);
                 }
+
+                // Wall crumbling/cracking effect for damaged walls (bricks)
+                if (obs.emoji === '🧱' && obs.health < obs.maxHealth && obs.health > 0) {
+                    const damageRatio = 1 - (obs.health / obs.maxHealth);
+                    const crackCount = Math.floor(damageRatio * 4) + 2; // 2-5 cracks based on damage
+
+                    ctx.save();
+                    ctx.strokeStyle = `rgba(60, 40, 20, ${0.6 + damageRatio * 0.3})`; // Dark brown cracks
+                    ctx.lineWidth = 2;
+                    ctx.lineCap = 'round';
+
+                    // Generate consistent crack pattern based on position
+                    const seed = Math.floor(obs.x * 1000 + obs.y);
+                    const random = (s) => {
+                        const x = Math.sin(s) * 10000;
+                        return x - Math.floor(x);
+                    };
+
+                    for (let i = 0; i < crackCount; i++) {
+                        const crackSeed = seed + i * 123;
+                        const startX = obs.x + (random(crackSeed) - 0.5) * obs.size * 0.8;
+                        const startY = obs.y + (random(crackSeed + 1) - 0.5) * obs.size * 0.8;
+
+                        // Draw main crack line
+                        ctx.beginPath();
+                        ctx.moveTo(startX, startY);
+
+                        // Create jagged crack with 2-3 segments
+                        const segments = 2 + Math.floor(random(crackSeed + 2) * 2);
+                        let currentX = startX;
+                        let currentY = startY;
+
+                        for (let j = 0; j < segments; j++) {
+                            const angle = random(crackSeed + 3 + j) * Math.PI * 2;
+                            const length = (0.2 + random(crackSeed + 4 + j) * 0.3) * obs.size;
+                            currentX += Math.cos(angle) * length;
+                            currentY += Math.sin(angle) * length;
+                            ctx.lineTo(currentX, currentY);
+
+                            // Small branch crack occasionally
+                            if (random(crackSeed + 5 + j) > 0.6) {
+                                ctx.save();
+                                ctx.beginPath();
+                                ctx.moveTo(currentX, currentY);
+                                const branchAngle = angle + (random(crackSeed + 6 + j) - 0.5) * Math.PI;
+                                const branchLength = length * 0.4;
+                                ctx.lineTo(
+                                    currentX + Math.cos(branchAngle) * branchLength,
+                                    currentY + Math.sin(branchAngle) * branchLength
+                                );
+                                ctx.lineWidth = 1;
+                                ctx.stroke();
+                                ctx.restore();
+                            }
+                        }
+
+                        ctx.stroke();
+                    }
+
+                    // Add some debris/chips around damaged wall
+                    if (damageRatio > 0.5) {
+                        const debrisCount = Math.floor(damageRatio * 4);
+                        ctx.fillStyle = 'rgba(139, 90, 43, 0.7)'; // Brick-colored debris
+                        for (let i = 0; i < debrisCount; i++) {
+                            const debrisSeed = seed + i * 777;
+                            const dx = obs.x + (random(debrisSeed) - 0.5) * obs.size;
+                            const dy = obs.y + obs.size * 0.4 + random(debrisSeed + 1) * obs.size * 0.3;
+                            const size = 2 + random(debrisSeed + 2) * 3;
+                            ctx.beginPath();
+                            ctx.arc(dx, dy, size, 0, Math.PI * 2);
+                            ctx.fill();
+                        }
+                    }
+
+                    ctx.restore();
+                }
+
                 ctx.globalAlpha = 1.0;
             });
 
@@ -103,6 +190,26 @@
                 for (const f of area._flameCache) {
                     ctx.fillText('🔥', f.x, f.y);
                 }
+                ctx.restore();
+            });
+
+            // Render smoke bomb clouds
+            smokeBombClouds.forEach(cloud => {
+                const age = now - cloud.spawnTime;
+                const lifeRatio = age / cloud.lifetime;
+                const alpha = (1 - lifeRatio) * cloud.alpha;
+                if (!inView(cloud.x, cloud.y, cloud.size)) return;
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, alpha);
+                ctx.fillStyle = 'rgba(100, 100, 100, 0.8)';
+                ctx.beginPath();
+                ctx.arc(cloud.x, cloud.y, cloud.size, 0, Math.PI * 2);
+                ctx.fill();
+                // Inner darker core
+                ctx.fillStyle = 'rgba(60, 60, 60, 0.9)';
+                ctx.beginPath();
+                ctx.arc(cloud.x, cloud.y, cloud.size * 0.6, 0, Math.PI * 2);
+                ctx.fill();
                 ctx.restore();
             });
 
@@ -232,7 +339,105 @@
                 ctx.fill();
                 ctx.restore();
             });
-            
+
+            // Render time freeze zones
+            timeFreezeZones.forEach(zone => {
+                const age = now - zone.spawnTime;
+                const lifeRatio = age / zone.lifetime;
+                const alpha = 1 - lifeRatio;
+                const pulse = 1 + Math.sin(now / 150) * 0.1;
+
+                ctx.save();
+
+                // Outer transparent purple glow
+                ctx.beginPath();
+                ctx.arc(zone.x, zone.y, zone.radius * pulse, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(150, 50, 255, ${alpha * 0.15})`;
+                ctx.fill();
+
+                // Middle ring
+                ctx.beginPath();
+                ctx.arc(zone.x, zone.y, zone.radius * pulse * 0.7, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(180, 100, 255, ${alpha * 0.2})`;
+                ctx.fill();
+
+                // Inner bright core
+                ctx.beginPath();
+                ctx.arc(zone.x, zone.y, zone.radius * 0.3 * pulse, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(200, 150, 255, ${alpha * 0.3})`;
+                ctx.fill();
+
+                // Border ring
+                ctx.beginPath();
+                ctx.arc(zone.x, zone.y, zone.radius * pulse, 0, Math.PI * 2);
+                ctx.strokeStyle = `rgba(180, 100, 255, ${alpha * 0.5})`;
+                ctx.lineWidth = 3;
+                ctx.stroke();
+
+                // Clock-like spiral effect to indicate time freezing
+                const spiralAngle = (now / 500) % (Math.PI * 2);
+                ctx.beginPath();
+                ctx.arc(zone.x, zone.y, zone.radius * 0.5, spiralAngle, spiralAngle + Math.PI * 1.5);
+                ctx.strokeStyle = `rgba(220, 180, 255, ${alpha * 0.7})`;
+                ctx.lineWidth = 4;
+                ctx.lineCap = 'round';
+                ctx.stroke();
+
+                ctx.restore();
+            });
+
+            // Render Stone Glare cone
+            if (stoneGlareActive) {
+                // Get cone direction from aim or facing
+                let coneAngle = 0;
+                if (aimDx !== 0 || aimDy !== 0) {
+                    coneAngle = Math.atan2(aimDy, aimDx);
+                } else {
+                    if (player.facing === 'up') coneAngle = -Math.PI / 2;
+                    else if (player.facing === 'down') coneAngle = Math.PI / 2;
+                    else if (player.facing === 'left') coneAngle = Math.PI;
+                    else coneAngle = 0;
+                }
+
+                // Scale range with bullet size upgrade
+                const scaledRange = STONE_GLARE_RANGE * (player.bulletSizeMultiplier || 1);
+
+                ctx.save();
+
+                // Draw cone arc
+                ctx.beginPath();
+                ctx.moveTo(player.x, player.y);
+                ctx.arc(player.x, player.y, scaledRange, coneAngle - STONE_GLARE_ANGLE / 2, coneAngle + STONE_GLARE_ANGLE / 2);
+                ctx.closePath();
+
+                // Transparent purple fill
+                ctx.fillStyle = 'rgba(147, 51, 234, 0.15)'; // Purple with low alpha
+                ctx.fill();
+
+                // Soft purple border
+                ctx.strokeStyle = 'rgba(147, 51, 234, 0.4)';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                // Draw arc lines at edges of cone
+                ctx.beginPath();
+                ctx.moveTo(player.x, player.y);
+                ctx.lineTo(
+                    player.x + Math.cos(coneAngle - STONE_GLARE_ANGLE / 2) * scaledRange,
+                    player.y + Math.sin(coneAngle - STONE_GLARE_ANGLE / 2) * scaledRange
+                );
+                ctx.moveTo(player.x, player.y);
+                ctx.lineTo(
+                    player.x + Math.cos(coneAngle + STONE_GLARE_ANGLE / 2) * scaledRange,
+                    player.y + Math.sin(coneAngle + STONE_GLARE_ANGLE / 2) * scaledRange
+                );
+                ctx.strokeStyle = 'rgba(147, 51, 234, 0.5)';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                ctx.restore();
+            }
+
             smokeParticles.forEach(p => {
                 if (!inView(p.x, p.y, p.size)) return;
                 ctx.save();
@@ -258,6 +463,98 @@
                 ctx.fillStyle = isMobile ? 'rgba(0, 0, 0, 0.55)' : 'rgba(0, 0, 0, 0.3)';
                 ctx.fill();
 
+                // VORTEX: Draw AOE circle (transparent orange pulsing circle under the enemy)
+                if (enemy.emoji === '🌀') {
+                    const now = Date.now();
+                    const aoeRadius = enemy.size * 3;
+                    const pulse = 1 + Math.sin(now / 200) * 0.1; // Pulsing effect
+                    const currentRadius = aoeRadius * pulse;
+                    
+                    // Outer transparent orange circle
+                    ctx.beginPath();
+                    ctx.arc(enemy.x, enemy.y, currentRadius, 0, Math.PI * 2);
+                    ctx.fillStyle = `rgba(255, 165, 0, 0.15)`; // Transparent orange
+                    ctx.fill();
+                    
+                    // Inner lighter orange circle
+                    ctx.beginPath();
+                    ctx.arc(enemy.x, enemy.y, currentRadius * 0.6, 0, Math.PI * 2);
+                    ctx.fillStyle = `rgba(255, 200, 100, 0.1)`;
+                    ctx.fill();
+                    
+                    // Pulsing orange border
+                    ctx.beginPath();
+                    ctx.arc(enemy.x, enemy.y, currentRadius, 0, Math.PI * 2);
+                    ctx.strokeStyle = `rgba(255, 140, 0, 0.4)`;
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                }
+
+                // CHARGER: Draw red arrow under the enemy during aiming phase
+                if (enemy.emoji === '🪬' && enemy.chargerState === 'aiming' && enemy.arrowVisible) {
+                    const arrowLength = enemy.size * 2.5; // 2-3x length of charger sprite
+                    const arrowWidth = enemy.size * 0.4;
+                    const angle = enemy.chargeAngle || 0;
+                    
+                    ctx.save();
+                    ctx.translate(enemy.x, enemy.y);
+                    ctx.rotate(angle);
+                    
+                    // Draw semi-transparent red arrow
+                    ctx.fillStyle = 'rgba(255, 0, 0, 0.5)';
+                    ctx.strokeStyle = 'rgba(255, 0, 0, 0.7)';
+                    ctx.lineWidth = 2;
+                    
+                    // Arrow shaft
+                    ctx.beginPath();
+                    ctx.moveTo(0, -arrowWidth / 2);
+                    ctx.lineTo(arrowLength, -arrowWidth / 2);
+                    ctx.lineTo(arrowLength, arrowWidth / 2);
+                    ctx.lineTo(0, arrowWidth / 2);
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.stroke();
+                    
+                    // Arrow head
+                    const headLength = enemy.size * 0.6;
+                    const headWidth = enemy.size * 0.6;
+                    ctx.beginPath();
+                    ctx.moveTo(arrowLength, -headWidth / 2);
+                    ctx.lineTo(arrowLength + headLength, 0);
+                    ctx.lineTo(arrowLength, headWidth / 2);
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.stroke();
+                    
+                    ctx.restore();
+                }
+
+                // PULSING EYE: Draw red expanding damage ring
+                if (enemy.emoji === '🧿' && enemy.pulseRadius > 0) {
+                    ctx.save();
+                    
+                    // Calculate pulse progress for alpha fade
+                    const maxRadius = enemy.size * 2;
+                    const pulseProgress = enemy.pulseRadius / maxRadius;
+                    const alpha = 0.6 * (1 - pulseProgress); // Fade as it expands
+                    
+                    // Draw red ring (outline only)
+                    ctx.beginPath();
+                    ctx.arc(enemy.x, enemy.y, enemy.pulseRadius, 0, Math.PI * 2);
+                    ctx.strokeStyle = `rgba(255, 0, 0, ${alpha})`;
+                    ctx.lineWidth = 3;
+                    ctx.stroke();
+                    
+                    // Inner glow effect
+                    ctx.beginPath();
+                    ctx.arc(enemy.x, enemy.y, enemy.pulseRadius - 2, 0, Math.PI * 2);
+                    ctx.strokeStyle = `rgba(255, 100, 100, ${alpha * 0.5})`;
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                    
+                    ctx.restore();
+                }
+
                 // White flash when hit
                 const now = Date.now();
                 if (enemy.hitFlashTime && now - enemy.hitFlashTime < 100) {
@@ -282,6 +579,11 @@
                     ctx.globalAlpha = (ctx.globalAlpha || 1) * 0.7;
                 }
 
+                // Stone Glare: grey tint
+                if (enemy.isSlowedByStoneGlare) {
+                    ctx.globalAlpha = (ctx.globalAlpha || 1) * 0.85;
+                }
+
                 const emojiToDraw = enemy.isBoss ? enemy.mimics : enemy.emoji;
                 const preRenderedImage = preRenderedEntities[emojiToDraw];
                 if(preRenderedImage) {
@@ -291,12 +593,24 @@
                     const drawHeight = preRenderedImage.height * scaleFactor;
                     const drawX = enemy.x - drawWidth / 2;
                     const drawY = enemy.y - drawHeight / 2 + (enemy.bobOffset || 0);
-                    
-                    // Apply blue tint for frozen enemies
+
+                    // Apply blue tint for frozen enemies, grey for stone glare
                     if (enemy.isFrozen) {
                         ctx.save();
                         ctx.filter = 'hue-rotate(180deg) saturate(2)';
                         ctx.drawImage(preRenderedImage, drawX, drawY, drawWidth, drawHeight);
+                        ctx.restore();
+                    } else if (enemy.isSlowedByStoneGlare) {
+                        ctx.save();
+                        ctx.filter = 'grayscale(100%) brightness(0.7)';
+                        ctx.drawImage(preRenderedImage, drawX, drawY, drawWidth, drawHeight);
+                        ctx.restore();
+                    } else if (enemy.emoji === '🌀') {
+                        // Vortex: spin the emoji
+                        ctx.save();
+                        ctx.translate(enemy.x, enemy.y);
+                        ctx.rotate(enemy.vortexAngle || 0);
+                        ctx.drawImage(preRenderedImage, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight);
                         ctx.restore();
                     } else {
                         ctx.drawImage(preRenderedImage, drawX, drawY, drawWidth, drawHeight);
@@ -475,6 +789,76 @@
                 ctx.restore();
             }
             
+            // Render boomerangs
+            boomerangProjectiles.forEach(b => {
+                if (!inView(b.x, b.y, b.size)) return;
+                ctx.save();
+                ctx.translate(b.x, b.y);
+                ctx.rotate(b.spinAngle);
+                
+                // Draw the boomerang emoji
+                ctx.font = `${b.size}px sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('🪃', 0, 0);
+                
+                ctx.restore();
+            });
+            
+            // Render chain lightning
+            chainLightningChains.forEach(chain => {
+                const age = now - chain.spawnTime;
+                const lifeRatio = 1 - (age / chain.lifetime);
+                
+                if (lifeRatio <= 0) return;
+                
+                ctx.save();
+                
+                // Draw each segment of the chain
+                chain.segments.forEach((segment, index) => {
+                    // Create jagged lightning effect
+                    const numJags = 8;
+                    const jagSize = 4 * lifeRatio;
+                    
+                    ctx.beginPath();
+                    ctx.moveTo(segment.fromX - camera.x, segment.fromY - camera.y);
+                    
+                    const dx = segment.toX - segment.fromX;
+                    const dy = segment.toY - segment.fromY;
+                    const dist = Math.hypot(dx, dy);
+                    const angle = Math.atan2(dy, dx);
+                    
+                    // Draw jagged line
+                    for (let i = 1; i <= numJags; i++) {
+                        const t = i / numJags;
+                        const baseX = segment.fromX + dx * t - camera.x;
+                        const baseY = segment.fromY + dy * t - camera.y;
+                        
+                        // Add random jitter perpendicular to line direction
+                        const perpAngle = angle + Math.PI / 2;
+                        const jitter = (Math.random() - 0.5) * jagSize * 2 * lifeRatio;
+                        
+                        ctx.lineTo(baseX + Math.cos(perpAngle) * jitter, baseY + Math.sin(perpAngle) * jitter);
+                    }
+                    
+                    ctx.lineTo(segment.toX - camera.x, segment.toY - camera.y);
+                    
+                    // Style the lightning
+                    ctx.strokeStyle = `rgba(0, 255, 255, ${lifeRatio * 0.9})`;
+                    ctx.lineWidth = 3 * lifeRatio;
+                    ctx.lineCap = 'round';
+                    ctx.lineJoin = 'round';
+                    ctx.stroke();
+                    
+                    // Add white core
+                    ctx.strokeStyle = `rgba(255, 255, 255, ${lifeRatio * 0.6})`;
+                    ctx.lineWidth = 1 * lifeRatio;
+                    ctx.stroke();
+                });
+                
+                ctx.restore();
+            });
+            
             // Render flamethrower flames
             flameProjectiles.forEach(flame => {
                 if (!inView(flame.x, flame.y, flame.size)) return;
@@ -534,6 +918,59 @@
                 
                 ctx.restore();
             });
+
+            // Render laser cross - spinning blue cross beams
+            if (laserCrossActive) {
+                const beamRadius = player.size * LASER_CROSS_RADIUS_MULTIPLIER;
+                const beamAngles = [
+                    laserCrossAngle,
+                    laserCrossAngle + Math.PI / 2,
+                    laserCrossAngle + Math.PI,
+                    laserCrossAngle + Math.PI * 1.5
+                ];
+
+                ctx.save();
+                ctx.translate(player.x, player.y);
+
+                beamAngles.forEach(angle => {
+                    const endX = Math.cos(angle) * beamRadius;
+                    const endY = Math.sin(angle) * beamRadius;
+
+                    // Draw outer glow (more transparent since always on)
+                    ctx.globalAlpha = 0.4;
+                    ctx.strokeStyle = '#0088ff';
+                    ctx.lineWidth = 10;
+                    ctx.lineCap = 'round';
+                    ctx.shadowColor = '#0088ff';
+                    ctx.shadowBlur = 12;
+                    ctx.beginPath();
+                    ctx.moveTo(0, 0);
+                    ctx.lineTo(endX, endY);
+                    ctx.stroke();
+
+                    // Draw middle layer
+                    ctx.globalAlpha = 0.5;
+                    ctx.strokeStyle = '#00aaff';
+                    ctx.lineWidth = 6;
+                    ctx.shadowBlur = 8;
+                    ctx.beginPath();
+                    ctx.moveTo(0, 0);
+                    ctx.lineTo(endX, endY);
+                    ctx.stroke();
+
+                    // Draw inner bright core
+                    ctx.globalAlpha = 0.7;
+                    ctx.strokeStyle = '#88ddff';
+                    ctx.lineWidth = 3;
+                    ctx.shadowBlur = 4;
+                    ctx.beginPath();
+                    ctx.moveTo(0, 0);
+                    ctx.lineTo(endX, endY);
+                    ctx.stroke();
+                });
+
+                ctx.restore();
+            }
 
             dogHomingShots.forEach(shot => {
                 ctx.save();
@@ -605,8 +1042,18 @@
 
             pickupItems.forEach(item => {
                 if (!inView(item.x, item.y, item.size)) return;
+
+                // Draw shadow under pickup
+                const pickupShadowY = item.y + item.size * 0.35;
+                const pickupShadowRadiusX = item.size * 0.4;
+                const pickupShadowRadiusY = item.size * 0.15;
+                ctx.beginPath();
+                ctx.ellipse(item.x, pickupShadowY, pickupShadowRadiusX, pickupShadowRadiusY, 0, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+                ctx.fill();
+
                 drawGlimmer(item);
-                if (item.type === 'box') { 
+                if (item.type === 'box') {
                     ctx.drawImage(sprites.pickupBox, item.x - item.size / 2, item.y - item.size / 2, item.size, item.size); 
                     
                     // Draw powerup label above the box
@@ -647,6 +1094,16 @@
             
             appleItems.forEach(item => {
                 if (!inView(item.x, item.y, item.size)) return;
+
+                // Draw shadow under apple
+                const appleShadowY = item.y + item.size * 0.35;
+                const appleShadowRadiusX = item.size * 0.4;
+                const appleShadowRadiusY = item.size * 0.15;
+                ctx.beginPath();
+                ctx.ellipse(item.x, appleShadowY, appleShadowRadiusX, appleShadowRadiusY, 0, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+                ctx.fill();
+
                 drawGlimmer(item);
                 const preRendered = preRenderedEntities[APPLE_ITEM_EMOJI];
                 if(preRendered) ctx.drawImage(preRendered, item.x - preRendered.width/2, item.y - preRendered.height/2);
@@ -711,6 +1168,12 @@
 
             ctx.save();
             ctx.translate(player.x, player.y + bobOffset);
+            
+            // Smoke Bomb: make player semi-transparent when effect is active
+            if (player.smokeBombActive) {
+                ctx.globalAlpha = 0.4;
+            }
+            
             if (isSpinning) {
                 const spinProgress = (now - player.spinStartTime) / spinDuration;
                 const rotation = spinProgress * 2.1 * Math.PI * player.spinDirection;
@@ -968,6 +1431,34 @@
                 ctx.restore();
             }
 
+            // Spear rendering - brown handle with grey arrow tip
+            if (spearActive && currentSpearSwing) {
+                const swingProgress = (now - currentSpearSwing.startTime) / SPEAR_SWING_DURATION;
+                const spearSizeMult = player.projectileSizeMultiplier || 1;
+                const thrustOffset = Math.sin(swingProgress * Math.PI) * (SPEAR_LENGTH * 0.3 * spearSizeMult);
+                const currentLength = (SPEAR_HANDLE_LENGTH * spearSizeMult) + thrustOffset;
+                const handleWidth = SPEAR_HANDLE_WIDTH * spearSizeMult;
+                const tipSize = SPEAR_TIP_SIZE * 2 * spearSizeMult;
+
+                ctx.save();
+                ctx.translate(currentSpearSwing.x, currentSpearSwing.y);
+                ctx.rotate(currentSpearSwing.angle);
+
+                // Brown handle (rectangle) - positioned behind the arrow tip
+                ctx.fillStyle = '#8B4513'; // Saddle brown
+                ctx.fillRect(player.size / 2, -handleWidth / 2, currentLength, handleWidth);
+
+                // Grey arrow tip (→) - overlapping the handle
+                ctx.fillStyle = '#808080'; // Grey
+                ctx.font = `${tipSize}px sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                // Position arrow at the end of the handle
+                ctx.fillText('→', player.size / 2 + currentLength, 0);
+
+                ctx.restore();
+            }
+
             if (dogCompanionActive) {
                 const preRendered = preRenderedEntities['🐶'];
                 if(preRendered) ctx.drawImage(preRendered, dog.x - preRendered.width/2, dog.y - preRendered.height/2);
@@ -1085,6 +1576,64 @@
                 ctx.restore();
             }
 
+            // Flying Turret rendering with purple outline and wings
+            if (flyingTurretActive && inView(flyingTurret.x, flyingTurret.y, flyingTurret.size)) {
+                ctx.save();
+
+                // Slight bobbing animation to show it's flying
+                const bobOffset = Math.sin(now / 200) * 3;
+                const renderY = flyingTurret.y + bobOffset;
+
+                // Draw drop shadow under flying turret
+                const shadowY = renderY + flyingTurret.size * 0.5;
+                const shadowRadiusX = flyingTurret.size * 0.5;
+                const shadowRadiusY = flyingTurret.size * 0.2;
+                ctx.beginPath();
+                ctx.ellipse(flyingTurret.x, shadowY, shadowRadiusX, shadowRadiusY, 0, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+                ctx.fill();
+
+                // Draw purple outline (flying variant indicator)
+                const outlineSize = flyingTurret.size * 0.6;
+                ctx.beginPath();
+                ctx.arc(flyingTurret.x, renderY, outlineSize / 2, 0, Math.PI * 2);
+                ctx.strokeStyle = 'rgba(200, 0, 200, 0.6)'; // Purple instead of green
+                ctx.lineWidth = 3;
+                ctx.stroke();
+
+                // Draw the turret base (classical building emoji)
+                ctx.font = `${flyingTurret.size}px sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('🏛️', flyingTurret.x, renderY);
+
+                // Draw wings on both sides
+                const wingSize = flyingTurret.size * 0.5;
+                ctx.font = `${wingSize}px sans-serif`;
+                // Left wing
+                ctx.fillText('🪽', flyingTurret.x - flyingTurret.size * 0.5, renderY - flyingTurret.size * 0.1);
+                // Right wing (mirrored by scaling)
+                ctx.save();
+                ctx.translate(flyingTurret.x + flyingTurret.size * 0.5, renderY - flyingTurret.size * 0.1);
+                ctx.scale(-1, 1); // Mirror horizontally
+                ctx.fillText('🪽', 0, 0);
+                ctx.restore();
+
+                // Draw pistol gun pointing at aim angle
+                ctx.save();
+                ctx.translate(flyingTurret.x, renderY);
+                ctx.rotate(flyingTurret.aimAngle);
+                if (flyingTurret.aimAngle > Math.PI / 2 || flyingTurret.aimAngle < -Math.PI / 2) { ctx.scale(1, -1); }
+                const gunWidth = flyingTurret.size * 0.8;
+                const gunHeight = gunWidth * (sprites.gun.height / sprites.gun.width);
+                const gunXOffset = flyingTurret.size / 4;
+                const gunYOffset = -gunHeight / 2;
+                ctx.drawImage(sprites.gun, gunXOffset, gunYOffset, gunWidth, gunHeight);
+                ctx.restore();
+
+                ctx.restore();
+            }
+
             if (player2 && player2.active) {
                 ctx.fillStyle = 'rgba(255, 255, 0, 0.5)';
                 ctx.beginPath(); ctx.arc(player2.x, player2.y, player2.size / 2, 0, Math.PI * 2); ctx.fill();
@@ -1135,6 +1684,16 @@
                 ctx.arc(fly.x, fly.y, FLY_SIZE / 2, 0, Math.PI * 2);
                 ctx.fill();
             });
+
+            // Render peas (green circles that flash blue)
+            peas.forEach(pea => {
+                const flashBlue = Math.floor(now / 100) % 2 === 0;
+                ctx.fillStyle = flashBlue ? '#4444ff' : '#00ff00'; // Blue flash or green
+                ctx.beginPath();
+                ctx.arc(pea.x, pea.y, PEA_SIZE / 2, 0, Math.PI * 2);
+                ctx.fill();
+            });
+
             if (nightOwlActive && owl) {
                 const preRendered = preRenderedEntities['🦉'];
                 if(preRendered) ctx.drawImage(preRendered, owl.x - preRendered.width/2, owl.y - preRendered.height/2);

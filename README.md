@@ -58,6 +58,13 @@ A roguelike survival game where you play as the Cowboy Hero defending Emoji Land
 - 🟢 **Laser Cannon** — Fire a piercing green beam every 5 seconds
 - 🧨 **Dynamite** — Throw dynamite that explodes after 3 seconds
 - 🔫 **Pistol** — Standard gun for non-cowboy characters
+- 📚 **Levitating Books** — Two orbiting books that fade in/out, damaging enemies when visible
+- 🪃 **Boomerang** — Throws a boomerang that travels outward, stops, then returns
+- ⛓️ **Chain Lightning** — Arcs lightning between up to 4 nearby enemies
+- 🔱 **Spear** — Auto-thrusts a piercing spear with major knockback
+- 🚀 **Rocket Launcher** — Fires explosive rockets at the closest enemy
+- 🛡️ **Smoke Bomb** — Drop smoke that makes you temporarily invisible
+- 🚁 **Flying Turret** — A flying companion that circles you and fires at enemies
 
 ### Unlockable Power-Ups (buy in Upgrades shop)
 - 👯 **Doppelganger** — Summon a clone that fights alongside you for 8 seconds
@@ -65,6 +72,7 @@ A roguelike survival game where you play as the Cowboy Hero defending Emoji Land
 - 🐶 **Dog Companion** — A loyal dog chases and attacks enemies for you
 - 🐱 **Cat Ally** — A cat that collects pickups for you automatically
 - 🛡️ **Vengeance Nova** — Release a shockwave when damaged, pushing enemies back
+- 💨 **Dodge Nova** — Fires 6 bullets in all directions when you dash
 - 💨 **Anti-Gravity** — Push all nearby enemies away every 5 seconds
 - ⚫ **Black Hole** — Pull all enemies to a point every 10 seconds
 - 🪓 **Whirlwind Axe** — A large axe orbits you continuously, damaging enemies
@@ -100,14 +108,19 @@ A roguelike survival game where you play as the Cowboy Hero defending Emoji Land
 - 👾 **Invader** — Fast erratic zig-zag movement (lvl 2+)
 - 🦟 **Mosquito** — Erratic movement, leaves damaging puddles (lvl 7+)
 - 🕷️ **Spider** — Jumps diagonally, leaves slowing webs (lvl 7+)
-- 🦇 **Bat** — Pauses then dashes at you unpredictably (lvl 10+)
+- � **Scorpion** — Strafes side-to-side while approaching (lvl 6+)
+- �� **Bat** — Pauses then dashes at you unpredictably (lvl 10+)
+- 🌀 **Vortex** — Spins and pulls you in with gravity AOE (lvl 8+)
 - 😈 **Devil** — Moves on one axis at a time (lvl 12+)
 - 👻 **Ghost** — Phases in and out, invincible while invisible (lvl 12+)
+- 🧿 **Pulsing Eye** — Expanding red damage ring, lose heart on contact (lvl 13+)
 - 👹 **Demon** — Alternates between chasing and random movement (lvl 15+)
+- 🪬 **Charger** — Shows red arrow, stops, then charges at 2.5x speed (lvl 17+)
 - 👁️ **Eye** — Keeps distance and fires projectiles at you (lvl 20+)
 - 🧞 **Genie** — Warps bullets with gravity field, drops diamonds (lvl 25+)
 - 🧛‍♀️ **Vampire** — Dodges bullets, drops valuable diamonds (lvl 30+)
 - 👑 **BOSS** — Giant version spawns every 11 levels with massive health!
+- ☠️ **MEGA BOSS** — Appears at exactly 15 minutes — defeat it to win!
 
 ### Cheats System
 Complete achievements to unlock cheats that modify gameplay! Access from the Trophies menu. Includes:

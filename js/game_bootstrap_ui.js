@@ -92,7 +92,8 @@ const ALWAYS_AVAILABLE_PICKUPS = {
   orbiter: { id: 'orbiter', name: 'Spinning Orbiter' },
   lightning_projectile: { id: 'lightning_projectile', name: 'Lightning Projectile' },
   flamethrower: { id: 'flamethrower', name: 'Flamethrower' },
-  laser_cannon: { id: 'laser_cannon', name: 'Laser Cannon' }
+  laser_cannon: { id: 'laser_cannon', name: 'Laser Cannon' },
+  smoke_bomb: { id: 'smoke_bomb', name: 'Smoke Bomb' }
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -124,9 +125,13 @@ const UNLOCKABLE_PICKUPS = {
   circle:       { name: "Damaging Circle",desc: "Unlocks the persistent damaging aura pickup.",cost: 900, icon: '⭕' },
   flaming_bullets:{ name: "Flaming Bullets",desc: "Unlocks bullets that ignite enemies.",     cost: 1150, icon: '🔥' },
   black_hole:   { name: "Black Hole",    desc: "Unlocks the enemy-vortex pickup.",            cost: 1180, icon: '⚫' },
+  time_freeze:  { name: "Time Freeze",   desc: "Unlocks the time-freezing zone pickup.",      cost: 1200, icon: '⏳' },
   vengeance_nova:{ name: "Vengeance Nova",desc: "Unlocks the defensive blast pickup.",        cost: 700,  icon: '🛡️' },
   dodge_nova:   { name: "Dodge Nova",    desc: "Unlocks dodge nova - fires 6 bullets when dashing.", cost: 850, icon: '💨' },
   robot_drone:  { name: "Robot Drone",   desc: "Unlocks the autonomous combat drone.",       cost: 900,  icon: '🤖' },
+  boomerang:    { name: "Boomerang",     desc: "Unlocks a returning spinning boomerang weapon.", cost: 1000, icon: '🪃' },
+  chain_lightning: { name: "Chain Lightning", desc: "Unlocks chaining lightning that arcs between enemies.", cost: 1100, icon: '⚡' },
+  flying_turret: { name: "Flying Turret",   desc: "Unlocks a mobile flying turret that bounces around the map.", cost: 1000, icon: '🪽' },
   game_speed:   { name: "Game Speed",      desc: "Unlocks game speed control (0.5x, 1x, 2x, 3x).", cost: 1200, icon: '⏩' },
   // ─── WEAPON PICKUPS ───────────────────────────────────────────────────────
   shotgun:      { name: "Shotgun",       desc: "Unlocks the shotgun powerup.",               cost: 950,  icon: '🔫' },
@@ -137,7 +142,7 @@ const UNLOCKABLE_PICKUPS = {
   // ─── QUALITY OF LIFE ──────────────────────────────────────────────────────
   fourth_heart: { name: "4th Heart",       desc: "Start each run with 4 hearts instead of 3.", cost: 3000, icon: '❤️' },
   four_choices: { name: "4 Level Choices", desc: "Get 4 choices on level up instead of 3.",  cost: 3500, icon: '📋' },
-  music_player: { name: "Music Player",  desc: "Unlock a music player to select your own tracks!", cost: 1, icon: '🎵' }
+  music_player: { name: "Music Player",  desc: "Unlock a music player to select your own tracks!", cost: 1500, icon: '🎵' }
 };
 
 // ═══════════════════════════════════════════════════════════════════════════

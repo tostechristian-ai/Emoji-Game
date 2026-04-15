@@ -6,7 +6,21 @@ Welcome! This is your complete guide to understanding the Emoji Survivor codebas
 
 ## 📖 Documentation Files
 
-### **1. CODE_GUIDE.md** - Complete Code Walkthrough
+### **1. FILE_INDEX.md** - Complete Section-by-Section Index ⭐ NEW!
+**Best for:** Finding specific code blocks and understanding what every section does
+
+**Contents:**
+- Line-by-line breakdown of every major section in every file
+- What each variable, function, and code block does
+- Quick reference tables for common tasks
+- Console commands for debugging
+- Where to add new enemies, powerups, features
+
+**Start here if:** You want to find exactly where specific code is and understand what it does.
+
+---
+
+### **2. CODE_GUIDE.md** - Architecture Overview
 **Best for:** Understanding how the entire game works
 
 **Contents:**
@@ -325,7 +339,8 @@ Remember: The best way to learn is by doing. Start small, make changes, and see 
 
 | File | Purpose | When to Use |
 |------|---------|-------------|
-| **CODE_GUIDE.md** | Complete walkthrough | Learning how everything works |
+| **FILE_INDEX.md** | Section-by-section index | Finding specific code blocks |
+| **CODE_GUIDE.md** | Architecture overview | Learning how everything works |
 | **QUICK_REFERENCE.md** | Fast lookup table | Finding specific features |
 | **README.md** | Game overview | Understanding what the game is |
 | **DOCUMENTATION_INDEX.md** | This file | Navigating the documentation |

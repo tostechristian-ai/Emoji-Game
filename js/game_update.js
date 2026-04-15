@@ -394,6 +394,81 @@ for (let i = merchants.length - 1; i >= 0; i--) {
                 }
                 lastBugSwarmSpawnTime = now;
             }
+
+            // Pea Shooter - shoots green peas in spinning wheel pattern
+            if (peaShooterActive && !isTimeStopped && now - lastPeaShootTime > PEA_SHOOT_INTERVAL) {
+                // Update the spin angle (wheel rotation)
+                peaShooterSpinAngle += (PEA_SPIN_SPEED * PEA_SHOOT_INTERVAL / 1000);
+                if (peaShooterSpinAngle > Math.PI * 2) peaShooterSpinAngle -= Math.PI * 2;
+
+                // Emit peas at each "spoke" of the wheel
+                for (let i = 0; i < PEA_SPIN_SPOKES; i++) {
+                    const angle = peaShooterSpinAngle + (i * (Math.PI * 2 / PEA_SPIN_SPOKES));
+                    peas.push({
+                        x: player.x,
+                        y: player.y,
+                        dx: Math.cos(angle) * PEA_SPEED,
+                        dy: Math.sin(angle) * PEA_SPEED,
+                        spawnTime: now,
+                        isHit: false
+                    });
+                }
+                lastPeaShootTime = now;
+            }
+
+            // Update peas (move, check collisions, remove expired)
+            for (let i = peas.length - 1; i >= 0; i--) {
+                const pea = peas[i];
+
+                // Remove if expired
+                if (now - pea.spawnTime > PEA_LIFETIME || pea.isHit) {
+                    peas.splice(i, 1);
+                    continue;
+                }
+
+                // Move pea outward in straight line
+                pea.x += pea.dx;
+                pea.y += pea.dy;
+
+                // Check collision with enemies
+                for (let j = enemies.length - 1; j >= 0; j--) {
+                    const enemy = enemies[j];
+                    if (enemy.isHit) continue;
+
+                    const dx = pea.x - enemy.x;
+                    const dy = pea.y - enemy.y;
+                    const distSq = dx * dx + dy * dy;
+                    const hitRadius = (PEA_SIZE / 2) + (enemy.size / 2);
+
+                    if (distSq < hitRadius * hitRadius) {
+                        // Deal damage
+                        const damage = PEA_DAMAGE * player.damageMultiplier;
+                        enemy.health -= damage;
+                        enemy.hitFlashTime = now;
+                        createBloodSplatter(enemy.x, enemy.y);
+                        pea.isHit = true;
+
+                        // Damage number
+                        if (floatingTexts.length < 30) {
+                            floatingTexts.push({
+                                text: String(Math.round(damage * 10) / 10),
+                                x: enemy.x + (Math.random() - 0.5) * enemy.size * 0.5,
+                                y: enemy.y - enemy.size * 0.5 - Math.random() * 10,
+                                startTime: now,
+                                duration: 500,
+                                color: '#00ff00',
+                                fontSize: 10
+                            });
+                        }
+
+                        if (enemy.health <= 0) {
+                            handleEnemyDeath(enemy);
+                        }
+                        break; // Pea can only hit one enemy
+                    }
+                }
+            }
+
             if (nightOwlActive && !isTimeStopped) {
                 if (!owl) { owl = { x: player.x, y: player.y - OWL_FOLLOW_DISTANCE, lastFireTime: 0 }; }
                 const targetX = player.x; const targetY = player.y - OWL_FOLLOW_DISTANCE;
@@ -866,7 +941,45 @@ for (let i = merchants.length - 1; i >= 0; i--) {
                     }
                 }
                 if (enemy.isSlowedByPuddle) effectiveEnemySpeed *= PLAYER_PUDDLE_SLOW_FACTOR;
-                
+
+                // Stone Glare - check if enemy is in the cone and slow them
+                enemy.isSlowedByStoneGlare = false;
+                if (stoneGlareActive) {
+                    // Get cone direction from aim or facing
+                    let coneAngle = 0;
+                    if (aimDx !== 0 || aimDy !== 0) {
+                        coneAngle = Math.atan2(aimDy, aimDx);
+                    } else {
+                        // Default based on facing direction
+                        if (player.facing === 'up') coneAngle = -Math.PI / 2;
+                        else if (player.facing === 'down') coneAngle = Math.PI / 2;
+                        else if (player.facing === 'left') coneAngle = Math.PI;
+                        else coneAngle = 0; // right
+                    }
+
+                    const dx = enemy.x - player.x;
+                    const dy = enemy.y - player.y;
+                    const distSq = dx * dx + dy * dy;
+
+                    // Scale range with bullet size upgrade
+                    const scaledStoneGlareRange = STONE_GLARE_RANGE * (player.bulletSizeMultiplier || 1);
+
+                    // Check if within range
+                    if (distSq <= scaledStoneGlareRange * scaledStoneGlareRange) {
+                        const angleToEnemy = Math.atan2(dy, dx);
+                        // Normalize angle difference to [-PI, PI]
+                        let angleDiff = angleToEnemy - coneAngle;
+                        while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
+                        while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
+
+                        // Check if within cone angle (half angle on each side)
+                        if (Math.abs(angleDiff) <= STONE_GLARE_ANGLE / 2) {
+                            enemy.isSlowedByStoneGlare = true;
+                            effectiveEnemySpeed *= STONE_GLARE_SLOW_FACTOR;
+                        }
+                    }
+                }
+
                 // Alien slime damage - enemies in puddles take 0.25 damage periodically
                 if (player && player._isAlien && enemy.isSlowedByPuddle) {
                     if (!enemy._lastAlienSlimeDamageTime) enemy._lastAlienSlimeDamageTime = 0;
@@ -1098,6 +1211,190 @@ for (let i = merchants.length - 1; i >= 0; i--) {
                             moveX += Math.cos(strafeAngle) * effectiveEnemySpeed * 0.5;
                             moveY += Math.sin(strafeAngle) * effectiveEnemySpeed * 0.5;
                         }
+                        break;
+                    }
+                    case 'charger': {
+                        // Charger: approaches player, stops, shows arrow for 2s, then charges for 2s
+                        if (!enemy.chargerState) enemy.chargerState = 'approaching';
+                        if (!enemy.stateStartTime) enemy.stateStartTime = now;
+                        
+                        const stateDuration = enemy.chargerState === 'approaching' ? 2000 : (enemy.chargerState === 'aiming' ? 2000 : 2000);
+                        const timeInState = now - enemy.stateStartTime;
+                        
+                        // State transitions
+                        if (timeInState > stateDuration) {
+                            if (enemy.chargerState === 'approaching') {
+                                enemy.chargerState = 'aiming';
+                                enemy.stateStartTime = now;
+                                // Store angle to player when starting aim
+                                enemy.chargeAngle = angleToTarget;
+                                enemy.arrowVisible = true;
+                            } else if (enemy.chargerState === 'aiming') {
+                                enemy.chargerState = 'charging';
+                                enemy.stateStartTime = now;
+                                enemy.arrowVisible = false;
+                            } else if (enemy.chargerState === 'charging') {
+                                enemy.chargerState = 'approaching';
+                                enemy.stateStartTime = now;
+                            }
+                        }
+                        
+                        // Update charge angle continuously during aiming phase
+                        if (enemy.chargerState === 'aiming') {
+                            enemy.chargeAngle = angleToTarget;
+                        }
+                        
+                        // Movement based on state
+                        if (enemy.chargerState === 'approaching') {
+                            // Move toward player at normal speed
+                            moveX += Math.cos(angleToTarget) * effectiveEnemySpeed;
+                            moveY += Math.sin(angleToTarget) * effectiveEnemySpeed;
+                        } else if (enemy.chargerState === 'aiming') {
+                            // Stop moving during aiming
+                            moveX = 0;
+                            moveY = 0;
+                        } else if (enemy.chargerState === 'charging') {
+                            // Charge in the direction of the arrow at 2.5x speed
+                            moveX += Math.cos(enemy.chargeAngle) * effectiveEnemySpeed * 2.5;
+                            moveY += Math.sin(enemy.chargeAngle) * effectiveEnemySpeed * 2.5;
+                        }
+                        break;
+                    }
+                    case 'vortex': {
+                        // Vortex: spins and moves randomly, has AOE that pulls player in
+                        
+                        // Update spin rotation
+                        enemy.vortexAngle = (enemy.vortexAngle || 0) + 0.15;
+                        if (enemy.vortexAngle > Math.PI * 2) enemy.vortexAngle -= Math.PI * 2;
+                        
+                        // Change direction every 1-3 seconds
+                        if (!enemy.lastDirChange) enemy.lastDirChange = now;
+                        if (now - enemy.lastDirChange > 1000 + Math.random() * 2000) {
+                            enemy.vortexMoveAngle = Math.random() * Math.PI * 2;
+                            enemy.lastDirChange = now;
+                        }
+                        if (!enemy.vortexMoveAngle) enemy.vortexMoveAngle = Math.random() * Math.PI * 2;
+                        
+                        // Move in random direction
+                        moveX += Math.cos(enemy.vortexMoveAngle) * effectiveEnemySpeed;
+                        moveY += Math.sin(enemy.vortexMoveAngle) * effectiveEnemySpeed;
+                        
+                        // Vortex gravity pull on player (AOE effect is 3x enemy size = 66 radius)
+                        const aoeRadius = enemy.size * 3;
+                        const dx = enemy.x - player.x;
+                        const dy = enemy.y - player.y;
+                        const distSq = dx * dx + dy * dy;
+                        
+                        if (distSq < aoeRadius * aoeRadius && distSq > 0) {
+                            const dist = Math.sqrt(distSq);
+                            const pullStrength = 0.4 * (1 - dist / aoeRadius); // Stronger when closer
+                            const pullAngle = Math.atan2(dy, dx);
+                            
+                            // Apply pull to player (subtle but noticeable - player can escape at base speed)
+                            player.x += Math.cos(pullAngle) * pullStrength;
+                            player.y += Math.sin(pullAngle) * pullStrength;
+                        }
+                        break;
+                    }
+                    case 'pulsing_eye': {
+                        // Pulsing Eye: slowly follows player while pulsing a damage ring
+                        
+                        // Move slowly toward player
+                        moveX += Math.cos(angleToTarget) * effectiveEnemySpeed * 0.5;
+                        moveY += Math.sin(angleToTarget) * effectiveEnemySpeed * 0.5;
+                        
+                        // Update pulse - ring grows to 2x size over 1.5 seconds
+                        const pulseDuration = 1500;
+                        const pulseCycle = (now - enemy.lastPulseTime) % pulseDuration;
+                        const pulseProgress = pulseCycle / pulseDuration;
+                        
+                        // Ring grows from 0 to 2x enemy size
+                        enemy.pulseRadius = enemy.size * 2 * pulseProgress;
+                        
+                        // Check if ring touches player (damage on contact with ring OR touching the eye itself)
+                        const dx = player.x - enemy.x;
+                        const dy = player.y - enemy.y;
+                        const distToPlayer = Math.sqrt(dx * dx + dy * dy);
+                        
+                        // Reset damage flag at start of new pulse
+                        if (pulseCycle < 50 && enemy.hasDamagedThisPulse) {
+                            enemy.hasDamagedThisPulse = false;
+                        }
+                        
+                        // Damage if: player touches the eye itself OR touches the expanding ring
+                        // Ring has a thickness tolerance for hit detection
+                        const ringThickness = 8;
+                        const touchingEye = distToPlayer < (enemy.size / 2 + player.size / 2);
+                        const touchingRing = Math.abs(distToPlayer - enemy.pulseRadius) < ringThickness;
+                        
+                        if (!enemy.hasDamagedThisPulse && !player.isInvincible && !cheats.god_mode && (touchingEye || touchingRing)) {
+                            // Player loses a heart
+                            player.lives--;
+                            runStats.lastDamageTime = now;
+                            if (typeof runStats.damageTakenThisRun !== 'number' || !Number.isFinite(runStats.damageTakenThisRun)) runStats.damageTakenThisRun = 0;
+                            runStats.damageTakenThisRun++;
+                            runStats.killsSinceDamage = 0;
+                            if (player.lives === 1) runStats.hasBeenAtOneHeart = true;
+                            
+                            createBloodSplatter(player.x, player.y);
+                            createBloodPuddle(player.x, player.y, player.size);
+                            vibrateHit(true);
+                            playSound('playerScream');
+                            isPlayerHitShaking = true;
+                            playerHitShakeStartTime = now;
+                            
+                            // Show damage text
+                            floatingTexts.push({
+                                text: "-❤️",
+                                x: player.x,
+                                y: player.y - player.size,
+                                startTime: now,
+                                duration: 1000,
+                                color: '#ff0000',
+                                fontSize: 16
+                            });
+                            
+                            if (player.lives <= 0) {
+                                if (cheats.second_life && !player._hasRevivedWithSecondLife) {
+                                    player._hasRevivedWithSecondLife = true;
+                                    player.lives = player.maxLives;
+                                    floatingTexts.push({
+                                        text: "SECOND LIFE!",
+                                        x: player.x,
+                                        y: player.y - player.size,
+                                        startTime: now,
+                                        duration: 2000,
+                                        color: '#FFD700',
+                                        fontSize: 20
+                                    });
+                                    playSound('levelUpSelect');
+                                } else {
+                                    endGame();
+                                }
+                            }
+                            
+                            enemy.hasDamagedThisPulse = true;
+                            updateUIStats();
+                        }
+                        break;
+                    }
+                    case 'scorpion': {
+                        // Scorpion: moves toward player while strafing side to side
+                        
+                        // Update strafe phase
+                        enemy.strafePhase += 0.08; // Speed of side-to-side wobble
+                        
+                        // Base movement toward player
+                        const moveTowardX = Math.cos(angleToTarget) * effectiveEnemySpeed;
+                        const moveTowardY = Math.sin(angleToTarget) * effectiveEnemySpeed;
+                        
+                        // Calculate perpendicular direction for strafing
+                        const strafeAngle = angleToTarget + Math.PI / 2;
+                        const strafeAmount = Math.sin(enemy.strafePhase) * effectiveEnemySpeed * 0.6;
+                        
+                        // Combine forward movement with side-to-side strafing
+                        moveX += moveTowardX + Math.cos(strafeAngle) * strafeAmount;
+                        moveY += moveTowardY + Math.sin(strafeAngle) * strafeAmount;
                         break;
                     }
                     default:
@@ -1746,6 +2043,77 @@ for (let i = merchants.length - 1; i >= 0; i--) {
                 }
             }
 
+            // ═══════════════════════════════════════════════════════════════════════════
+            // FLYING TURRET POWERUP
+            // ═══════════════════════════════════════════════════════════════════════════
+            // Moves diagonally and bounces off map edges like a screensaver
+            if (flyingTurretActive && !isTimeStopped) {
+                // Move the flying turret
+                flyingTurret.x += flyingTurret.dx;
+                flyingTurret.y += flyingTurret.dy;
+                
+                // Bounce off world edges
+                if (flyingTurret.x <= flyingTurret.size / 2) {
+                    flyingTurret.x = flyingTurret.size / 2;
+                    flyingTurret.dx = Math.abs(flyingTurret.dx); // Bounce right
+                } else if (flyingTurret.x >= WORLD_WIDTH - flyingTurret.size / 2) {
+                    flyingTurret.x = WORLD_WIDTH - flyingTurret.size / 2;
+                    flyingTurret.dx = -Math.abs(flyingTurret.dx); // Bounce left
+                }
+                
+                if (flyingTurret.y <= flyingTurret.size / 2) {
+                    flyingTurret.y = flyingTurret.size / 2;
+                    flyingTurret.dy = Math.abs(flyingTurret.dy); // Bounce down
+                } else if (flyingTurret.y >= WORLD_HEIGHT - flyingTurret.size / 2) {
+                    flyingTurret.y = WORLD_HEIGHT - flyingTurret.size / 2;
+                    flyingTurret.dy = -Math.abs(flyingTurret.dy); // Bounce up
+                }
+                
+                // Find closest enemy to aim at
+                let closestEnemy = null;
+                let minDistanceSq = Infinity;
+                
+                for (const enemy of enemies) {
+                    if (!enemy.isHit) {
+                        const distSq = (flyingTurret.x - enemy.x)**2 + (flyingTurret.y - enemy.y)**2;
+                        if (distSq < minDistanceSq) {
+                            minDistanceSq = distSq;
+                            closestEnemy = enemy;
+                        }
+                    }
+                }
+                
+                if (closestEnemy) {
+                    // Update aim angle to point at closest enemy
+                    flyingTurret.aimAngle = Math.atan2(closestEnemy.y - flyingTurret.y, closestEnemy.x - flyingTurret.x);
+                    
+                    // Fire at closest enemy
+                    if (now - flyingTurret.lastFireTime > FLYING_TURRET_FIRE_INTERVAL) {
+                        // Create bullet from weapon pool
+                        for (const weapon of weaponPool) {
+                            if (!weapon.active) {
+                                weapon.x = flyingTurret.x;
+                                weapon.y = flyingTurret.y;
+                                weapon.size = FLYING_TURRET_BULLET_SIZE;
+                                weapon.speed = FLYING_TURRET_BULLET_SPEED;
+                                weapon.angle = flyingTurret.aimAngle;
+                                weapon.dx = Math.cos(weapon.angle) * weapon.speed;
+                                weapon.dy = Math.sin(weapon.angle) * weapon.speed;
+                                weapon.lifetime = now + 2000;
+                                weapon.hitsLeft = 1;
+                                weapon.hitEnemies.length = 0;
+                                weapon.owner = 'flying_turret';
+                                weapon.active = true;
+                                weapon._isFlyingTurretBullet = true;
+                                break;
+                            }
+                        }
+                        playSound('playerShoot');
+                        flyingTurret.lastFireTime = now;
+                    }
+                }
+            }
+
             for (let i = pickupItems.length - 1; i >= 0; i--) {
                 const item = pickupItems[i];
                 // XP gems and powerup boxes persist indefinitely - no expiration timer
@@ -2138,7 +2506,14 @@ if (pendingRevolverShot && now >= pendingRevolverShot.fireAt) {
         }
     }
 }
-            if (bombEmitterActive && now - lastBombEmitMs >= BOMB_INTERVAL_MS) {
+            // Scale bomb emitter interval with fire rate
+            let currentBombInterval = BOMB_INTERVAL_MS;
+            if (fireRateBoostActive) currentBombInterval /= 2;
+            if (cheats.fastShooting) currentBombInterval /= 5;
+            if (cheats.double_game_speed) currentBombInterval /= 2;
+            currentBombInterval = Math.max(1000, currentBombInterval); // Minimum 1 second
+
+            if (bombEmitterActive && now - lastBombEmitMs >= currentBombInterval) {
                 bombs.push({ x: player.x, y: player.y, size: BOMB_SIZE, spawnTime: now });
                 lastBombEmitMs = now;
             }
@@ -2163,7 +2538,12 @@ if (pendingRevolverShot && now >= pendingRevolverShot.fireAt) {
                 }
             }
             if (orbitingPowerUpActive) {
-                player.orbitAngle = (player.orbitAngle + ORBIT_SPEED) % (Math.PI * 2);
+                // Scale orbiter speed with fire rate (spin faster)
+                let currentOrbitSpeed = ORBIT_SPEED;
+                if (fireRateBoostActive) currentOrbitSpeed *= 2;
+                if (cheats.fastShooting) currentOrbitSpeed *= 5;
+                if (cheats.double_game_speed) currentOrbitSpeed *= 2;
+                player.orbitAngle = (player.orbitAngle + currentOrbitSpeed) % (Math.PI * 2);
                 const orbitX = player.x + ORBIT_RADIUS * Math.cos(player.orbitAngle);
                 const orbitY = player.y + ORBIT_RADIUS * Math.sin(player.orbitAngle);
                 for (let i = enemies.length - 1; i >= 0; i--) {
@@ -2206,8 +2586,14 @@ if (pendingRevolverShot && now >= pendingRevolverShot.fireAt) {
             // Levitating Books - like Vampire Survivors books
             // Two books orbit opposite each other, fade in/out, only damage when visible
             if (levitatingBooksActive) {
+                // Scale books rotation speed with fire rate (spin faster)
+                let currentBooksSpeed = LEVITATING_BOOKS_SPEED;
+                if (fireRateBoostActive) currentBooksSpeed *= 2;
+                if (cheats.fastShooting) currentBooksSpeed *= 5;
+                if (cheats.double_game_speed) currentBooksSpeed *= 2;
+
                 // Update rotation angle
-                levitatingBooksAngle = (levitatingBooksAngle + LEVITATING_BOOKS_SPEED) % (Math.PI * 2);
+                levitatingBooksAngle = (levitatingBooksAngle + currentBooksSpeed) % (Math.PI * 2);
                 
                 // Calculate fade cycle
                 const cycleTime = (now - levitatingBooksFadeStartTime) % LEVITATING_BOOKS_FADE_CYCLE;
@@ -2566,7 +2952,409 @@ if (pendingRevolverShot && now >= pendingRevolverShot.fireAt) {
             
             // Clean up expired laser beams
             laserCannonBeams = laserCannonBeams.filter(beam => now - beam.spawnTime < beam.lifetime);
+
+            // Laser Cross - spinning blue cross that continuously damages enemies
+            if (laserCrossActive) {
+                // Update rotation angle (one revolution every 2 seconds)
+                const deltaTime = isTimeStopped ? 0 : 16; // Approximate frame time, 0 when time stopped
+                laserCrossAngle += LASER_CROSS_ROTATION_SPEED * (deltaTime / 1000);
+                if (laserCrossAngle > Math.PI * 2) laserCrossAngle -= Math.PI * 2;
+
+                const beamRadius = player.size * LASER_CROSS_RADIUS_MULTIPLIER;
+                const beamHalfWidth = LASER_CROSS_BEAM_WIDTH / 2;
+
+                // Calculate the 4 beam endpoints (cross pattern)
+                const beamAngles = [
+                    laserCrossAngle,                    // 0 degrees from cross angle
+                    laserCrossAngle + Math.PI / 2,      // 90 degrees
+                    laserCrossAngle + Math.PI,          // 180 degrees
+                    laserCrossAngle + Math.PI * 1.5     // 270 degrees
+                ];
+
+                // Damage enemies that intersect with any of the 4 beams
+                enemies.forEach(enemy => {
+                    if (enemy.isHit) return;
+
+                    // Check intersection with each of the 4 beams
+                    for (const angle of beamAngles) {
+                        // Beam start (at player) and end points
+                        const startX = player.x;
+                        const startY = player.y;
+                        const endX = player.x + Math.cos(angle) * beamRadius;
+                        const endY = player.y + Math.sin(angle) * beamRadius;
+
+                        // Check if enemy intersects with this beam line segment
+                        const dx = endX - startX;
+                        const dy = endY - startY;
+                        const lineLengthSq = dx * dx + dy * dy;
+
+                        if (lineLengthSq === 0) continue;
+
+                        // Project enemy position onto the line
+                        const t = Math.max(0, Math.min(1, ((enemy.x - startX) * dx + (enemy.y - startY) * dy) / lineLengthSq));
+                        const closestX = startX + t * dx;
+                        const closestY = startY + t * dy;
+
+                        // Distance from enemy center to closest point on line
+                        const distX = enemy.x - closestX;
+                        const distY = enemy.y - closestY;
+                        const distToLine = Math.sqrt(distX * distX + distY * distY);
+
+                        // Check if enemy intersects with beam (enemy radius + half beam width)
+                        if (distToLine < enemy.size / 2 + beamHalfWidth) {
+                            // Apply damage with interval per enemy
+                            const enemyLastHitKey = '_laserCrossLastHit';
+                            if (!enemy[enemyLastHitKey] || now - enemy[enemyLastHitKey] >= LASER_CROSS_DAMAGE_INTERVAL) {
+                                const damage = LASER_CROSS_DAMAGE * player.damageMultiplier;
+                                enemy.health -= damage;
+                                enemy.hitFlashTime = now;
+                                enemy[enemyLastHitKey] = now;
+                                createBloodSplatter(enemy.x, enemy.y);
+
+                                // Damage number
+                                if (floatingTexts.length < 30) {
+                                    floatingTexts.push({
+                                        text: String(Math.round(damage * 10) / 10),
+                                        x: enemy.x + (Math.random() - 0.5) * enemy.size * 0.5,
+                                        y: enemy.y - enemy.size * 0.5 - Math.random() * 10,
+                                        startTime: now,
+                                        duration: 500,
+                                        color: '#00ffff',
+                                        fontSize: 11
+                                    });
+                                }
+
+                                if (enemy.health <= 0) {
+                                    handleEnemyDeath(enemy);
+                                }
+                            }
+                            break; // Only damage once per enemy per frame, even if hit by multiple beams
+                        }
+                    }
+                });
+            }
+
+            // ═══════════════════════════════════════════════════════════════════════════
+            // BOOMERANG POWERUP
+            // ═══════════════════════════════════════════════════════════════════════════
+            // Spawn new boomerang based on fire rate scaled interval
+            if (boomerangActive) {
+                // Calculate interval scaled by fire rate (lower interval = faster shooting)
+                let currentInterval = BOOMERANG_BASE_INTERVAL;
+                if (fireRateBoostActive) currentInterval /= 2;
+                if (cheats.fastShooting) currentInterval /= 5;
+                if (cheats.double_game_speed) currentInterval /= 2;
+                currentInterval = Math.max(500, currentInterval); // Minimum 0.5s between throws
                 
+                if (now - lastBoomerangTime > currentInterval) {
+                    // Find closest enemy for initial direction
+                    let targetAngle = player.rotationAngle || 0;
+                    let closestEnemy = null;
+                    let minDistance = Infinity;
+                    
+                    enemies.forEach(enemy => {
+                        const distSq = (player.x - enemy.x) ** 2 + (player.y - enemy.y) ** 2;
+                        if (distSq < minDistance) {
+                            minDistance = distSq;
+                            closestEnemy = enemy;
+                        }
+                    });
+                    
+                    if (closestEnemy) {
+                        targetAngle = Math.atan2(closestEnemy.y - player.y, closestEnemy.x - player.x);
+                    } else if (aimDx !== 0 || aimDy !== 0) {
+                        targetAngle = Math.atan2(aimDy, aimDx);
+                    }
+                    
+                    // Calculate max distance (4 body lengths)
+                    const maxDistance = player.size * 4 * player.projectileSizeMultiplier;
+                    
+                    // Spawn boomerang
+                    boomerangProjectiles.push({
+                        x: player.x,
+                        y: player.y,
+                        startX: player.x,
+                        startY: player.y,
+                        angle: targetAngle,
+                        maxDistance: maxDistance,
+                        spinAngle: 0,
+                        state: 'outgoing', // 'outgoing', 'stopped', 'returning'
+                        spawnTime: now,
+                        stopStartTime: 0,
+                        lastDamageTime: 0,
+                        size: player.size * 0.8 * (player.projectileSizeMultiplier || 1),
+                        hitEnemies: new Set() // Track which enemies were hit this pulse
+                    });
+                    
+                    lastBoomerangTime = now;
+                }
+            }
+            
+            // Update active boomerangs
+            for (let i = boomerangProjectiles.length - 1; i >= 0; i--) {
+                const b = boomerangProjectiles[i];
+                const deltaTime = isTimeStopped ? 0 : (1000 / 60); // Approximate frame time
+                
+                // Always spin the boomerang
+                b.spinAngle += 0.3; // Spin speed
+                
+                // State machine for boomerang movement
+                if (b.state === 'outgoing') {
+                    // Calculate distance from start
+                    const distFromStart = Math.hypot(b.x - b.startX, b.y - b.startY);
+                    
+                    if (distFromStart >= b.maxDistance) {
+                        // Reached max distance, stop and wait
+                        b.state = 'stopped';
+                        b.stopStartTime = now;
+                        b.x = b.startX + Math.cos(b.angle) * b.maxDistance;
+                        b.y = b.startY + Math.sin(b.angle) * b.maxDistance;
+                    } else {
+                        // Move outward
+                        const speed = 6 * player.projectileSpeedMultiplier;
+                        b.x += Math.cos(b.angle) * speed * (deltaTime / 16);
+                        b.y += Math.sin(b.angle) * speed * (deltaTime / 16);
+                    }
+                } else if (b.state === 'stopped') {
+                    // Check if stop duration is over
+                    if (now - b.stopStartTime > BOOMERANG_STOP_DURATION) {
+                        b.state = 'returning';
+                    }
+                    // Stay at max distance position
+                    b.x = b.startX + Math.cos(b.angle) * b.maxDistance;
+                    b.y = b.startY + Math.sin(b.angle) * b.maxDistance;
+                } else if (b.state === 'returning') {
+                    // Move back to player
+                    const dx = player.x - b.x;
+                    const dy = player.y - b.y;
+                    const distToPlayer = Math.hypot(dx, dy);
+                    
+                    if (distToPlayer < player.size / 2) {
+                        // Returned to player, remove boomerang
+                        boomerangProjectiles.splice(i, 1);
+                        continue;
+                    }
+                    
+                    // Return speed (slightly faster than outgoing)
+                    const returnAngle = Math.atan2(dy, dx);
+                    const speed = 8 * player.projectileSpeedMultiplier;
+                    b.x += Math.cos(returnAngle) * speed * (deltaTime / 16);
+                    b.y += Math.sin(returnAngle) * speed * (deltaTime / 16);
+                }
+                
+                // Damage pulse - every 0.3 seconds, damage all touching enemies
+                if (now - b.lastDamageTime > BOOMERANG_PULSE_INTERVAL) {
+                    b.hitEnemies.clear(); // Reset hit tracking for new pulse
+                    
+                    const boomerangRadius = b.size / 2;
+                    
+                    enemies.forEach(enemy => {
+                        if (enemy.isHit) return;
+                        
+                        const dx = b.x - enemy.x;
+                        const dy = b.y - enemy.y;
+                        const distSq = dx * dx + dy * dy;
+                        const collisionDist = boomerangRadius + (enemy.size / 2);
+                        
+                        if (distSq < collisionDist * collisionDist) {
+                            // Boomerang passes through enemies (piercing)
+                            const damage = BOOMERANG_DAMAGE * player.damageMultiplier;
+                            enemy.health -= damage;
+                            enemy.hitFlashTime = now;
+                            b.hitEnemies.add(enemy); // Track for this pulse
+                            createBloodSplatter(enemy.x, enemy.y);
+                            
+                            // Show damage number
+                            if (floatingTexts.length < 30) {
+                                floatingTexts.push({
+                                    text: String(Math.round(damage * 10) / 10),
+                                    x: enemy.x + (Math.random() - 0.5) * enemy.size * 0.5,
+                                    y: enemy.y - enemy.size * 0.5 - Math.random() * 10,
+                                    startTime: now,
+                                    duration: 500,
+                                    color: '#ffaa00',
+                                    fontSize: 11
+                                });
+                            }
+                            
+                            if (enemy.health <= 0) {
+                                handleEnemyDeath(enemy);
+                            }
+                        }
+                    });
+                    
+                    b.lastDamageTime = now;
+                }
+            }
+
+            // ═══════════════════════════════════════════════════════════════════════════
+            // CHAIN LIGHTNING POWERUP
+            // ═══════════════════════════════════════════════════════════════════════════
+            // Spawns chain lightning that arcs between up to 4 nearby enemies
+            if (chainLightningActive && enemies.length > 0) {
+                // Calculate interval scaled by fire rate
+                let currentInterval = CHAIN_LIGHTNING_INTERVAL;
+                if (fireRateBoostActive) currentInterval /= 2;
+                if (cheats.fastShooting) currentInterval /= 5;
+                if (cheats.double_game_speed) currentInterval /= 2;
+                currentInterval = Math.max(400, currentInterval); // Minimum 0.4s
+                
+                if (now - lastChainLightningTime > currentInterval) {
+                    // Build chain: player -> enemy1 -> enemy2 -> enemy3 -> enemy4
+                    const chain = [];
+                    let currentPos = { x: player.x, y: player.y };
+                    let remainingEnemies = enemies.filter(e => !e.isHit);
+                    
+                    // Find up to CHAIN_LIGHTNING_MAX_CHAIN enemies
+                    for (let i = 0; i < CHAIN_LIGHTNING_MAX_CHAIN && remainingEnemies.length > 0; i++) {
+                        // Find closest enemy to current position
+                        let closestEnemy = null;
+                        let minDistance = Infinity;
+                        let closestIndex = -1;
+                        
+                        remainingEnemies.forEach((enemy, index) => {
+                            const dx = currentPos.x - enemy.x;
+                            const dy = currentPos.y - enemy.y;
+                            const distSq = dx * dx + dy * dy;
+                            
+                            // Must be within chain range (first from player, then from previous enemy)
+                            const maxRange = (i === 0) ? CHAIN_LIGHTNING_RANGE * 1.5 : CHAIN_LIGHTNING_RANGE;
+                            
+                            if (distSq < maxRange * maxRange && distSq < minDistance) {
+                                minDistance = distSq;
+                                closestEnemy = enemy;
+                                closestIndex = index;
+                            }
+                        });
+                        
+                        if (closestEnemy) {
+                            chain.push(closestEnemy);
+                            currentPos = { x: closestEnemy.x, y: closestEnemy.y };
+                            // Remove this enemy from remaining to avoid re-chaining to same enemy
+                            remainingEnemies.splice(closestIndex, 1);
+                        } else {
+                            break; // No more enemies in range
+                        }
+                    }
+                    
+                    // If we found at least one enemy, create the chain effect and damage
+                    if (chain.length > 0) {
+                        // Create chain segments for visual effect
+                        const chainSegments = [];
+                        let fromPos = { x: player.x, y: player.y };
+                        
+                        chain.forEach(enemy => {
+                            chainSegments.push({
+                                fromX: fromPos.x,
+                                fromY: fromPos.y,
+                                toX: enemy.x,
+                                toY: enemy.y,
+                                spawnTime: now,
+                                lifetime: 400 // Visual lasts 400ms
+                            });
+                            fromPos = { x: enemy.x, y: enemy.y };
+                        });
+                        
+                        // Add to active chains
+                        chainLightningChains.push({
+                            segments: chainSegments,
+                            spawnTime: now,
+                            lifetime: 400
+                        });
+                        
+                        // Damage all enemies in chain
+                        chain.forEach(enemy => {
+                            const damage = CHAIN_LIGHTNING_DAMAGE * player.damageMultiplier;
+                            enemy.health -= damage;
+                            enemy.hitFlashTime = now;
+                            createBloodSplatter(enemy.x, enemy.y);
+                            
+                            // Show damage number
+                            if (floatingTexts.length < 30) {
+                                floatingTexts.push({
+                                    text: String(Math.round(damage * 10) / 10),
+                                    x: enemy.x + (Math.random() - 0.5) * enemy.size * 0.5,
+                                    y: enemy.y - enemy.size * 0.5 - Math.random() * 10,
+                                    startTime: now,
+                                    duration: 500,
+                                    color: '#00ffff',
+                                    fontSize: 11
+                                });
+                            }
+                            
+                            if (enemy.health <= 0) {
+                                handleEnemyDeath(enemy);
+                            }
+                        });
+                        
+                        // Play sound effect
+                        playSound('playerShoot');
+                    }
+                    
+                    lastChainLightningTime = now;
+                }
+            }
+            
+            // Clean up expired chain lightning visuals
+            chainLightningChains = chainLightningChains.filter(chain => now - chain.spawnTime < chain.lifetime);
+
+            // ═══════════════════════════════════════════════════════════════════════════
+            // SMOKE BOMB POWERUP
+            // ═══════════════════════════════════════════════════════════════════════════
+            // Creates smoke, makes player invulnerable and semi-transparent for 2 seconds
+            // Recharges every 8 seconds (scaled by fire rate upgrades)
+            if (smokeBombActive && !isTimeStopped) {
+                // Calculate interval scaled by fire rate (lower interval = faster recharge)
+                let currentInterval = SMOKE_BOMB_BASE_INTERVAL;
+                if (fireRateBoostActive) currentInterval /= 2;
+                if (cheats.fastShooting) currentInterval /= 5;
+                if (cheats.double_game_speed) currentInterval /= 2;
+                currentInterval = Math.max(2000, currentInterval); // Minimum 2 seconds
+                
+                // Check if it's time to trigger smoke bomb
+                if (now - lastSmokeBombTime > currentInterval) {
+                    lastSmokeBombTime = now;
+                    smokeBombEffectEndTime = now + SMOKE_BOMB_EFFECT_DURATION;
+                    
+                    // Create smoke cloud particles around player
+                    for (let i = 0; i < 12; i++) {
+                        const angle = (i / 12) * Math.PI * 2;
+                        const dist = Math.random() * player.size * 1.5;
+                        smokeBombClouds.push({
+                            x: player.x + Math.cos(angle) * dist,
+                            y: player.y + Math.sin(angle) * dist,
+                            size: 20 + Math.random() * 20,
+                            alpha: 0.8,
+                            spawnTime: now,
+                            lifetime: 1000 + Math.random() * 500
+                        });
+                    }
+                    
+                    // Floating text
+                    floatingTexts.push({
+                        text: "Smoke Bomb!",
+                        x: player.x,
+                        y: player.y - player.size - 20,
+                        startTime: now,
+                        duration: 1000,
+                        color: '#888888',
+                        fontSize: 14
+                    });
+                }
+                
+                // Check if smoke bomb effect is active (player is invulnerable)
+                if (now < smokeBombEffectEndTime) {
+                    player.isInvincible = true;
+                    player.smokeBombActive = true;
+                } else {
+                    player.isInvincible = false;
+                    player.smokeBombActive = false;
+                }
+            }
+            
+            // Clean up expired smoke bomb clouds
+            smokeBombClouds = smokeBombClouds.filter(cloud => now - cloud.spawnTime < cloud.lifetime);
+
 for (let i = lightningBolts.length - 1; i >= 0; i--) {
                 const bolt = lightningBolts[i];
                 bolt.x += bolt.dx; bolt.y += bolt.dy;
@@ -2599,7 +3387,15 @@ for (let i = lightningBolts.length - 1; i >= 0; i--) {
                 }
             }
             lightningBolts = lightningBolts.filter(bolt => !bolt.isHit);
-            if (player.swordActive && now - player.lastSwordSwingTime > SWORD_SWING_INTERVAL) {
+
+            // Scale sword interval with fire rate (lower interval = faster swinging)
+            let currentSwordInterval = SWORD_SWING_INTERVAL;
+            if (fireRateBoostActive) currentSwordInterval /= 2;
+            if (cheats.fastShooting) currentSwordInterval /= 5;
+            if (cheats.double_game_speed) currentSwordInterval /= 2;
+            currentSwordInterval = Math.max(200, currentSwordInterval); // Minimum 200ms
+
+            if (player.swordActive && now - player.lastSwordSwingTime > currentSwordInterval) {
                 let swordAngle;
                 if (aimDx !== 0 || aimDy !== 0) swordAngle = Math.atan2(aimDy, aimDx);
                 else {
@@ -2645,6 +3441,126 @@ for (let i = lightningBolts.length - 1; i >= 0; i--) {
                 player.lastSwordSwingTime = now;
             }
             if (player.currentSwordSwing && now > player.currentSwordSwing.activeUntil) player.currentSwordSwing = null;
+
+            // Scale spear interval with fire rate (lower interval = faster thrusting)
+            let currentSpearInterval = SPEAR_SWING_INTERVAL;
+            if (fireRateBoostActive) currentSpearInterval /= 2;
+            if (cheats.fastShooting) currentSpearInterval /= 5;
+            if (cheats.double_game_speed) currentSpearInterval /= 2;
+            currentSpearInterval = Math.max(150, currentSpearInterval); // Minimum 150ms
+
+            // Spear - uses movement direction (WASD/left joystick) for aiming
+            if (spearActive && now - lastSpearSwingTime > currentSpearInterval) {
+                // Get movement direction (not aim direction)
+                let moveDirX = 0, moveDirY = 0;
+
+                // Check keyboard movement (WASD)
+                if (keys['w'] || keys['W']) moveDirY -= 1;
+                if (keys['s'] || keys['S']) moveDirY += 1;
+                if (keys['a'] || keys['A']) moveDirX -= 1;
+                if (keys['d'] || keys['D']) moveDirX += 1;
+
+                // Check arrow keys for movement too
+                if (keys['ArrowUp']) moveDirY -= 1;
+                if (keys['ArrowDown']) moveDirY += 1;
+                if (keys['ArrowLeft']) moveDirX -= 1;
+                if (keys['ArrowRight']) moveDirX += 1;
+
+                // If no keyboard input, use joystick (mobile/gamepad left stick)
+                if (moveDirX === 0 && moveDirY === 0) {
+                    moveDirX = joystickDirX;
+                    moveDirY = joystickDirY;
+                }
+
+                // Default to facing direction if not moving
+                let spearAngle;
+                if (moveDirX !== 0 || moveDirY !== 0) {
+                    spearAngle = Math.atan2(moveDirY, moveDirX);
+                } else {
+                    // Use player's current facing/rotation angle when not moving
+                    spearAngle = player.rotationAngle || 0;
+                }
+
+                currentSpearSwing = {
+                    x: player.x, y: player.y, angle: spearAngle,
+                    activeUntil: now + SPEAR_SWING_DURATION, startTime: now
+                };
+                lastSpearSwingTime = now;
+
+                // Calculate spear tip position (scaled with projectile size)
+                const spearSizeMult = player.projectileSizeMultiplier || 1;
+                const scaledSpearLength = SPEAR_LENGTH * spearSizeMult;
+                const scaledSpearTipSize = SPEAR_TIP_SIZE * spearSizeMult;
+                const tipX = player.x + Math.cos(spearAngle) * scaledSpearLength;
+                const tipY = player.y + Math.sin(spearAngle) * scaledSpearLength;
+
+                // Check for enemies hit by spear tip only
+                enemies.forEach(enemy => {
+                    if (enemy.isHit) return;
+
+                    const dx = tipX - enemy.x;
+                    const dy = tipY - enemy.y;
+                    const distSq = dx * dx + dy * dy;
+                    const hitRadius = (scaledSpearTipSize / 2) + (enemy.size / 2);
+
+                    if (distSq < hitRadius * hitRadius) {
+                        // Deal damage
+                        const damage = SPEAR_DAMAGE * player.damageMultiplier;
+                        enemy.health -= damage;
+                        enemy.hitFlashTime = now;
+                        createBloodSplatter(enemy.x, enemy.y);
+
+                        // Major knockback - push enemy in spear direction
+                        if (!enemy.isBoss) {
+                            enemy.x += Math.cos(spearAngle) * SPEAR_KNOCKBACK_STRENGTH;
+                            enemy.y += Math.sin(spearAngle) * SPEAR_KNOCKBACK_STRENGTH;
+                        }
+
+                        // Damage number
+                        if (floatingTexts.length < 30) {
+                            floatingTexts.push({
+                                text: String(Math.round(damage * 10) / 10),
+                                x: enemy.x + (Math.random() - 0.5) * enemy.size * 0.5,
+                                y: enemy.y - enemy.size * 0.5 - Math.random() * 10,
+                                startTime: now, duration: 500, color: '#aaaaaa', fontSize: 11
+                            });
+                        }
+
+                        if (enemy.health <= 0) {
+                            handleEnemyDeath(enemy);
+                        }
+                    }
+                });
+
+                // Damage destructibles (walls, oil cans) at spear tip
+                destructibles.forEach(dest => {
+                    const dx = tipX - dest.x;
+                    const dy = tipY - dest.y;
+                    const distSq = dx * dx + dy * dy;
+                    const hitRadius = (scaledSpearTipSize / 2) + (dest.size / 2);
+
+                    if (distSq < hitRadius * hitRadius) {
+                        dest.health -= SPEAR_DAMAGE;
+                        dest.hitFlashTime = now;
+
+                        // Damage number for destructibles
+                        if (floatingTexts.length < 30) {
+                            floatingTexts.push({
+                                text: String(SPEAR_DAMAGE),
+                                x: dest.x + (Math.random() - 0.5) * dest.size * 0.5,
+                                y: dest.y - dest.size * 0.5 - Math.random() * 10,
+                                startTime: now, duration: 500, color: '#aaaaaa', fontSize: 10
+                            });
+                        }
+
+                        if (dest.health <= 0) {
+                            handleDestructibleDeath(dest);
+                        }
+                    }
+                });
+            }
+            if (currentSpearSwing && now > currentSpearSwing.activeUntil) currentSpearSwing = null;
+
             for (let i = eyeProjectiles.length - 1; i >= 0; i--) {
                 const eyeProj = eyeProjectiles[i];
                 eyeProj.x += eyeProj.dx; eyeProj.y += eyeProj.dy;
@@ -2722,6 +3638,45 @@ for (let i = lightningBolts.length - 1; i >= 0; i--) {
                         }
                     });
                 }
+            }
+
+            // Time Freeze - creates a zone that freezes enemies in place (spawns at closest enemy)
+            if (timeFreezeActive && !isTimeStopped && now - lastTimeFreezeTime > TIME_FREEZE_INTERVAL) {
+                // Find closest enemy to player
+                let closestEnemy = null;
+                let minDistanceSq = Infinity;
+                enemies.forEach(enemy => {
+                    if (enemy.isHit) return;
+                    const distSq = (player.x - enemy.x) ** 2 + (player.y - enemy.y) ** 2;
+                    if (distSq < minDistanceSq) {
+                        minDistanceSq = distSq;
+                        closestEnemy = enemy;
+                    }
+                });
+
+                // Spawn zone at closest enemy position, or at player if no enemies
+                const spawnX = closestEnemy ? closestEnemy.x : player.x;
+                const spawnY = closestEnemy ? closestEnemy.y : player.y;
+
+                timeFreezeZones.push({
+                    x: spawnX, y: spawnY, spawnTime: now, lifetime: TIME_FREEZE_DURATION,
+                    radius: TIME_FREEZE_RADIUS
+                });
+                lastTimeFreezeTime = now;
+            }
+
+            for (let i = timeFreezeZones.length - 1; i >= 0; i--) {
+                const zone = timeFreezeZones[i];
+                if (now - zone.spawnTime > zone.lifetime) { timeFreezeZones.splice(i, 1); continue; }
+
+                // Freeze all enemies within the zone (including bosses)
+                enemies.forEach(enemy => {
+                    const dist = Math.hypot(enemy.x - zone.x, enemy.y - zone.y);
+                    if (dist < zone.radius) {
+                        enemy.isFrozen = true;
+                        enemy.freezeEndTime = now + 100; // Short freeze that keeps getting refreshed while in zone
+                    }
+                });
             }
 
             for (let i = playerPuddles.length - 1; i >= 0; i--) { if (now - playerPuddles[i].spawnTime > playerPuddles[i].lifetime) playerPuddles.splice(i, 1); }

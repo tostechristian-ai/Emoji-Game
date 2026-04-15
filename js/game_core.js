@@ -437,6 +437,19 @@ let doppelganger = null;
         const SWORD_SWING_DURATION = 200;
         const SWORD_THRUST_DISTANCE = player.size * 0.7;
 
+        // Spear powerup constants
+        const SPEAR_SWING_INTERVAL = 1500; // Faster than sword
+        const SPEAR_SWING_DURATION = 250;
+        const SPEAR_LENGTH = player.size * 2.5; // Long reach
+        const SPEAR_TIP_SIZE = player.size * 0.4;
+        const SPEAR_HANDLE_WIDTH = player.size * 0.3;
+        const SPEAR_HANDLE_LENGTH = player.size * 2;
+        const SPEAR_DAMAGE = 0.5;
+        const SPEAR_KNOCKBACK_STRENGTH = 120; // Major knockback
+        let spearActive = false;
+        let lastSpearSwingTime = 0;
+        let currentSpearSwing = null; // { x, y, angle, activeUntil, startTime }
+
         const EYE_EMOJI = '👁️';
         const EYE_SIZE = 25 * 0.6;
         const EYE_HEALTH = 4;
@@ -516,6 +529,19 @@ let doppelganger = null;
         const FLY_DAMAGE = 0.34;
         const FLY_SPEED = 3.5;
         const FLY_SIZE = 8;
+
+        // Pea Shooter powerup - shoots green peas in spinning circle pattern
+        let peaShooterActive = false;
+        let peas = []; // Array of pea projectiles
+        let lastPeaShootTime = 0;
+        let peaShooterSpinAngle = 0; // Current rotation angle for wheel pattern
+        const PEA_SHOOT_INTERVAL = 100; // Shoot every 0.1 seconds
+        const PEA_SPIN_SPEED = 2.0; // How fast the wheel spins (radians per second)
+        const PEA_DAMAGE = 0.1;
+        const PEA_SPEED = 5;
+        const PEA_SIZE = 8;
+        const PEA_LIFETIME = 3000; // 3 seconds before disappearing
+        const PEA_SPIN_SPOKES = 8; // Number of peas per full rotation (wheel spokes)
 
         let nightOwlActive = false;
         let owl = null; 
@@ -651,6 +677,14 @@ let doppelganger = null;
         const BLACK_HOLE_RADIUS = 167;
         const BLACK_HOLE_PULL_STRENGTH = 2.5;
 
+        // Time Freeze powerup - creates a zone that freezes enemies
+        const TIME_FREEZE_INTERVAL = 12000; // Create freeze zone every 12 seconds
+        const TIME_FREEZE_DURATION = 3000; // Zone lasts 3 seconds
+        const TIME_FREEZE_RADIUS = 200;
+        let timeFreezeActive = false;
+        let lastTimeFreezeTime = 0;
+        let timeFreezeZones = []; // Array of active freeze zones
+
         let bombEmitterActive = false; let lastBombEmitMs = 0;
         let orbitingPowerUpActive = false;
         let levitatingBooksActive = false;
@@ -677,6 +711,10 @@ let doppelganger = null;
         let boneShotActive = false;
         let rocketLauncherActive = false;
         let blackHoleActive = false; let lastBlackHoleTime = 0;
+        let smokeBombActive = false; let lastSmokeBombTime = 0; let smokeBombEffectEndTime = 0;
+        const SMOKE_BOMB_BASE_INTERVAL = 8000; // 8 seconds base recharge
+        const SMOKE_BOMB_EFFECT_DURATION = 2000; // 2 seconds invulnerability
+        let smokeBombClouds = []; // For smoke bomb visual effect
         let dualGunActive = false;
         let dualRevolversActive = false;
         let pendingRevolverShot = null; // { angle, fireAt } for delayed second bullet
@@ -693,10 +731,54 @@ let doppelganger = null;
         const LASER_CANNON_DAMAGE = 1.0;
         const LASER_CANNON_RANGE = 800;
         let laserCannonBeams = [];
-        
+
+        // Laser Cross powerup - spinning blue cross that damages enemies
+        let laserCrossActive = false;
+        let laserCrossAngle = 0;
+        let laserCrossLastDamageTime = 0;
+        const LASER_CROSS_DAMAGE = 0.5;
+        const LASER_CROSS_RADIUS_MULTIPLIER = 4; // 4x player size
+        const LASER_CROSS_ROTATION_SPEED = Math.PI; // One full revolution every 2 seconds (π rad/s)
+        const LASER_CROSS_DAMAGE_INTERVAL = 200; // Damage each enemy every 200ms
+        const LASER_CROSS_BEAM_WIDTH = 6;
+
+        // Stone Glare powerup - creates a cone that slows enemies
+        const STONE_GLARE_RANGE = 250; // Range of the cone
+        const STONE_GLARE_ANGLE = Math.PI / 3; // 60 degree cone
+        const STONE_GLARE_SLOW_FACTOR = 0.7; // 30% slow (enemies move at 70% speed)
+        let stoneGlareActive = false;
+
         // Robot Drone powerup
         let robotDroneActive = false;
         let robotDrone = { x: 0, y: 0, size: 28, dx: 1, dy: 1, lastFireTime: 0 };
+
+        // Boomerang powerup
+        let boomerangActive = false;
+        let lastBoomerangTime = 0;
+        const BOOMERANG_BASE_INTERVAL = 3000; // 3 seconds base
+        const BOOMERANG_STOP_DURATION = 500; // 0.5 seconds stop at max range
+        const BOOMERANG_PULSE_INTERVAL = 300; // Damage pulse every 0.3s
+        const BOOMERANG_DAMAGE = 0.3;
+        let boomerangProjectiles = []; // Array of active boomerangs
+
+        // Chain Lightning powerup
+        let chainLightningActive = false;
+        let lastChainLightningTime = 0;
+        const CHAIN_LIGHTNING_INTERVAL = 2500; // 2.5 seconds base
+        const CHAIN_LIGHTNING_MAX_CHAIN = 4; // Max 4 enemies
+        const CHAIN_LIGHTNING_RANGE = 250; // Range to find next enemy in chain
+        const CHAIN_LIGHTNING_DAMAGE = 0.3;
+        let chainLightningChains = []; // Active chain visual effects
+
+        // Flying Turret powerup
+        let flyingTurretActive = false;
+        let flyingTurret = { x: 0, y: 0, size: 35, aimAngle: 0, lastFireTime: 0, dx: 2.5, dy: 2.5 };
+        const FLYING_TURRET_FIRE_INTERVAL = 800; // Fire every 0.8 seconds
+        const FLYING_TURRET_BULLET_SIZE = 16;
+        const FLYING_TURRET_BULLET_SPEED = 6;
+        const FLYING_TURRET_SPEED = 2.5; // Movement speed
+
+        // Robot Drone constants
         const ROBOT_DRONE_SPEED = 1.4; // Same as player base speed
         const ROBOT_DRONE_FIRE_INTERVAL = 1000; // Fire every 1 second
         const ROBOT_DRONE_BULLET_SIZE = 18;
@@ -1485,10 +1567,57 @@ function handleGamepadInput() {
         function playEyeProjectileHitSound() { if (gameActive && !gamePaused) eyeProjectileHitSynth.triggerAttackRelease("G2", "16n", getSafeToneTime()); }
         
         function resizeCanvas() {
-            canvas.width = 1125;
-            canvas.height = 676;
-            player.x = Math.max(player.size / 2, Math.min(WORLD_WIDTH - player.size / 2, player.x));
-            player.y = Math.max(player.size / 2, Math.min(WORLD_HEIGHT - player.size / 2, player.y));
+            const container = canvas?.parentElement;
+            if (!container || container.clientWidth === 0 || container.clientHeight === 0) {
+                // Fallback to original fixed dimensions if container not ready
+                canvas.width = 1125;
+                canvas.height = 676;
+                if (player && player.x !== undefined) {
+                    player.x = Math.max(player.size / 2, Math.min(WORLD_WIDTH - player.size / 2, player.x));
+                    player.y = Math.max(player.size / 2, Math.min(WORLD_HEIGHT - player.size / 2, player.y));
+                }
+                return;
+            }
+
+            // Get container dimensions
+            const displayWidth = container.clientWidth;
+            const displayHeight = container.clientHeight;
+
+            // Calculate render size maintaining world aspect ratio
+            const worldAspect = WORLD_WIDTH / WORLD_HEIGHT;
+            const displayAspect = displayWidth / displayHeight;
+
+            let renderWidth, renderHeight;
+            if (displayAspect > worldAspect) {
+                // Display is wider than world - fit to height
+                renderHeight = displayHeight;
+                renderWidth = renderHeight * worldAspect;
+            } else {
+                // Display is taller than world - fit to width
+                renderWidth = displayWidth;
+                renderHeight = renderWidth / worldAspect;
+            }
+
+            // Apply device pixel ratio (capped at 2x for performance), with minimum size
+            const dpr = Math.min(window.devicePixelRatio || 1, 2);
+            const newWidth = Math.max(676, Math.floor(renderWidth * dpr));
+            const newHeight = Math.max(400, Math.floor(renderHeight * dpr));
+
+            // Only update if dimensions changed significantly
+            if (Math.abs(canvas.width - newWidth) > 10 || Math.abs(canvas.height - newHeight) > 10) {
+                canvas.width = newWidth;
+                canvas.height = newHeight;
+            }
+
+            // Ensure canvas always has valid dimensions
+            if (!canvas.width || canvas.width === 0) canvas.width = 1125;
+            if (!canvas.height || canvas.height === 0) canvas.height = 676;
+
+            // Keep player in bounds after resize
+            if (player && player.x !== undefined) {
+                player.x = Math.max(player.size / 2, Math.min(WORLD_WIDTH - player.size / 2, player.x));
+                player.y = Math.max(player.size / 2, Math.min(WORLD_HEIGHT - player.size / 2, player.y));
+            }
         }
 
         resizeCanvas();
@@ -1688,7 +1817,7 @@ document.body.addEventListener('touchstart', (e) => {
         const ENEMY_CONFIGS = {
             '🧟': { size: 20, baseHealth: 1, speedMultiplier: 1, type: 'pursuer', minLevel: 1 },
             '💀': { size: 20, baseHealth: 2, speedMultiplier: 1.15 * 1.5, type: 'skull', minLevel: 5, initialProps: () => ({ skullState: 'approach', lastSkullStateChange: Date.now() }) },
-            '🐌': { size: 22, baseHealth: 3, speedMultiplier: 0.6, type: 'snail', minLevel: 4, spawnWeight: 0.05, initialProps: () => ({ lastPuddleSpawnTime: Date.now(), directionAngle: Math.random() * 2 * Math.PI, lastDirChange: Date.now() }) },
+            '🐌': { size: 22, baseHealth: 3, speedMultiplier: 0.6, type: 'snail', minLevel: 4, spawnWeight: 0.06, initialProps: () => ({ lastPuddleSpawnTime: Date.now(), directionAngle: Math.random() * 2 * Math.PI, lastDirChange: Date.now() }) },
             '🦟': { size: 15, baseHealth: 2, speedMultiplier: 1.5, type: 'mosquito', minLevel: 7, initialProps: () => ({ lastDirectionUpdateTime: Date.now(), currentMosquitoDirection: null, lastPuddleSpawnTime: Date.now() }) },
             '🕷️': { size: 18, baseHealth: 2.5, speedMultiplier: 1.3, type: 'spider', minLevel: 7, initialProps: () => ({ lastJumpTime: Date.now(), jumpCooldown: 1500, isJumping: false, jumpStartTime: 0, jumpDuration: 300 }) },
             '🦇': { size: 25 * 0.85, baseHealth: 3, speedMultiplier: 2, type: 'bat', minLevel: 10, initialProps: () => ({ isPaused: false, pauseTimer: 0, pauseDuration: 30, moveDuration: 30 }) },
@@ -1698,7 +1827,11 @@ document.body.addEventListener('touchstart', (e) => {
             '👁️': { size: 25 * 0.6, baseHealth: 4, speedMultiplier: 1.1 * 1.1, type: 'eye', minLevel: 20, initialProps: () => ({ lastEyeProjectileTime: Date.now() }) },
             '🧞': { size: 24, baseHealth: 8, speedMultiplier: 0.4, type: 'genie', minLevel: 25, spawnWeight: 0.3, initialProps: () => ({ gravityRadius: 80, gravityStrength: 0.15 }) },
             '🧛‍♀️': { size: 20, baseHealth: 5, speedMultiplier: 1.2, type: 'vampire', minLevel: 30 },
-            '👾': { size: 22, baseHealth: 1.5, speedMultiplier: 0.9, type: 'invader', minLevel: 2, spawnWeight: 0.05, initialProps: () => ({ zigzagPhase: 0 }) }
+            '👾': { size: 22, baseHealth: 1.5, speedMultiplier: 0.9, type: 'invader', minLevel: 2, spawnWeight: 0.05, initialProps: () => ({ zigzagPhase: 0 }) },
+            '🪬': { size: 24, baseHealth: 4, speedMultiplier: 1.1, type: 'charger', minLevel: 17, spawnWeight: 0.4, initialProps: () => ({ chargerState: 'approaching', chargeAngle: 0, stateStartTime: Date.now(), arrowVisible: false }) },
+            '🌀': { size: 22, baseHealth: 2, speedMultiplier: 0.8, type: 'vortex', minLevel: 8, spawnWeight: 0.5, initialProps: () => ({ vortexAngle: Math.random() * Math.PI * 2, lastDirChange: Date.now(), aoeRadius: 66 }) },
+            '🧿': { size: 26, baseHealth: 4, speedMultiplier: 0.7, type: 'pulsing_eye', minLevel: 13, spawnWeight: 0.35, initialProps: () => ({ pulsePhase: 0, lastPulseTime: Date.now(), pulseRadius: 0, hasDamagedThisPulse: false }) },
+            '🦂': { size: 20, baseHealth: 2, speedMultiplier: 1.0, type: 'scorpion', minLevel: 6, spawnWeight: 0.5, initialProps: () => ({ strafePhase: 0, lastStrafeUpdate: Date.now() }) }
         };
 
         const BOSS_HEALTH = 20;
@@ -1768,12 +1901,12 @@ document.body.addEventListener('touchstart', (e) => {
             const boxScaling = 1 + Math.floor(player.boxPickupsCollectedCount / 4) * 0.20;
             let health = Math.floor(config.baseHealth * levelScaling * boxScaling);
 
-            const newEnemy = { 
-                x, y, size: config.size, emoji: enemyEmoji, speed: currentBaseEnemySpeed * config.speedMultiplier, 
+            const newEnemy = {
+                x, y, size: config.size, emoji: enemyEmoji, speed: currentBaseEnemySpeed * config.speedMultiplier,
                 health: health,
-                isHit: false, isHitByOrbiter: false, isHitByCircle: false, 
-                isFrozen: false, freezeEndTime: 0, originalSpeed: currentBaseEnemySpeed * config.speedMultiplier, 
-                isSlowedByPuddle: false, isBoss: false, isHitByAxe: false,
+                isHit: false, isHitByOrbiter: false, isHitByCircle: false,
+                isFrozen: false, freezeEndTime: 0, originalSpeed: currentBaseEnemySpeed * config.speedMultiplier,
+                isSlowedByPuddle: false, isSlowedByStoneGlare: false, isBoss: false, isHitByAxe: false,
                 isIgnited: false, ignitionEndTime: 0, lastIgnitionDamageTime: 0
             };
             
@@ -1930,7 +2063,7 @@ function createBoss() {
                     x, y, size: bossSize, emoji: mimickedEmoji, speed: bossSpeed,
                     health: bossHealth,
                     isBoss: true, mimics: mimickedEmoji, isHit: false, isHitByOrbiter: false, isHitByCircle: false,
-                    isFrozen: false, freezeEndTime: 0, originalSpeed: bossSpeed, isSlowedByPuddle: false,
+                    isFrozen: false, freezeEndTime: 0, originalSpeed: bossSpeed, isSlowedByPuddle: false, isSlowedByStoneGlare: false,
                     isHitByAxe: false, isIgnited: false, ignitionEndTime: 0, lastIgnitionDamageTime: 0
                 };
                 if (config.initialProps) Object.assign(boss, config.initialProps());
@@ -2198,9 +2331,11 @@ function createBoss() {
                 if (!explosiveBulletsActive) powerUpChoices.push({id: 'explosive_bullets', name: 'Explosive Bullets', label: 'EXP'});
                 if (!puddleTrailActive) powerUpChoices.push({id: 'puddle_trail', name: 'Slime Trail', label: 'SLM'});
                 if (!player.swordActive) powerUpChoices.push({id: 'sword', name: 'Auto-Sword', label: 'SWD'});
+                if (!spearActive) powerUpChoices.push({id: 'spear', name: 'Spear', label: 'SPR'});
                 if (!laserPointerActive) powerUpChoices.push({id: 'laser_pointer', name: 'Laser Pointer', label: 'LSR'});
                 if (!flamethrowerActive) powerUpChoices.push({id: 'flamethrower', name: 'Flamethrower', label: 'FLM'});
                 if (!laserCannonActive) powerUpChoices.push({id: 'laser_cannon', name: 'Laser Cannon', label: 'LCN'});
+                if (!laserCrossActive) powerUpChoices.push({id: 'laser_cross', name: 'Laser Cross', label: 'LCR'});
                 if (!autoAimActive) powerUpChoices.push({id: 'auto_aim', name: 'Auto-Aim', label: 'AIM'});
                 if (!dualGunActive) powerUpChoices.push({id: 'dual_gun', name: 'Dual Gun', label: 'DUL'});
                 if (!dualRevolversActive) powerUpChoices.push({id: 'dual_revolvers', name: 'Dual Revolvers', label: 'REV'});
@@ -2209,6 +2344,7 @@ function createBoss() {
                 if (!levitatingBooksActive) powerUpChoices.push({id: 'levitating_books', name: 'Levitating Books', label: 'BKS'});
                 if (!lightningProjectileActive) powerUpChoices.push({id: 'lightning_projectile', name: 'Lightning Projectile', label: 'LTN'});
                 if (!bugSwarmActive) powerUpChoices.push({id: 'bug_swarm', name: 'Bug Swarm', label: 'BUG'});
+                if (!peaShooterActive) powerUpChoices.push({id: 'pea_shooter', name: 'Pea Shooter', label: 'PEA'});
                 if (!lightningStrikeActive) powerUpChoices.push({id: 'lightning_strike', name: 'Lightning Strike', label: 'STK'});
                 if (unlocked.shotgun && !shotgunActive) powerUpChoices.push({id: 'shotgun', name: 'Shotgun', label: 'SGN'});
                 if (unlocked.ice_cannon && !iceCannonActive) powerUpChoices.push({id: 'ice_cannon', name: 'Ice Cannon', label: 'ICE'});
@@ -2228,11 +2364,16 @@ function createBoss() {
                 if (unlocked.anti_gravity && !antiGravityActive) powerUpChoices.push({id: 'anti_gravity', name: 'Anti-Gravity', label: 'AGV'});
                 if (unlocked.rocket_launcher && !rocketLauncherActive && !shotgunBlastActive) powerUpChoices.push({id: 'rocket_launcher', name: 'Heavy Shells', label: 'RKT'});
                 if (unlocked.black_hole && !blackHoleActive) powerUpChoices.push({id: 'black_hole', name: 'Black Hole', label: 'BLK'});
+                if (unlocked.time_freeze && !timeFreezeActive) powerUpChoices.push({id: 'time_freeze', name: 'Time Freeze', label: 'FRZ'});
                 if (unlocked.flaming_bullets && !flamingBulletsActive) powerUpChoices.push({id: 'flaming_bullets', name: 'Flaming Bullets', label: 'FIR'});
                 if (unlocked.night_owl && !nightOwlActive) powerUpChoices.push({id: 'night_owl', name: 'Night Owl', label: 'OWL'});
                 if (unlocked.whirlwind_axe && !whirlwindAxeActive) powerUpChoices.push({id: 'whirlwind_axe', name: 'Whirlwind Axe', label: 'AXE'});
                 if (unlocked.robot_drone && !robotDroneActive) powerUpChoices.push({id: 'robot_drone', name: 'Robot Drone', label: 'RBT'});
-                if (!turretActive) powerUpChoices.push({id: 'turret', name: 'Turret', label: 'TRT'});
+                if (unlocked.boomerang && !boomerangActive) powerUpChoices.push({id: 'boomerang', name: 'Boomerang', label: 'BMG'});
+                if (unlocked.chain_lightning && !chainLightningActive) powerUpChoices.push({id: 'chain_lightning', name: 'Chain Lightning', label: 'CHN'});
+                if (unlocked.flying_turret && !flyingTurretActive && !turretActive) powerUpChoices.push({id: 'flying_turret', name: 'Flying Turret', label: 'FTR'});
+                if (!turretActive && !flyingTurretActive) powerUpChoices.push({id: 'turret', name: 'Turret', label: 'TRT'});
+                if (!stoneGlareActive) powerUpChoices.push({id: 'stone_glare', name: 'Stone Glare', label: 'STN'});
 
                 if (powerUpChoices.length > 0) {
                     const randomChoice = powerUpChoices[Math.floor(Math.random() * powerUpChoices.length)];
@@ -2652,15 +2793,19 @@ if (firstCard) {
             
             // Melee weapons
             if (player.swordActive) icons.push('🗡️');
+            if (spearActive) icons.push('🔘');
             if (whirlwindAxeActive) icons.push('🪓');
             
             // Projectile weapons
             if (dualGunActive) icons.push('🔫');
             if (dualRevolversActive) icons.push('🔫🔫');
             if (bombEmitterActive) icons.push('💣');
+            if (boomerangActive) icons.push('🪃');
+            if (chainLightningActive) icons.push('⛓️');
             if (lightningProjectileActive) icons.push('⚡️');
             if (lightningStrikeActive) icons.push('⚡');
             if (laserCannonActive) icons.push('🟢');
+            if (laserCrossActive) icons.push('🔵');
             if (shotgunActive) icons.push('🔫💥');
             if (iceCannonActive) icons.push('❄️❄️');
             if (dynamiteActive) icons.push('🧨');
@@ -2672,12 +2817,17 @@ if (firstCard) {
             if (damagingCircleActive) icons.push('⭕');
             if (puddleTrailActive) icons.push('💧');
             if (blackHoleActive) icons.push('⚫');
+            if (timeFreezeActive) icons.push('⏳');
             if (antiGravityActive) icons.push('💨');
+            if (turretActive) icons.push('🏛️');
+            if (flyingTurretActive) icons.push('🏛️🪽');
             
             // Companions
             if (nightOwlActive) icons.push('🦉');
             if (bugSwarmActive) icons.push('🪰');
-            
+            if (peaShooterActive) icons.push('🟢');
+            if (robotDroneActive) icons.push('🤖');
+
             // Defensive/Utility
             if (doppelgangerActive) icons.push('👯');
             if (temporalWardActive) icons.push('⏱️');
@@ -2685,6 +2835,7 @@ if (firstCard) {
             if (dodgeNovaActive) icons.push('💨');
             if (hasDashInvincibility) icons.push('🛡️💨');
             if (laserPointerActive) icons.push('🔴');
+            if (stoneGlareActive) icons.push('👁️');
             
             // Render all icons
             icons.forEach(icon => {
@@ -2929,7 +3080,7 @@ async function tryLoadMusic(retries = 3) {
                 // Activate all weapon powerups
                 const weaponPowerups = ['dynamite', 'pistol', 'doppelganger', 'temporal_ward', 'ice_cannon', 
                                        'shotgun', 'rocket_launcher', 'dual_gun', 'dual_revolvers', 'flamethrower', 
-                                       'laser_cannon', 'bug_swarm', 'night_owl', 'whirlwind_axe'];
+                                       'laser_cannon', 'bug_swarm', 'night_owl', 'whirlwind_axe', 'boomerang', 'chain_lightning', 'flying_turret'];
                 weaponPowerups.forEach(id => {
                     if (playerData.unlockedPickups[id] || UNLOCKABLE_PICKUPS[id]?.requires === 'level_5') {
                         activatePowerup(id);
@@ -3106,7 +3257,7 @@ async function startGame() {
                 runStats.recoveredToFullAfterOneHeart = false;
             }
 
-            [enemies, pickupItems, appleItems, eyeProjectiles, playerPuddles, snailPuddles, mosquitoPuddles, spiderWebs, bombs, floatingTexts, visualWarnings, explosions, blackHoles, bloodSplatters, bloodPuddles, antiGravityPulses, vengeanceNovas, dogHomingShots, destructibles, flameAreas, flies, owlProjectiles, lightningStrikes, smokeParticles, flameProjectiles, laserCannonBeams].forEach(arr => arr.length = 0);
+            [enemies, pickupItems, appleItems, eyeProjectiles, playerPuddles, snailPuddles, mosquitoPuddles, spiderWebs, bombs, floatingTexts, visualWarnings, explosions, blackHoles, timeFreezeZones, bloodSplatters, bloodPuddles, antiGravityPulses, vengeanceNovas, dogHomingShots, destructibles, flameAreas, flies, peas, owlProjectiles, lightningStrikes, smokeParticles, flameProjectiles, laserCannonBeams, boomerangProjectiles, chainLightningChains].forEach(arr => arr.length = 0);
             
             // Reset apple pause duration tracking for new game
             appleTotalPausedDuration = 0;
@@ -3131,13 +3282,14 @@ async function startGame() {
             magneticProjectileActive = false; vShapeProjectileLevel = 0; iceProjectileActive = false; puddleTrailActive = false;
             laserPointerActive = false; autoAimActive = false; explosiveBulletsActive = false; vengeanceNovaActive = false;
             dogCompanionActive = false; catAllyActive = false; dodgeNovaActive = false; antiGravityActive = false; ricochetActive = false; boneShotActive = false; rocketLauncherActive = false;
-            blackHoleActive = false; dualGunActive = false; dualRevolversActive = false; pendingRevolverShot = null; flamingBulletsActive = false; flamethrowerActive = false; laserCannonActive = false; hasDashInvincibility = false;
+            blackHoleActive = false; timeFreezeActive = false; lastTimeFreezeTime = 0; spearActive = false; lastSpearSwingTime = 0; currentSpearSwing = null; dualGunActive = false; dualRevolversActive = false; pendingRevolverShot = null; flamingBulletsActive = false; flamethrowerActive = false; laserCannonActive = false; laserCrossActive = false; laserCrossAngle = 0; laserCrossLastDamageTime = 0; hasDashInvincibility = false;
             lastAntiGravityPushTime = 0; lastBlackHoleTime = 0; shotgunBlastActive = false; doppelgangerActive = false;
+            smokeBombActive = false; lastSmokeBombTime = 0; smokeBombEffectEndTime = 0; smokeBombClouds = [];
             shotgunActive = false; lastShotgunTime = 0; iceCannonActive = false; lastIceCannonTime = 0;
             dynamiteActive = false; lastDynamiteTime = 0; dynamiteProjectiles = [];
             player._hasPistol = false;
             doppelganger = null;
-            bugSwarmActive = false; nightOwlActive = false; whirlwindAxeActive = false; lightningStrikeActive = false; owl = null;
+            bugSwarmActive = false; peaShooterActive = false; lastPeaShootTime = 0; peaShooterSpinAngle = 0; nightOwlActive = false; whirlwindAxeActive = false; lightningStrikeActive = false; owl = null; boomerangActive = false; lastBoomerangTime = 0; chainLightningActive = false; lastChainLightningTime = 0; flyingTurretActive = false; flyingTurret = { x: 0, y: 0, size: 35, aimAngle: 0, lastFireTime: 0, dx: 2.5, dy: 2.5 };
             
             dog = { x: player.x, y: player.y, size: 25, state: 'returning', target: null, lastHomingShotTime: 0 };
             catAlly = { x: player.x, y: player.y, size: 23, state: 'returning', target: null, carriedItem: null };
