@@ -546,6 +546,7 @@ let doppelganger = null;
         let lastIceCannonTime = 0;
         const ICE_CANNON_INTERVAL = 1500; // ms between ice cannon shots
         const ICE_CANNON_FREEZE_DURATION = 2000; // ms enemies stay frozen
+        const ICE_CANNON_DAMAGE = 2.0; // Base damage for ice cannon projectiles
 
         let dynamiteActive = false;
         let lastDynamiteTime = 0;
@@ -2881,7 +2882,6 @@ async function startGame() {
             gameActive = true; gameOver = false; gamePaused = false;
             
             let basePlayerSpeed = 1.4;
-            applyPermanentUpgrades();
             
             let difficultyMultiplier = 1.0;
             if (currentDifficulty === 'medium') difficultyMultiplier = 1.1;
@@ -2902,6 +2902,10 @@ async function startGame() {
                 spinStartTime: null, spinDirection: 0,
                 upgradeLevels: { speed: 0, fireRate: 0, magnetRadius: 0, damage: 0, projectileSpeed: 0, knockback: 0, luck: 0, bulletSize: 0, dashCooldown: 0 }
             });
+            
+            // Apply permanent upgrades AFTER resetting base stats, so shop upgrades are properly applied
+            applyPermanentUpgrades();
+            
             player.originalPlayerSpeed = player.speed;
             boxDropChance = BASE_BOX_DROP_CHANCE; appleDropChance = 0.05;
             if (typeof runStats !== 'undefined') {
