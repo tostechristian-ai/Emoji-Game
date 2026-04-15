@@ -588,7 +588,18 @@ for (let i = merchants.length - 1; i >= 0; i--) {
                                 enemy.isIgnited = true; // Set on fire like oil barrel
                                 enemy.ignitionEndTime = now + 3000;
                                 createBloodSplatter(enemy.x, enemy.y);
-                                
+
+                                // Damage number for dynamite explosion
+                                if (floatingTexts.length < 30) {
+                                    floatingTexts.push({
+                                        text: '2',
+                                        x: enemy.x + (Math.random() - 0.5) * enemy.size,
+                                        y: enemy.y - enemy.size * 0.5,
+                                        startTime: now, duration: 600,
+                                        color: '#ff6600', fontSize: 14
+                                    });
+                                }
+
                                 if (enemy.health <= 0) {
                                     killedEnemies.push({x: enemy.x, y: enemy.y});
                                     handleEnemyDeath(enemy);
@@ -622,6 +633,18 @@ for (let i = merchants.length - 1; i >= 0; i--) {
                                             enemy.health -= 1; // Chain damage is weaker
                                             enemy.isIgnited = true;
                                             enemy.ignitionEndTime = Date.now() + 2000;
+
+                                            // Damage number for chain explosion
+                                            if (floatingTexts.length < 30) {
+                                                floatingTexts.push({
+                                                    text: '1',
+                                                    x: enemy.x + (Math.random() - 0.5) * enemy.size,
+                                                    y: enemy.y - enemy.size * 0.5,
+                                                    startTime: Date.now(), duration: 600,
+                                                    color: '#ff8800', fontSize: 12
+                                                });
+                                            }
+
                                             if (enemy.health <= 0) handleEnemyDeath(enemy);
                                         }
                                     }
@@ -1919,6 +1942,20 @@ if (pendingRevolverShot && now >= pendingRevolverShot.fireAt) {
                     if (dx*dx + dy*dy < ((weapon.size / 2) + (obs.size / 2))**2) {
                         weapon.active = false;
                         obs.health--;
+
+                        // Damage number for destructibles - red for oil cans, grey for walls
+                        if (floatingTexts.length < 30) {
+                            const isBarrel = obs.emoji === '🛢️';
+                            floatingTexts.push({
+                                text: '1',
+                                x: obs.x + (Math.random() - 0.5) * obs.size,
+                                y: obs.y - obs.size * 0.5,
+                                startTime: now, duration: 600,
+                                color: isBarrel ? '#ff0000' : '#888888', // Red for oil cans, grey for walls
+                                fontSize: 12
+                            });
+                        }
+
                         if (obs.health <= 0) {
                             if (obs.emoji === '🛢️') {
                                 handleBarrelDestruction(obs);
@@ -1927,7 +1964,7 @@ if (pendingRevolverShot && now >= pendingRevolverShot.fireAt) {
                             }
                             destructibles.splice(j, 1);
                         }
-                        break; 
+                        break;
                     }
                 }
             }
@@ -2021,13 +2058,26 @@ if (pendingRevolverShot && now >= pendingRevolverShot.fireAt) {
                     });
                     vibrateExplosion();
                     // This part can also be optimized later, but let's leave it for now
-                    enemies.forEach(otherEnemy => { 
+                    enemies.forEach(otherEnemy => {
                         if (otherEnemy !== enemy && !otherEnemy.isHit) {
                             const distSq = (otherEnemy.x - weapon.x)**2 + (otherEnemy.y - weapon.y)**2;
-                            if (distSq < (enemy.size * 2)**2 + (otherEnemy.size / 2)**2) {
+                            if (distSq < (enemy.size * 2)**2) {
                                 otherEnemy.health -= player.damageMultiplier;
                                 if(cheats.instaKill) otherEnemy.health = 0;
                                 createBloodSplatter(otherEnemy.x, otherEnemy.y);
+
+                                // Damage number for explosive AOE
+                                if (floatingTexts.length < 30) {
+                                    const dmg = cheats.instaKill ? '💥' : String(Math.round(player.damageMultiplier * 10) / 10);
+                                    floatingTexts.push({
+                                        text: dmg,
+                                        x: otherEnemy.x + (Math.random() - 0.5) * otherEnemy.size,
+                                        y: otherEnemy.y - otherEnemy.size * 0.5,
+                                        startTime: now, duration: 600,
+                                        color: '#ff5500', fontSize: 12
+                                    });
+                                }
+
                                 if (otherEnemy.health <= 0) { handleEnemyDeath(otherEnemy, explosionId); }
                             }
                         }
@@ -2779,6 +2829,19 @@ for (let i = lightningBolts.length - 1; i >= 0; i--) {
                     if ((dx*dx + dy*dy) < ((FLY_SIZE / 2) + (fly.target.size / 2))**2) {
                         fly.target.health -= FLY_DAMAGE;
                         createBloodSplatter(fly.target.x, fly.target.y);
+
+                        // Damage number
+                        if (floatingTexts.length < 30) {
+                            const dmg = Math.round(FLY_DAMAGE * 10) / 10;
+                            floatingTexts.push({
+                                text: String(dmg),
+                                x: fly.target.x + (Math.random() - 0.5) * fly.target.size,
+                                y: fly.target.y - fly.target.size * 0.5,
+                                startTime: now, duration: 600,
+                                color: '#88ff00', fontSize: 10
+                            });
+                        }
+
                         if (fly.target.health <= 0) { handleEnemyDeath(fly.target); }
                         fly.isHit = true;
                     }

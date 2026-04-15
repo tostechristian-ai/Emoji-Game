@@ -177,6 +177,9 @@
             'audio/background_music24.mp3', 'audio/background_music25.mp3'
         ];
 
+        // Make paths accessible globally for fresh player creation
+        window.backgroundMusicPaths = backgroundMusicPaths;
+
         // Storage for preloaded background music players
         const backgroundMusicPlayers = [];
         const totalMusic = backgroundMusicPaths.length;

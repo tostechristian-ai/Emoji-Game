@@ -185,16 +185,24 @@ function buyUpgrade(key) {
 function buyUnlockable(key) {
     const config = UNLOCKABLE_PICKUPS[key];
     const isUnlocked = playerData.unlockedPickups[key];
-    
+
     // Check if player can afford it and hasn't unlocked it yet
     if (playerData.currency >= config.cost && !isUnlocked) {
         playerData.currency -= config.cost;
         playerData.unlockedPickups[key] = true;
-        
+
         savePlayerData();
         displayUpgrades();
         playUISound('levelUpSelect');
         checkAchievements(); // May unlock achievement for purchasing
+
+        // Show music player button if music_player was just unlocked
+        if (key === 'music_player') {
+            const musicPlayerButton = document.getElementById('musicPlayerButton');
+            if (musicPlayerButton) {
+                musicPlayerButton.classList.add('unlocked');
+            }
+        }
     }
 }
 
@@ -241,13 +249,31 @@ function resetAllData() {
         localStorage.removeItem('highScores');
         localStorage.removeItem('emojiSurvivorStats');
         localStorage.removeItem('emojiSurvivorCheats');
-        
+        localStorage.removeItem('emojiSurvivorMusicTrack');
+
         // Reinitialize everything
         initializePlayerData();
         initializePlayerStats();
         loadCheats();
         displayHighScores();
-        
+
+        // Hide music player button
+        const musicPlayerButton = document.getElementById('musicPlayerButton');
+        if (musicPlayerButton) {
+            musicPlayerButton.classList.remove('unlocked');
+        }
+
+        // Reset the selected music track variable in memory (game_bootstrap_ui.js)
+        // This ensures the UI stays in sync with the cleared localStorage
+        if (typeof selectedMusicTrack !== 'undefined') {
+            selectedMusicTrack = 'random';
+        }
+
+        // Rebuild music player menu if function exists
+        if (typeof buildMusicPlayerMenu === 'function') {
+            buildMusicPlayerMenu();
+        }
+
         console.log("All player data has been reset.");
     }
 }
@@ -388,7 +414,18 @@ function handleBarrelDestruction(barrel) {
             if (dx*dx + dy*dy < explosionRadius*explosionRadius) {
                 enemy.health -= 2; // Explosion damage
                 createBloodSplatter(enemy.x, enemy.y);
-                
+
+                // Damage number for barrel explosion
+                if (typeof floatingTexts !== 'undefined' && floatingTexts.length < 30) {
+                    floatingTexts.push({
+                        text: '2',
+                        x: enemy.x + (Math.random() - 0.5) * enemy.size,
+                        y: enemy.y - enemy.size * 0.5,
+                        startTime: Date.now(), duration: 600,
+                        color: '#ff4400', fontSize: 14
+                    });
+                }
+
                 if (enemy.health <= 0) {
                     handleEnemyDeath(enemy);
                 }

@@ -136,7 +136,8 @@ const UNLOCKABLE_PICKUPS = {
   bone_shot:    { name: "Bone Shot",       desc: "Unlocks piercing spinning bone projectiles.", cost: 850,  icon: '🦴' },
   // ─── QUALITY OF LIFE ──────────────────────────────────────────────────────
   fourth_heart: { name: "4th Heart",       desc: "Start each run with 4 hearts instead of 3.", cost: 3000, icon: '❤️' },
-  four_choices: { name: "4 Level Choices", desc: "Get 4 choices on level up instead of 3.",  cost: 3500, icon: '📋' }
+  four_choices: { name: "4 Level Choices", desc: "Get 4 choices on level up instead of 3.",  cost: 3500, icon: '📋' },
+  music_player: { name: "Music Player",  desc: "Unlock a music player to select your own tracks!", cost: 1500, icon: '🎵' }
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -480,4 +481,117 @@ window.onload = function() {
     document.addEventListener('MSFullscreenChange', updateFsIcon);
     updateFsIcon();
   }
+
+  // ─── MUSIC PLAYER SYSTEM ─────────────────────────────────────────────────
+  const musicPlayerButton = document.getElementById('musicPlayerButton');
+  const musicPlayerContainer = document.getElementById('musicPlayerContainer');
+  const musicPlayerScreen = document.getElementById('musicPlayerScreen');
+  const musicTracksContainer = document.getElementById('musicTracksContainer');
+  const backFromMusicPlayerButton = document.getElementById('backFromMusicPlayerButton');
+
+  // Music track names (25 tracks total, Track 1 removed since Random uses it)
+  const MUSIC_TRACKS = [
+    'Track 2', 'Track 3', 'Track 4', 'Track 5',
+    'Track 6', 'Track 7', 'Track 8', 'Track 9', 'Track 10',
+    'Track 11', 'Track 12', 'Track 13', 'Track 14', 'Track 15',
+    'Track 16', 'Track 17', 'Track 18', 'Track 19', 'Track 20',
+    'Track 21', 'Track 22', 'Track 23', 'Track 24', 'Track 25', 'Track 26'
+  ];
+
+  // Load selected track from localStorage
+  let selectedMusicTrack = localStorage.getItem('emojiSurvivorMusicTrack');
+  if (selectedMusicTrack === null) {
+    selectedMusicTrack = 'random'; // Default to random
+  }
+
+  // Check if music player is unlocked and show button
+  function updateMusicPlayerButton() {
+    if (musicPlayerButton && playerData.unlockedPickups && playerData.unlockedPickups.music_player) {
+      musicPlayerButton.classList.add('unlocked');
+    }
+  }
+
+  // Build music player menu
+  function buildMusicPlayerMenu() {
+    if (!musicTracksContainer) return;
+    musicTracksContainer.innerHTML = '';
+
+    // Add Random option first
+    const randomTile = document.createElement('div');
+    randomTile.className = 'music-track-tile random-tile' + (selectedMusicTrack === 'random' ? ' selected' : '');
+    randomTile.innerHTML = `
+      <span class="track-icon">🎲</span>
+      <span class="track-name">Random</span>
+    `;
+    randomTile.addEventListener('click', () => selectMusicTrack('random'));
+    musicTracksContainer.appendChild(randomTile);
+
+    // Add track tiles
+    MUSIC_TRACKS.forEach((trackName, index) => {
+      const tile = document.createElement('div');
+      const isSelected = selectedMusicTrack === String(index);
+      tile.className = 'music-track-tile' + (isSelected ? ' selected' : '');
+      tile.innerHTML = `
+        <span class="track-icon">🎵</span>
+        <span class="track-name">${trackName}</span>
+      `;
+      tile.addEventListener('click', () => selectMusicTrack(index));
+      musicTracksContainer.appendChild(tile);
+    });
+  }
+
+  // Select a music track
+  // Note: Track indices are 0-based in UI (Track 2 = index 0), but we add 1 for actual file lookup
+  function selectMusicTrack(track) {
+    selectedMusicTrack = String(track);
+    localStorage.setItem('emojiSurvivorMusicTrack', selectedMusicTrack);
+    console.log('[Music Player] Track selected:', selectedMusicTrack);
+    playUISound('uiClick');
+    vibrateUI();
+    buildMusicPlayerMenu(); // Rebuild to update selection visual
+
+    // Restart music with new selection if on menu
+    if (!gameActive && typeof playRandomMainMenuMusic === 'function') {
+      playRandomMainMenuMusic();
+    }
+  }
+
+  // Open music player menu
+  function openMusicPlayer() {
+    if (!musicPlayerContainer) return;
+    // Re-read from localStorage to ensure we're in sync
+    const savedTrack = localStorage.getItem('emojiSurvivorMusicTrack');
+    if (savedTrack !== null) {
+      selectedMusicTrack = savedTrack;
+    }
+    difficultyContainer.style.display = 'none';
+    musicPlayerContainer.style.display = 'flex';
+    buildMusicPlayerMenu();
+    playUISound('uiClick');
+    vibrateUI();
+  }
+
+  // Close music player menu
+  function closeMusicPlayer() {
+    if (!musicPlayerContainer) return;
+    musicPlayerContainer.style.display = 'none';
+    difficultyContainer.style.display = 'block';
+    playUISound('uiClick');
+    vibrateUI();
+  }
+
+  // Event listeners
+  if (musicPlayerButton) {
+    musicPlayerButton.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openMusicPlayer();
+    });
+  }
+
+  if (backFromMusicPlayerButton) {
+    backFromMusicPlayerButton.addEventListener('click', closeMusicPlayer);
+  }
+
+  // Initialize music player button state
+  updateMusicPlayerButton();
 };

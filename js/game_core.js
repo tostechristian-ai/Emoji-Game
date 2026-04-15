@@ -553,7 +553,7 @@ let doppelganger = null;
         const DYNAMITE_INTERVAL = 2000; // ms between dynamite throws
         const DYNAMITE_STOP_TIME = 1000; // ms before dynamite stops moving
         const DYNAMITE_EXPLODE_TIME = 3000; // ms before dynamite explodes
-        const DYNAMITE_BASE_SPEED = 2.5; // half of starting bullet speed (5)
+        const DYNAMITE_BASE_SPEED = 1.25; // quarter of starting bullet speed (5) - throws half as far
         let dynamiteProjectiles = []; // Array to track thrown dynamite
 
         const APPLE_ITEM_EMOJI = '🍎';
@@ -1342,9 +1342,37 @@ function handleGamepadInput() {
 
         // Background music players are preloaded in asset_loader.js
         let currentBGMPlayer = null;
+        let currentBGMPlayerIsShared = false; // Track if player is from shared array (menu) or fresh (game)
 
-        function startBGM() { if (currentBGMPlayer && currentBGMPlayer.state !== 'started') { currentBGMPlayer.start(); } Tone.Transport.start(); }
-        function stopBGM() { if (currentBGMPlayer) { currentBGMPlayer.stop(); } Tone.Transport.stop(); }
+        function startBGM() {
+            if (currentBGMPlayer && currentBGMPlayer.state !== 'started') {
+                // Check if player has a valid buffer before starting
+                if (currentBGMPlayer.buffer && currentBGMPlayer.buffer.loaded) {
+                    try {
+                        currentBGMPlayer.start();
+                    } catch (e) {
+                        console.warn('[Music] Could not start BGM:', e.message);
+                    }
+                } else {
+                    console.warn('[Music] Player buffer not ready');
+                }
+            }
+            Tone.Transport.start();
+        }
+        function stopBGM() {
+            if (currentBGMPlayer) {
+                currentBGMPlayer.onstop = () => {}; // Clear callback before stopping
+                // Only stop if the player was started
+                if (currentBGMPlayer.state === 'started') {
+                    try {
+                        currentBGMPlayer.stop();
+                    } catch (e) {
+                        // Ignore stop errors
+                    }
+                }
+            }
+            Tone.Transport.stop();
+        }
         
         function startMainMenuBGM() {
             if (Tone.context.state !== 'running') {
@@ -1356,40 +1384,98 @@ function handleGamepadInput() {
             }
         }
 
-        function playRandomMainMenuMusic() {
+        async function playRandomMainMenuMusic() {
             // Use preloaded music players from asset_loader.js
             if (typeof backgroundMusicPlayers === 'undefined' || backgroundMusicPlayers.length === 0) {
                 console.error("No preloaded background music available for main menu.");
                 return;
             }
 
-            // Filter out valid preloaded players
-            const availablePlayers = backgroundMusicPlayers.filter(p => p && p.loaded);
+            // Wait for all Tone.js buffers to be loaded
+            await Tone.loaded();
+            console.log('[Music Menu] Tone.js buffers ready');
+
+            // Filter out valid preloaded players (player exists in array means it's loaded)
+            const availablePlayers = backgroundMusicPlayers.filter(p => p);
             if (availablePlayers.length === 0) {
                 console.error("No loaded background music players available.");
                 return;
             }
 
-            // Stop current player if exists
+            // Stop current player if exists (clear onstop first to prevent callback loop)
             if (currentBGMPlayer) {
-                currentBGMPlayer.stop();
+                currentBGMPlayer.onstop = () => {}; // Clear callback instead of null
+                // Only stop if the player was started
+                if (currentBGMPlayer.state === 'started') {
+                    try {
+                        currentBGMPlayer.stop();
+                    } catch (e) {
+                        // Ignore stop errors
+                    }
+                }
             }
 
-            // Pick a random preloaded player
-            const randomIndex = Math.floor(Math.random() * availablePlayers.length);
-            currentBGMPlayer = availablePlayers[randomIndex];
+            // Check for selected track preference
+            const selectedTrack = localStorage.getItem('emojiSurvivorMusicTrack');
+            console.log('[Music Menu] selectedTrack from localStorage:', selectedTrack);
+            let targetPlayer = null;
 
-            // Set up onstop callback to play another random track when this one ends
-            currentBGMPlayer.onstop = () => {
-                if (!gameActive) {
-                    setTimeout(() => playRandomMainMenuMusic(), 100);
+            if (selectedTrack && selectedTrack !== 'random') {
+                const uiIndex = parseInt(selectedTrack, 10);
+                // Add 1 because UI Track 2 = file index 1 (Track 1 was removed from UI)
+                const trackIndex = uiIndex + 1;
+                console.log('[Music Menu] UI index:', uiIndex, '-> file index:', trackIndex);
+                if (!isNaN(trackIndex) && trackIndex >= 0 && trackIndex < backgroundMusicPlayers.length) {
+                    const candidate = backgroundMusicPlayers[trackIndex];
+                    // Check if player exists (it's only added to array after loading)
+                    if (candidate) {
+                        targetPlayer = candidate;
+                        console.log('[Music Menu] Using track', trackIndex, 'from backgroundMusicPlayers');
+                    } else {
+                        console.log('[Music Menu] Track', trackIndex, 'not loaded yet, falling back to random');
+                    }
+                } else {
+                    console.log('[Music Menu] Invalid track index, falling back to random');
                 }
-            };
+            } else {
+                console.log('[Music Menu] Random mode selected');
+            }
 
-            // Apply volume and start playing
+            // If no specific track selected or not available, pick random from available
+            if (!targetPlayer) {
+                const randomIndex = Math.floor(Math.random() * availablePlayers.length);
+                targetPlayer = availablePlayers[randomIndex];
+                console.log('[Music Menu] Random pick - availablePlayers index:', randomIndex);
+            }
+
+            currentBGMPlayer = targetPlayer;
+            currentBGMPlayerIsShared = true; // Menu players are shared from the array
+            console.log('[Music Menu] Playing track:', currentBGMPlayer ? 'loaded' : 'null');
+
+            // Get selected track to determine if we should auto-advance
+            const selectedTrackForLoop = localStorage.getItem('emojiSurvivorMusicTrack');
+
+            // Set up onstop callback to play another track when this one ends (only for random mode)
+            if (currentBGMPlayer) {
+                currentBGMPlayer.onstop = () => {
+                    if (!gameActive && (!selectedTrackForLoop || selectedTrackForLoop === 'random')) {
+                        setTimeout(() => playRandomMainMenuMusic(), 100);
+                    }
+                };
+            }
+
+            // Apply volume and start playing - check buffer is ready
             musicVolumeSlider.dispatchEvent(new Event('input'));
-            if (currentBGMPlayer.state !== 'started') {
-                currentBGMPlayer.start();
+            if (currentBGMPlayer && currentBGMPlayer.state !== 'started') {
+                if (currentBGMPlayer.buffer && currentBGMPlayer.buffer.loaded) {
+                    try {
+                        currentBGMPlayer.start();
+                    } catch (e) {
+                        console.warn('[Music Menu] Could not start BGM:', e.message);
+                    }
+                } else {
+                    console.warn('[Music Menu] Player buffer not ready');
+                }
             }
         }
 
@@ -1885,15 +1971,25 @@ function createBoss() {
             stopBGM();
             megaBossMusicPlaying = true;
             if (currentBGMPlayer) {
-                currentBGMPlayer.stop();
-                currentBGMPlayer.dispose();
+                if (currentBGMPlayer.state === 'started') {
+                    try {
+                        currentBGMPlayer.stop();
+                    } catch (e) {
+                        // Ignore stop errors
+                    }
+                }
+                // Only dispose if it's not a shared menu player
+                if (!currentBGMPlayerIsShared) {
+                    currentBGMPlayer.dispose();
+                }
             }
-            currentBGMPlayer = new Tone.Player({ 
-                url: 'audio/mega_boss_music.mp3', 
-                loop: true, 
-                autostart: false, 
-                volume: -10 
+            currentBGMPlayer = new Tone.Player({
+                url: 'audio/mega_boss_music.mp3',
+                loop: true,
+                autostart: false,
+                volume: -10
             }).toDestination();
+            currentBGMPlayerIsShared = false; // Fresh player
             Tone.loaded().then(() => {
                 if (megaBossMusicPlaying) startBGM();
             });
@@ -2010,15 +2106,25 @@ function createBoss() {
             
             // Play win music
             if (currentBGMPlayer) {
-                currentBGMPlayer.stop();
-                currentBGMPlayer.dispose();
+                if (currentBGMPlayer.state === 'started') {
+                    try {
+                        currentBGMPlayer.stop();
+                    } catch (e) {
+                        // Ignore stop errors
+                    }
+                }
+                // Only dispose if it's not a shared menu player
+                if (!currentBGMPlayerIsShared) {
+                    currentBGMPlayer.dispose();
+                }
             }
-            currentBGMPlayer = new Tone.Player({ 
-                url: 'audio/gamewin.mp3', 
-                loop: false, 
-                autostart: false, 
-                volume: -5 
+            currentBGMPlayer = new Tone.Player({
+                url: 'audio/gamewin.mp3',
+                loop: false,
+                autostart: false,
+                volume: -5
             }).toDestination();
+            currentBGMPlayerIsShared = false; // Fresh player
             Tone.loaded().then(() => {
                 currentBGMPlayer.start();
             });
@@ -2261,7 +2367,7 @@ function createBoss() {
             }
 
             if (shooter === player) {
-                const elementsToShake = [gameContainer, pauseButton];
+                const elementsToShake = [gameContainer, pauseButton, gameStats];
                 elementsToShake.forEach(el => {
                     if (el) {
                         el.classList.remove('ui-shake-active');
@@ -2657,32 +2763,101 @@ if (firstCard) {
         }
 
 async function tryLoadMusic(retries = 3) {
+            console.log('[Music Game] tryLoadMusic called, gameActive:', gameActive);
             // Use preloaded music players from asset_loader.js
             if (typeof backgroundMusicPlayers === 'undefined' || backgroundMusicPlayers.length === 0) {
                 console.error("No preloaded background music available.");
                 return;
             }
 
-            // Filter out valid preloaded players
-            const availablePlayers = backgroundMusicPlayers.filter(p => p && p.loaded);
+            // Filter out valid preloaded players (player exists in array means it's loaded)
+            const availablePlayers = backgroundMusicPlayers.filter(p => p);
             if (availablePlayers.length === 0) {
                 console.error("No loaded background music players available.");
                 return;
             }
 
-            // Stop current player if exists
+            // Stop current player if exists (clear onstop first to prevent callback issues)
             if (currentBGMPlayer) {
-                currentBGMPlayer.stop();
+                currentBGMPlayer.onstop = () => {}; // Clear callback instead of null
+                // Only stop if the player was started
+                if (currentBGMPlayer.state === 'started') {
+                    try {
+                        currentBGMPlayer.stop();
+                    } catch (e) {
+                        // Ignore stop errors
+                    }
+                }
             }
 
-            // Pick a random preloaded player
-            const randomIndex = Math.floor(Math.random() * availablePlayers.length);
-            currentBGMPlayer = availablePlayers[randomIndex];
+            // Check for selected track preference
+            const selectedTrack = localStorage.getItem('emojiSurvivorMusicTrack');
+            console.log('[Music Game] selectedTrack from localStorage:', selectedTrack);
+            let targetPath = null;
+            let trackIndex = -1;
+
+            if (selectedTrack && selectedTrack !== 'random') {
+                const uiIndex = parseInt(selectedTrack, 10);
+                // Add 1 because UI Track 2 = file index 1 (Track 1 was removed from UI)
+                trackIndex = uiIndex + 1;
+                console.log('[Music Game] UI index:', uiIndex, '-> file index:', trackIndex);
+                if (!isNaN(trackIndex) && trackIndex >= 0 && trackIndex < backgroundMusicPlayers.length) {
+                    // Check if original player exists (means file is available)
+                    if (backgroundMusicPlayers[trackIndex]) {
+                        targetPath = window.backgroundMusicPaths[trackIndex];
+                        console.log('[Music Game] Using track', trackIndex, 'path:', targetPath);
+                    } else {
+                        console.log('[Music Game] Track', trackIndex, 'not loaded yet, falling back to random');
+                    }
+                } else {
+                    console.log('[Music Game] Invalid track index, falling back to random');
+                }
+            } else {
+                console.log('[Music Game] Random mode or no selection');
+            }
+
+            // If no specific track selected or not available, pick random
+            if (!targetPath) {
+                const randomIndex = Math.floor(Math.random() * availablePlayers.length);
+                // Find the index in the original array
+                for (let i = 0; i < backgroundMusicPlayers.length; i++) {
+                    if (backgroundMusicPlayers[i] === availablePlayers[randomIndex]) {
+                        trackIndex = i;
+                        break;
+                    }
+                }
+                targetPath = window.backgroundMusicPaths[trackIndex];
+                console.log('[Music Game] Random pick - track index:', trackIndex);
+            }
+
+            // Create a fresh player for game music (don't reuse shared menu players)
+            if (currentBGMPlayer) {
+                // Clean up old game player if exists
+                try {
+                    if (currentBGMPlayer.state === 'started') {
+                        currentBGMPlayer.stop();
+                    }
+                } catch (e) {
+                    // Ignore
+                }
+            }
+
+            currentBGMPlayer = new Tone.Player({
+                url: targetPath,
+                loop: true,
+                autostart: false,
+                volume: -10
+            }).toDestination();
+            currentBGMPlayerIsShared = false; // Fresh player for game
+
+            console.log('[Music Game] Created fresh player for track:', trackIndex);
 
             // Apply volume setting
             musicVolumeSlider.dispatchEvent(new Event('input'));
 
-            // Start playing
+            // Wait for buffer to be ready then start
+            await Tone.loaded();
+            console.log('[Music Game] Buffer ready, starting playback');
             startBGM();
         }
 
@@ -2774,10 +2949,20 @@ async function tryLoadMusic(retries = 3) {
 
                 // Stop menu BGM before the video plays
                 if (currentBGMPlayer) {
-                    currentBGMPlayer.onstop = null; // Prevent auto-restart
-                    currentBGMPlayer.stop();
-                    currentBGMPlayer.dispose();
+                    currentBGMPlayer.onstop = () => {}; // Prevent auto-restart
+                    if (currentBGMPlayer.state === 'started') {
+                        try {
+                            currentBGMPlayer.stop();
+                        } catch (e) {
+                            // Ignore stop errors
+                        }
+                    }
+                    // Only dispose if it's not a shared menu player
+                    if (!currentBGMPlayerIsShared) {
+                        currentBGMPlayer.dispose();
+                    }
                     currentBGMPlayer = null;
+                    currentBGMPlayerIsShared = false;
                 }
                 stopMainMenuBGM();
 

@@ -27,6 +27,16 @@
                 } else isPlayerHitShaking = false;
             }
 
+            // Apply same shake to UI elements (gameStats) - uses transform translate without affecting scale
+            const gameStatsEl = document.getElementById('gameStats');
+            if (gameStatsEl) {
+                if (currentHitShakeX !== 0 || currentHitShakeY !== 0) {
+                    gameStatsEl.style.transform = `translate(${currentHitShakeX}px, ${currentHitShakeY}px)`;
+                } else {
+                    gameStatsEl.style.transform = '';
+                }
+            }
+
             let finalCameraOffsetX = cameraOffsetX - currentHitShakeX;
             let finalCameraOffsetY = cameraOffsetY - currentHitShakeY;
             ctx.clearRect(0, 0, canvas.width, canvas.height);
