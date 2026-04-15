@@ -73,17 +73,16 @@
                     gameTimerSpan.style.color = color;
 
                     // Pulse intensity: base scale 1.0, max scale increases as we approach 15 min
-                    // Base pulse: 1.0 -> 1.15, at 15 min: 1.0 -> 1.4
-                    const minScale = 1.0;
-                    const maxScale = 1.15 + (0.25 * progress); // 1.15 to 1.4
-                    const pulseScale = minScale + (maxScale - minScale) * 0.5; // Mid-point for CSS animation
-
-                    // Apply pulse animation with dynamic intensity
-                    gameTimerSpan.style.transition = 'transform 0.1s ease-out, color 0.5s ease';
-                    gameTimerSpan.style.transform = `scale(${maxScale})`;
-                    setTimeout(() => {
-                        if (gameTimerSpan) gameTimerSpan.style.transform = `scale(${minScale})`;
-                    }, 100);
+                    // Calculate max scale based on progress (1.15 to 1.4)
+                    const maxScale = 1.15 + (0.25 * progress);
+                    // Set CSS variable for the pulse animation scale
+                    gameTimerSpan.style.setProperty('--pulse-scale', maxScale);
+                    
+                    // Trigger CSS animation by adding/removing pulse class
+                    // This pauses automatically when the game is paused/level-up (no setTimeout desync)
+                    gameTimerSpan.classList.remove('timer-pulse');
+                    void gameTimerSpan.offsetWidth; // Force reflow to restart animation
+                    gameTimerSpan.classList.add('timer-pulse');
                 }
             }
 

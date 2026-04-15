@@ -3032,6 +3032,7 @@ async function startGame() {
             if (!gameActive || gameOver) return; // Prevent pause when not in active game
             gamePaused = !gamePaused;
             if (gamePaused) {
+                document.body.classList.add('game-paused');
                 if (pauseOverlay) pauseOverlay.style.display = 'flex';
                 if (Tone.Transport) Tone.Transport.pause();
                 // Record when we paused for timer and fire rate boost
@@ -3044,6 +3045,7 @@ async function startGame() {
                 }
             }
             else {
+                document.body.classList.remove('game-paused');
                 if (pauseOverlay) pauseOverlay.style.display = 'none';
                 if (Tone.Transport) Tone.Transport.start();
                 // Calculate how long we were paused and add to offset
