@@ -2032,6 +2032,9 @@ function createBoss() {
             if (movementStickBase) movementStickBase.style.display = 'none';
             if (firestickBase) firestickBase.style.display = 'none';
             
+            // Clear active powerups that persist visually
+            turretActive = false;
+            
             const totalTimeSeconds = Math.floor((Date.now() - gameStartTime) / 1000);
             
             // Unlock achievement for completing a run
@@ -2634,6 +2637,9 @@ if (firstCard) {
             if (gameContainer) gameContainer.style.display = 'none'; 
             if (movementStickBase) movementStickBase.style.display = 'none';
             if (firestickBase) firestickBase.style.display = 'none';
+            
+            // Clear active powerups that persist visually
+            turretActive = false;
             
             const totalTimeSeconds = Math.floor((Date.now() - gameStartTime) / 1000);
             if (finalScoreSpan) finalScoreSpan.textContent = Math.floor(score);
