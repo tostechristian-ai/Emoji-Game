@@ -1061,6 +1061,12 @@ function handleGamepadInput() {
             } else if (onCheats) {
                 const cards = Array.from(cheatsModal.querySelectorAll('.cheat-card:not(.locked)'));
                 applyFocus(cards, 0);
+            } else if (onMerchant) {
+                const merchantCards = Array.from(merchantOptionsContainer.querySelectorAll('.merchant-card'));
+                const leaveBtn = document.getElementById('leaveMerchantButton');
+                const allItems = [...merchantCards];
+                if (leaveBtn) allItems.push(leaveBtn);
+                applyFocus(allItems, 0);
             }
         }
 
@@ -1230,6 +1236,7 @@ function handleGamepadInput() {
             if (btnB) {
                 clearFocus(musicTiles);
                 _gpNav.menuIndex = 0;
+                _gpNav.lastScreen = 'difficulty';
                 lastGamepadUpdate = now;
                 if (backBtn) backBtn.click();
                 return;
@@ -3796,7 +3803,6 @@ async function startGame() {
             const numEnemies = 24;
             const radius = Math.min(canvas.width, canvas.height);
             const enemyType = Math.random() < 0.5 ? '🧟' : '💀';
-            visualWarnings.push({ text: 'ENCIRCLEMENT!', x: player.x, y: player.y, radius: radius, spawnTime: Date.now(), duration: 2000 });
             setTimeout(() => {
                 for (let i = 0; i < numEnemies; i++) {
                     const angle = (i / numEnemies) * 2 * Math.PI;
