@@ -144,7 +144,7 @@ const UNLOCKABLE_PICKUPS = {
   // ─── QUALITY OF LIFE ──────────────────────────────────────────────────────
   fourth_heart: { name: "4th Heart",       desc: "Start each run with 4 hearts instead of 3.", cost: 3000, icon: '❤️' },
   four_choices: { name: "4 Level Choices", desc: "Get 4 choices on level up instead of 3.",  cost: 3500, icon: '📋' },
-  music_player: { name: "Music Player",  desc: "Unlock a music player to select your own tracks!", cost: 1, icon: '🎵' }
+  music_player: { name: "Music Player",  desc: "Unlock a music player to select your own tracks!", cost: 300, icon: '🎵' }
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
