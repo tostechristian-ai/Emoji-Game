@@ -903,9 +903,10 @@ function handleGamepadInput() {
         const onAchieve     = achievementsModal    && achievementsModal.style.display    !== 'none';
         const onCheats      = cheatsModal          && cheatsModal.style.display          !== 'none';
         const onMerchant    = merchantShop         && merchantShop.style.display         !== 'none';
+        const onMusic       = musicPlayerScreen     && musicPlayerScreen.style.display   !== 'none';
 
         // Detect screen changes — only initialise focus once on entry
-        const currentScreen = onDifficulty ? 'difficulty' : onMap ? 'map' : onCharacter ? 'character' : onUpgradeShop ? 'shop' : onGuide ? 'guide' : onAchieve ? 'achieve' : onCheats ? 'cheats' : onMerchant ? 'merchant' : 'none';
+        const currentScreen = onDifficulty ? 'difficulty' : onMap ? 'map' : onCharacter ? 'character' : onUpgradeShop ? 'shop' : onGuide ? 'guide' : onAchieve ? 'achieve' : onCheats ? 'cheats' : onMerchant ? 'merchant' : onMusic ? 'music' : 'none';
         if (currentScreen !== _gpNav.lastScreen) {
             _gpNav.lastScreen = currentScreen;
             _gpNav.menuIndex = 0;
@@ -919,6 +920,17 @@ function handleGamepadInput() {
             } else if (onCharacter) {
                 const tiles = Array.from(characterSelectContainer.querySelectorAll('.character-tile:not(.locked)'));
                 applyFocus(tiles, 0);
+            } else if (onMusic) {
+                const tiles = Array.from(musicTracksContainer.querySelectorAll('.music-track-tile'));
+                const backBtn = document.getElementById('backFromMusicPlayerButton');
+                if (backBtn) tiles.push(backBtn);
+                applyFocus(tiles, 0);
+            } else if (onAchieve) {
+                const cards = Array.from(achievementsModal.querySelectorAll('.achievement-card'));
+                applyFocus(cards, 0);
+            } else if (onCheats) {
+                const cards = Array.from(cheatsModal.querySelectorAll('.cheat-card:not(.locked)'));
+                applyFocus(cards, 0);
             }
         }
 
@@ -968,6 +980,17 @@ function handleGamepadInput() {
                 _gpNav.menuIndex = 0;
                 lastGamepadUpdate = now;
                 return;
+            }
+            // X button (2) = open music player (if unlocked)
+            if (pressed(2)) {
+                const musicBtn = document.getElementById('musicPlayerButton');
+                if (musicBtn && musicBtn.classList.contains('unlocked')) {
+                    clearFocus(btns);
+                    _gpNav.menuIndex = 0;
+                    lastGamepadUpdate = now;
+                    musicBtn.click();
+                    return;
+                }
             }
         }
 
@@ -1052,6 +1075,35 @@ function handleGamepadInput() {
                 }
             }
             if (btnB) { clearFocus(cheatCards); _gpNav.menuIndex = 0; lastGamepadUpdate = now; document.getElementById('backToAchievementsButton')?.click(); return; }
+        }
+
+        // ── Music Player ──
+        if (onMusic) {
+            const musicTiles = Array.from(musicTracksContainer.querySelectorAll('.music-track-tile'));
+            const backBtn = document.getElementById('backFromMusicPlayerButton');
+            if (musicTiles.length > 0) {
+                if (_gpNav.lastScreen !== 'music') {
+                    _gpNav.lastScreen = 'music';
+                    _gpNav.menuIndex = 0;
+                    musicTiles.forEach((el, i) => el.classList.toggle('gamepad-focus', i === 0));
+                }
+                if (btnDown || btnRight) { moveFocus(musicTiles, 1); return; }
+                if (btnUp   || btnLeft)  { moveFocus(musicTiles, -1); return; }
+                if (btnA) {
+                    clearFocus(musicTiles);
+                    _gpNav.menuIndex = 0;
+                    lastGamepadUpdate = now;
+                    musicTiles[_gpNav.menuIndex]?.click();
+                    return;
+                }
+            }
+            if (btnB) {
+                clearFocus(musicTiles);
+                _gpNav.menuIndex = 0;
+                lastGamepadUpdate = now;
+                if (backBtn) backBtn.click();
+                return;
+            }
         }
 
         return;
@@ -2911,8 +2963,53 @@ if (firstCard) {
             if (movementStickBase) movementStickBase.style.display = 'none';
             if (firestickBase) firestickBase.style.display = 'none';
             
-            // Clear active powerups that persist visually
+            // Clear all active powerups that persist visually
             turretActive = false;
+            stoneGlareActive = false;
+            robotDroneActive = false;
+            boomerangActive = false;
+            chainLightningActive = false;
+            flyingTurretActive = false;
+            timeFreezeActive = false;
+            bombEmitterActive = false;
+            orbitingPowerUpActive = false;
+            levitatingBooksActive = false;
+            damagingCircleActive = false;
+            lightningProjectileActive = false;
+            magneticProjectileActive = false;
+            iceProjectileActive = false;
+            puddleTrailActive = false;
+            laserPointerActive = false;
+            autoAimActive = false;
+            explosiveBulletsActive = false;
+            vengeanceNovaActive = false;
+            dodgeNovaActive = false;
+            dogCompanionActive = false;
+            catAllyActive = false;
+            antiGravityActive = false;
+            ricochetActive = false;
+            boneShotActive = false;
+            rocketLauncherActive = false;
+            blackHoleActive = false;
+            smokeBombActive = false;
+            dualGunActive = false;
+            dualRevolversActive = false;
+            flamingBulletsActive = false;
+            shotgunBlastActive = false;
+            flamethrowerActive = false;
+            laserCannonActive = false;
+            laserCrossActive = false;
+            spearActive = false;
+            bugSwarmActive = false;
+            peaShooterActive = false;
+            nightOwlActive = false;
+            whirlwindAxeActive = false;
+            lightningStrikeActive = false;
+            shotgunActive = false;
+            iceCannonActive = false;
+            dynamiteActive = false;
+            doppelgangerActive = false;
+            hasDashInvincibility = false;
             
             const totalTimeSeconds = Math.floor((Date.now() - gameStartTime) / 1000);
             if (finalScoreSpan) finalScoreSpan.textContent = Math.floor(score);
@@ -3226,9 +3323,9 @@ async function startGame() {
                 if (movementStickBase) movementStickBase.style.display = 'flex';
                 if (firestickBase) firestickBase.style.display = 'flex';
                 if (mobileResetButton) mobileResetButton.style.display = 'none'; // Hide mobile reset button
-                // Portrait mode uses closer zoom values
+                // Portrait mode uses closer zoom values, landscape uses zoomed out values (10%)
                 const isPortrait = window.matchMedia && window.matchMedia('(orientation: portrait)').matches;
-                cameraZoom = isPortrait ? 1.4 : 1.5;
+                cameraZoom = isPortrait ? 1.4 : 1.35;
                 zoomToggle.checked = true;
             } else {
                 if (movementStickBase) movementStickBase.style.display = 'none';

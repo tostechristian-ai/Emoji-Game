@@ -441,8 +441,8 @@ window.onload = function() {
       // Portrait mode: closer zoom values (less zoom range)
       cameraZoom = e.target.checked ? 1.4 : 1.2;
     } else if (isMobile) {
-      // Landscape mode: wider zoom range
-      cameraZoom = e.target.checked ? 1.5 : 1.0;
+      // Landscape mode: wider zoom range (zoomed out 10% from original values)
+      cameraZoom = e.target.checked ? 1.35 : 0.9;
     } else {
       // Desktop
       cameraZoom = e.target.checked ? 1.4 : 1.0;

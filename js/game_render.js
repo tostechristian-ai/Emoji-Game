@@ -778,7 +778,7 @@
                 if (iceProjectileActive || fireRateBoostActive) {
                     ctx.save();
                     ctx.globalCompositeOperation = 'source-atop';
-                    ctx.fillStyle = iceProjectileActive ? 'rgba(0, 180, 255, 0.9)' : 'rgba(255, 0, 0, 0.9)';
+                    ctx.fillStyle = iceProjectileActive ? 'rgba(0, 180, 255, 0.14)' : 'rgba(255, 0, 0, 0.9)';
                     const tintW = bW * 0.33;
                     const tintH = bH * 0.33;
                     ctx.fillRect(-tintW / 2, -tintH / 2, tintW, tintH);
