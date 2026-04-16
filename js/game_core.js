@@ -3226,7 +3226,10 @@ async function startGame() {
                 if (movementStickBase) movementStickBase.style.display = 'flex';
                 if (firestickBase) firestickBase.style.display = 'flex';
                 if (mobileResetButton) mobileResetButton.style.display = 'none'; // Hide mobile reset button
-                cameraZoom = 1.5; zoomToggle.checked = true;
+                // Portrait mode uses closer zoom values
+                const isPortrait = window.matchMedia && window.matchMedia('(orientation: portrait)').matches;
+                cameraZoom = isPortrait ? 1.4 : 1.5;
+                zoomToggle.checked = true;
             } else {
                 if (movementStickBase) movementStickBase.style.display = 'none';
                 if (firestickBase) firestickBase.style.display = 'none';

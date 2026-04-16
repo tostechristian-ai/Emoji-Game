@@ -433,12 +433,18 @@ window.onload = function() {
   });
 
   // ─── ZOOM TOGGLE ──────────────────────────────────────────────────────────
-  // Toggles camera zoom in/out (desktop: 1.0 normal / 1.4 zoomed, mobile: 1.0 normal / 1.5 zoomed)
+  // Toggles camera zoom in/out (desktop: 1.0 normal / 1.4 zoomed, mobile landscape: 1.0 normal / 1.5 zoomed, mobile portrait: 1.2 normal / 1.4 zoomed)
   zoomToggle.addEventListener('change', (e) => {
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-    if (isMobile) {
+    const isPortrait = window.matchMedia && window.matchMedia('(orientation: portrait)').matches;
+    if (isMobile && isPortrait) {
+      // Portrait mode: closer zoom values (less zoom range)
+      cameraZoom = e.target.checked ? 1.4 : 1.2;
+    } else if (isMobile) {
+      // Landscape mode: wider zoom range
       cameraZoom = e.target.checked ? 1.5 : 1.0;
     } else {
+      // Desktop
       cameraZoom = e.target.checked ? 1.4 : 1.0;
     }
   });
