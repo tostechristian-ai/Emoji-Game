@@ -103,10 +103,8 @@
     height: 100%;
     max-width: 100%;
     max-height: 100%;
-    aspect-ratio: 1125 / 676;
     box-shadow: 0 0 20px rgba(0, 255, 0, 0.5);
     border-radius: 0;
-    object-fit: contain;
     display: block;
 }
         .thumbstick-base {
@@ -146,23 +144,26 @@
             opacity: 0.35;
         }
         
-        #gameStats {
-            display: none; /* Hide by default, shown via JS */
+        #gameStatsWrapper {
+            display: none;
             position: absolute;
-            top: 10px;
+            top: 35px;
             right: 10px;
+            z-index: 10;
+        }
+        #gameStats {
             background: url('sprites/uibackground.png') no-repeat center center;
             background-size: 100% 100%;
-            opacity: 0.5;
+            opacity: 0.95;
             padding: 15px 20px;
-            color: #000000;
-            font-size: 8px;
+            color: #ffffff;
+            font-size: 12px;
             text-align: right;
-            z-index: 10;
             font-family: 'Press Start 2P', cursive;
             border-radius: 0;
             border: none;
             box-shadow: none;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
         }
         #gameStats p {
             margin: 2px 0;
@@ -224,13 +225,14 @@
         
         #upgradeStats {
             margin-top: 8px;
-            border-top: 1px solid rgba(0, 0, 0, 0.2);
+            border-top: 1px solid rgba(255, 255, 255, 0.3);
             padding-top: 4px;
         }
         #upgradeStats p {
-            font-size: 6px;
-            margin: 1px 0;
-            letter-spacing: 1px; /* Tally mark spacing */
+            font-size: 10px;
+            margin: 2px 0;
+            letter-spacing: 2px;
+            color: #66bb6a;
         }
 
 
@@ -288,14 +290,14 @@
         }
         
         #xpBarContainer {
-            width: clamp(60px, 12.5vw, 90px);
-            height: 6px;
-            background-color: #222;
-            border: 1px solid #555;
-            border-radius: 3px;
-            margin-top: 4px;
+            width: clamp(80px, 15vw, 140px);
+            height: 10px;
+            background-color: #1a1a1a;
+            border: 2px solid #66bb6a;
+            border-radius: 5px;
+            margin-top: 6px;
             overflow: hidden;
-            box-shadow: inset 0 0 3px #000;
+            box-shadow: inset 0 0 4px rgba(0,0,0,0.5), 0 1px 3px rgba(0,0,0,0.3);
         }
         #xpBar {
             height: 100%;
@@ -2028,28 +2030,50 @@
             }
 
             body.is-mobile canvas {
-                width: 100%;
+                width: 100vw;
                 height: 100vh;
-                object-fit: contain;
+                object-fit: cover;
                 border: none;
                 box-shadow: none;
             }
              
-            body.is-mobile #gameStats {
+            body.is-mobile #gameStatsWrapper {
                 position: absolute;
-                top: 10px;
-                right: 10px;
+                top: 30px;
+                right: 8px;
+                transform: scale(0.75);
+                transform-origin: top right;
+                contain: layout style paint;
+                min-width: max-content;
+            }
+            body.is-mobile #gameStats {
                 width: auto;
+                background: transparent;
+                color: #fff;
+                opacity: 1;
+                text-align: right;
+                padding: 10px 14px;
+                border: none;
+                text-shadow: 1px 1px 3px rgba(0,0,0,1), 0 0 6px rgba(0,0,0,0.8);
+            }
+            body.is-mobile #gameStatsWrapper::before {
+                content: '';
+                position: absolute;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
                 background: url(sprites/uibackground.png) no-repeat center center;
                 background-size: 100% 100%;
-                color: #000;
                 opacity: 0.5;
-                text-align: right;
-                padding: 15px 20px;
+                z-index: -1;
+                pointer-events: none;
             }
              body.is-mobile #gameStats p {
-                color: #000;
-                font-size: 8px;
+                color: #fff;
+                font-size: 11px;
+                margin: 2px 0;
+                line-height: 1.4;
              }
 
              body.is-mobile #gameTimer {
@@ -2130,6 +2154,157 @@
                 font-size: 12px;
                 padding: 5px 10px;
                 margin-top: 6px;
+            }
+
+            /* Music Player - Mobile Landscape Optimizations */
+            body.is-mobile #musicPlayerScreen {
+                gap: 5px;
+                padding: 5px;
+            }
+
+            body.is-mobile #musicPlayerScreen h1 {
+                font-size: 20px;
+                margin-bottom: 5px;
+            }
+
+            body.is-mobile #musicPlayerScreen p {
+                font-size: 10px;
+                margin-bottom: 8px;
+            }
+
+            body.is-mobile #musicTracksContainer {
+                grid-template-columns: repeat(4, 1fr);
+                gap: 8px;
+                width: 95%;
+                max-width: none;
+                max-height: 50vh;
+                padding: 5px;
+            }
+
+            body.is-mobile .music-track-tile {
+                aspect-ratio: auto;
+                min-height: 50px;
+                padding: 5px;
+                border-width: 2px;
+            }
+
+            body.is-mobile .music-track-tile .track-icon {
+                font-size: 20px;
+                margin-bottom: 2px;
+            }
+
+            body.is-mobile .music-track-tile .track-name {
+                font-size: 9px;
+                line-height: 1.2;
+            }
+
+            body.is-mobile #backFromMusicPlayerButton {
+                padding: 10px 18px;
+                font-size: 14px;
+                margin-top: 8px;
+            }
+
+            /* Loading Screen - Mobile Landscape Optimizations */
+            body.is-mobile #loadingScreen .loading-container {
+                max-width: 90vw;
+                width: 520px;
+                padding: 15px;
+                gap: 10px;
+            }
+
+            body.is-mobile #loadingScreen .loading-emoji {
+                font-size: 42px;
+            }
+
+            body.is-mobile #loadingScreen .loading-title {
+                font-size: 20px;
+            }
+
+            body.is-mobile #loadingScreen #loadingText {
+                font-size: 12px;
+            }
+
+            body.is-mobile #loadingScreen .loading-percentage {
+                font-size: 24px;
+            }
+
+            body.is-mobile #loadingScreen .loading-progress-bar {
+                height: 14px;
+            }
+
+            body.is-mobile #loadingScreen .loading-categories {
+                gap: 10px;
+                flex-wrap: nowrap;
+                justify-content: center;
+                width: 100%;
+            }
+
+            body.is-mobile #loadingScreen .loading-category {
+                padding: 8px 10px;
+                min-width: 0;
+                flex: 1;
+                max-width: 110px;
+            }
+
+            body.is-mobile #loadingScreen .loading-category .category-icon {
+                font-size: 22px;
+            }
+
+            body.is-mobile #loadingScreen .loading-category .category-name {
+                font-size: 9px;
+            }
+
+            body.is-mobile #loadingScreen .loading-category .category-count {
+                font-size: 12px;
+            }
+
+            /* Character Select Screen - Mobile Landscape Optimizations */
+            body.is-mobile #characterSelectContainer {
+                width: 100vw;
+                height: 100vh;
+            }
+
+            body.is-mobile #characterSelectScreen {
+                padding: 5px;
+                gap: 5px;
+            }
+
+            body.is-mobile #characterSelectScreen h1 {
+                font-size: 18px;
+                margin-bottom: 5px;
+            }
+
+            body.is-mobile #characterTilesContainer {
+                display: grid;
+                grid-template-columns: repeat(4, 1fr);
+                gap: 8px;
+                max-width: 95%;
+            }
+
+            body.is-mobile .character-tile {
+                width: auto;
+                min-height: 60px;
+                padding: 5px;
+                border-width: 2px;
+            }
+
+            body.is-mobile .character-tile .char-emoji {
+                font-size: 24px;
+            }
+
+            body.is-mobile .character-tile .char-name {
+                font-size: 9px;
+                margin: 3px 0;
+            }
+
+            body.is-mobile .character-tile .char-perk {
+                font-size: 7px;
+            }
+
+            body.is-mobile #backToMenuFromCharsButton {
+                padding: 10px 18px;
+                font-size: 14px;
+                margin-top: 8px;
             }
 
             /* Scale down main menu for landscape mobile */
@@ -2333,22 +2508,24 @@
         display: none;
     }
 
-    body.is-mobile #gameStats {
+    body.is-mobile #gameStatsWrapper {
         position: absolute;
-        top: 5px;
-        left: 5px;
+        top: 30px;
+        left: 8px;
+        z-index: 1000;
+    }
+    body.is-mobile #gameStats {
         width: auto;
         background: url(sprites/uibackground.png) no-repeat center center;
         background-size: 100% 100%;
-        color: #000;
-        opacity: 0.9;
+        color: #fff;
+        opacity: 0.95;
         text-align: left;
-        padding: 4px 6px;
+        padding: 15px 20px;
         margin: 0;
         border: none;
-        z-index: 1000;
-        transform: scale(0.5);
-        transform-origin: top left;
+        font-size: 11px;
+        text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
     }
 
     body.is-mobile #gameTimer {
@@ -2360,14 +2537,15 @@
     }
 
     body.is-mobile #gameStats p {
-        color: #000;
-        margin: 0;
-        font-size: 10px;
+        color: #fff;
+        margin: 2px 0;
+        font-size: 11px;
+        line-height: 1.4;
     }
 
     /* Portrait mode fix - prevent UI resize during shake effects */
     @media (orientation: portrait) {
-        body.is-mobile #gameStats,
+        body.is-mobile #gameStatsWrapper,
         body.is-mobile #gameTimer {
             contain: layout style paint;
             min-width: max-content;
@@ -2690,9 +2868,35 @@
 
     /* Landscape mode specific - 4 columns */
     @media (orientation: landscape) {
+        body.is-mobile #musicPlayerScreen {
+            padding: 8px;
+        }
+        body.is-mobile #musicPlayerScreen h1 {
+            font-size: 16px;
+            margin-bottom: 5px;
+        }
+        body.is-mobile #musicPlayerScreen p {
+            display: none;
+        }
         body.is-mobile #musicTracksContainer {
-            grid-template-columns: repeat(4, 1fr);
-            max-height: calc(100vh - 150px);
+            grid-template-columns: repeat(5, 1fr);
+            gap: 6px;
+            max-height: calc(100vh - 90px);
+            padding: 3px;
+        }
+        body.is-mobile .music-track-tile {
+            padding: 4px;
+        }
+        body.is-mobile .music-track-tile .track-icon {
+            font-size: 20px;
+        }
+        body.is-mobile .music-track-tile .track-name {
+            font-size: 9px;
+        }
+        body.is-mobile #backFromMusicPlayerButton {
+            padding: 10px 20px;
+            font-size: 14px;
+            bottom: 10px;
         }
     }
 

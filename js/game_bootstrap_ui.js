@@ -43,7 +43,9 @@ function gameLoop() {
 // Lightweight secondary loop that keeps gamepad navigation working on menus
 // Runs even when the game is not active (so you can navigate menus with a controller)
 function menuGamepadLoop() {
-  if (!gameActive || gamePaused) handleGamepadInput();
+  // Only poll gamepad when one is connected and game is paused/not active
+  const hasGamepad = !!navigator.getGamepads && navigator.getGamepads().some(g => g);
+  if (hasGamepad && (!gameActive || gamePaused)) handleGamepadInput();
   requestAnimationFrame(menuGamepadLoop);
 }
 requestAnimationFrame(menuGamepadLoop); // Start immediately on page load
@@ -142,7 +144,7 @@ const UNLOCKABLE_PICKUPS = {
   // ─── QUALITY OF LIFE ──────────────────────────────────────────────────────
   fourth_heart: { name: "4th Heart",       desc: "Start each run with 4 hearts instead of 3.", cost: 3000, icon: '❤️' },
   four_choices: { name: "4 Level Choices", desc: "Get 4 choices on level up instead of 3.",  cost: 3500, icon: '📋' },
-  music_player: { name: "Music Player",  desc: "Unlock a music player to select your own tracks!", cost: 1500, icon: '🎵' }
+  music_player: { name: "Music Player",  desc: "Unlock a music player to select your own tracks!", cost: 1, icon: '🎵' }
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -431,11 +433,11 @@ window.onload = function() {
   });
 
   // ─── ZOOM TOGGLE ──────────────────────────────────────────────────────────
-  // Toggles camera zoom in/out (desktop: 1.0 normal / 1.4 zoomed, mobile: 1.5 normal / 2.0 zoomed)
+  // Toggles camera zoom in/out (desktop: 1.0 normal / 1.4 zoomed, mobile: 1.0 normal / 1.5 zoomed)
   zoomToggle.addEventListener('change', (e) => {
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
     if (isMobile) {
-      cameraZoom = e.target.checked ? 2.0 : 1.5;
+      cameraZoom = e.target.checked ? 1.5 : 1.0;
     } else {
       cameraZoom = e.target.checked ? 1.4 : 1.0;
     }

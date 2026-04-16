@@ -27,7 +27,8 @@
                 } else isPlayerHitShaking = false;
             }
 
-            // Apply same shake to UI elements (gameStats) - uses transform translate without affecting scale
+            // Apply same shake to UI elements (gameStats)
+            // Scale is on #gameStatsWrapper, shake transform is on #gameStats — no conflict
             const gameStatsEl = document.getElementById('gameStats');
             if (gameStatsEl) {
                 if (currentHitShakeX !== 0 || currentHitShakeY !== 0) {
@@ -85,7 +86,7 @@
 
                     ctx.save();
                     ctx.strokeStyle = `rgba(60, 40, 20, ${0.6 + damageRatio * 0.3})`; // Dark brown cracks
-                    ctx.lineWidth = 2;
+                    ctx.lineWidth = 1.2; // 60% of original 2
                     ctx.lineCap = 'round';
 
                     // Generate consistent crack pattern based on position
@@ -97,8 +98,8 @@
 
                     for (let i = 0; i < crackCount; i++) {
                         const crackSeed = seed + i * 123;
-                        const startX = obs.x + (random(crackSeed) - 0.5) * obs.size * 0.8;
-                        const startY = obs.y + (random(crackSeed + 1) - 0.5) * obs.size * 0.8;
+                        const startX = obs.x + (random(crackSeed) - 0.5) * obs.size * 0.29;
+                        const startY = obs.y + (random(crackSeed + 1) - 0.5) * obs.size * 0.29;
 
                         // Draw main crack line
                         ctx.beginPath();
@@ -111,7 +112,7 @@
 
                         for (let j = 0; j < segments; j++) {
                             const angle = random(crackSeed + 3 + j) * Math.PI * 2;
-                            const length = (0.2 + random(crackSeed + 4 + j) * 0.3) * obs.size;
+                            const length = (0.072 + random(crackSeed + 4 + j) * 0.108) * obs.size; // 60% of original
                             currentX += Math.cos(angle) * length;
                             currentY += Math.sin(angle) * length;
                             ctx.lineTo(currentX, currentY);
@@ -127,7 +128,7 @@
                                     currentX + Math.cos(branchAngle) * branchLength,
                                     currentY + Math.sin(branchAngle) * branchLength
                                 );
-                                ctx.lineWidth = 1;
+                                ctx.lineWidth = 0.6; // 60% of original 1
                                 ctx.stroke();
                                 ctx.restore();
                             }
@@ -142,9 +143,9 @@
                         ctx.fillStyle = 'rgba(139, 90, 43, 0.7)'; // Brick-colored debris
                         for (let i = 0; i < debrisCount; i++) {
                             const debrisSeed = seed + i * 777;
-                            const dx = obs.x + (random(debrisSeed) - 0.5) * obs.size;
-                            const dy = obs.y + obs.size * 0.4 + random(debrisSeed + 1) * obs.size * 0.3;
-                            const size = 2 + random(debrisSeed + 2) * 3;
+                            const dx = obs.x + (random(debrisSeed) - 0.5) * obs.size * 0.6;
+                            const dy = obs.y + obs.size * 0.4 + random(debrisSeed + 1) * obs.size * 0.18;
+                            const size = 1.2 + random(debrisSeed + 2) * 1.8; // 60% of original
                             ctx.beginPath();
                             ctx.arc(dx, dy, size, 0, Math.PI * 2);
                             ctx.fill();
@@ -597,7 +598,7 @@
                     // Apply blue tint for frozen enemies, grey for stone glare
                     if (enemy.isFrozen) {
                         ctx.save();
-                        ctx.filter = 'hue-rotate(180deg) saturate(2)';
+                        ctx.filter = 'hue-rotate(180deg) saturate(3) brightness(0.8)';
                         ctx.drawImage(preRenderedImage, drawX, drawY, drawWidth, drawHeight);
                         ctx.restore();
                     } else if (enemy.isSlowedByStoneGlare) {
@@ -769,23 +770,20 @@
                     continue;
                 }
                 ctx.rotate(weapon.angle);
-                const bSize = weapon.size * 1.4;
-                const bH = bSize * 0.5;
-                // Blue box for ice projectiles
-                if (iceProjectileActive) {
-                    ctx.globalAlpha = 0.08;
-                    ctx.fillStyle = '#00aaff';
-                    ctx.fillRect(-bSize / 2, -bH / 2, bSize, bH);
-                    ctx.globalAlpha = 1;
+                const bW = weapon.size * 1.8;
+                const bH = weapon.size * 0.6;
+                // Draw bullet with solid color tint overlay
+                ctx.drawImage(sprites.bullet, -bW / 2, -bH / 2, bW, bH);
+                // Overlay red/blue color on top of bullet pixels only - smaller than bullet (1/3 size)
+                if (iceProjectileActive || fireRateBoostActive) {
+                    ctx.save();
+                    ctx.globalCompositeOperation = 'source-atop';
+                    ctx.fillStyle = iceProjectileActive ? 'rgba(0, 180, 255, 0.9)' : 'rgba(255, 0, 0, 0.9)';
+                    const tintW = bW * 0.33;
+                    const tintH = bH * 0.33;
+                    ctx.fillRect(-tintW / 2, -tintH / 2, tintW, tintH);
+                    ctx.restore();
                 }
-                // Red box for fire rate boost
-                if (fireRateBoostActive) {
-                    ctx.globalAlpha = 0.12;
-                    ctx.fillStyle = '#ff4444';
-                    ctx.fillRect(-bSize / 2, -bH / 2, bSize, bH);
-                    ctx.globalAlpha = 1;
-                }
-                ctx.drawImage(sprites.bullet, -bSize / 2, -bH / 2, bSize, bH);
                 ctx.restore();
             }
             
@@ -937,7 +935,7 @@
                     const endY = Math.sin(angle) * beamRadius;
 
                     // Draw outer glow (more transparent since always on)
-                    ctx.globalAlpha = 0.4;
+                    ctx.globalAlpha = 0.2;
                     ctx.strokeStyle = '#0088ff';
                     ctx.lineWidth = 10;
                     ctx.lineCap = 'round';
@@ -949,7 +947,7 @@
                     ctx.stroke();
 
                     // Draw middle layer
-                    ctx.globalAlpha = 0.5;
+                    ctx.globalAlpha = 0.25;
                     ctx.strokeStyle = '#00aaff';
                     ctx.lineWidth = 6;
                     ctx.shadowBlur = 8;
@@ -959,7 +957,7 @@
                     ctx.stroke();
 
                     // Draw inner bright core
-                    ctx.globalAlpha = 0.7;
+                    ctx.globalAlpha = 0.35;
                     ctx.strokeStyle = '#88ddff';
                     ctx.lineWidth = 3;
                     ctx.shadowBlur = 4;
@@ -1122,6 +1120,15 @@
             
             merchants.forEach(m => {
     ctx.save();
+    // Draw shadow under merchant wizard
+    const isMobile = document.body.classList.contains('is-mobile');
+    const mShadowY = m.y + m.size * 0.4;
+    const mShadowRX = m.size * 0.5 * (isMobile ? 1.1 : 1);
+    const mShadowRY = m.size * 0.2 * (isMobile ? 1.1 : 1);
+    ctx.beginPath();
+    ctx.ellipse(m.x, mShadowY, mShadowRX, mShadowRY, 0, 0, Math.PI * 2);
+    ctx.fillStyle = isMobile ? 'rgba(0, 0, 0, 0.55)' : 'rgba(0, 0, 0, 0.3)';
+    ctx.fill();
     ctx.font = `${m.size}px serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';

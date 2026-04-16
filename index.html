@@ -14,8 +14,17 @@
 
   <!-- Tone.js library -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.min.js"></script>
+
 </head>
 <body>
+  <!-- Immediate mobile detection - runs before loading screen displays -->
+  <script>
+    (function() {
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+                       (window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+      if (isMobile) document.body.classList.add('is-mobile');
+    })();
+  </script>
   <!-- Start Screen -->
   <div id="startScreen">
     <button id="startButton">Tap to Start</button>
@@ -550,6 +559,7 @@
   </div>
 
   <!-- Game Stats -->
+  <div id="gameStatsWrapper">
   <div id="gameStats">
     <p id="gameTimer">00:00</p>
     <p>Level: <span id="currentLevel">1</span></p>
@@ -563,6 +573,7 @@
     <p>Coins: <span id="coinCounter">0</span> 💰</p>
     <div id="powerupIcons"></div>
     <div id="upgradeStats"></div>
+  </div>
   </div>
 
   <!-- Mobile Reset -->

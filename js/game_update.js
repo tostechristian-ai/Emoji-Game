@@ -1435,22 +1435,32 @@ for (let i = merchants.length - 1; i >= 0; i--) {
                 let finalY = enemy._pendingMoveY;
                 enemy._pendingMoveX = undefined;
 
-                // Enemy-to-enemy separation (like Vampire Survivors) - throttled for performance
+                // Enemy-to-enemy separation using quadtree - O(n log n) instead of O(n²)
                 if ((update._frame + ei) % 3 === 0) {
                     let sepX = 0, sepY = 0;
-                    const sepRadius = enemy.size * 1.2; // Separation distance
+                    const sepRadius = enemy.size * 1.2;
                     const sepRadiusSq = sepRadius * sepRadius;
 
-                    for (let ej = 0; ej < enemies.length; ej++) {
-                        if (ei === ej) continue;
-                        const other = enemies[ej];
+                    // Query quadtree for nearby objects in separation radius
+                    const queryRect = {
+                        x: enemy.x - sepRadius,
+                        y: enemy.y - sepRadius,
+                        width: sepRadius * 2,
+                        height: sepRadius * 2
+                    };
+                    const nearby = quadtree.retrieve(queryRect);
+
+                    for (const obj of nearby) {
+                        const other = obj.ref;
+                        // Only separate from other enemies (not player, destructibles, etc)
+                        if (other === enemy || !other.emoji || other.isHit) continue;
+
                         const dx = enemy.x - other.x;
                         const dy = enemy.y - other.y;
                         const distSq = dx*dx + dy*dy;
 
                         if (distSq < sepRadiusSq && distSq > 0.01) {
                             const dist = Math.sqrt(distSq);
-                            // Stronger repulsion when closer
                             const force = (1 - dist/sepRadius) * 1.5;
                             sepX += (dx/dist) * force;
                             sepY += (dy/dist) * force;
@@ -1632,8 +1642,10 @@ for (let i = merchants.length - 1; i >= 0; i--) {
                     });
                 });
 
-                // Remove dead clones
-                window.cloneArmy = window.cloneArmy.filter(clone => !clone._dead);
+                // Remove dead clones (in-place to avoid GC)
+                for (let i = window.cloneArmy.length - 1; i >= 0; i--) {
+                    if (window.cloneArmy[i]._dead) window.cloneArmy.splice(i, 1);
+                }
 
                 // Respawn clones to maintain target count
                 const targetCount = window.cloneArmyTargetCount || 3;
@@ -1821,7 +1833,7 @@ for (let i = merchants.length - 1; i >= 0; i--) {
                                     activatePowerup(item.powerupId);
                                     playSound('boxPickup');
                                     floatingTexts.push({ 
-                                        text: item.powerupName + "!", 
+                                        text: (item.powerupName || 'Powerup') + "!", 
                                         x: player.x, 
                                         y: player.y - player.size, 
                                         startTime: now, 
@@ -2144,7 +2156,7 @@ for (let i = merchants.length - 1; i >= 0; i--) {
                         if (item.powerupId) {
                             activatePowerup(item.powerupId);
                             playSound('boxPickup');
-                            floatingTexts.push({ text: item.powerupName + "!", x: player.x, y: player.y - player.size, startTime: now, duration: 1500 });
+                            floatingTexts.push({ text: (item.powerupName || 'Powerup') + "!", x: player.x, y: player.y - player.size, startTime: now, duration: 1500 });
                             updatePowerupIconsUI();
                         }
                         
@@ -2950,8 +2962,10 @@ if (pendingRevolverShot && now >= pendingRevolverShot.fireAt) {
                 lastLaserCannonFireTime = now;
             }
             
-            // Clean up expired laser beams
-            laserCannonBeams = laserCannonBeams.filter(beam => now - beam.spawnTime < beam.lifetime);
+            // Clean up expired laser beams (in-place to avoid GC)
+            for (let i = laserCannonBeams.length - 1; i >= 0; i--) {
+                if (now - laserCannonBeams[i].spawnTime >= laserCannonBeams[i].lifetime) laserCannonBeams.splice(i, 1);
+            }
 
             // Laser Cross - spinning blue cross that continuously damages enemies
             if (laserCrossActive) {
@@ -3295,8 +3309,10 @@ if (pendingRevolverShot && now >= pendingRevolverShot.fireAt) {
                 }
             }
             
-            // Clean up expired chain lightning visuals
-            chainLightningChains = chainLightningChains.filter(chain => now - chain.spawnTime < chain.lifetime);
+            // Clean up expired chain lightning visuals (in-place to avoid GC)
+            for (let i = chainLightningChains.length - 1; i >= 0; i--) {
+                if (now - chainLightningChains[i].spawnTime >= chainLightningChains[i].lifetime) chainLightningChains.splice(i, 1);
+            }
 
             // ═══════════════════════════════════════════════════════════════════════════
             // SMOKE BOMB POWERUP
@@ -3352,8 +3368,10 @@ if (pendingRevolverShot && now >= pendingRevolverShot.fireAt) {
                 }
             }
             
-            // Clean up expired smoke bomb clouds
-            smokeBombClouds = smokeBombClouds.filter(cloud => now - cloud.spawnTime < cloud.lifetime);
+            // Clean up expired smoke bomb clouds (in-place to avoid GC)
+            for (let i = smokeBombClouds.length - 1; i >= 0; i--) {
+                if (now - smokeBombClouds[i].spawnTime >= smokeBombClouds[i].lifetime) smokeBombClouds.splice(i, 1);
+            }
 
 for (let i = lightningBolts.length - 1; i >= 0; i--) {
                 const bolt = lightningBolts[i];
@@ -3386,7 +3404,10 @@ for (let i = lightningBolts.length - 1; i >= 0; i--) {
                     }
                 }
             }
-            lightningBolts = lightningBolts.filter(bolt => !bolt.isHit);
+            // Clean up lightning bolts (in-place to avoid GC)
+            for (let i = lightningBolts.length - 1; i >= 0; i--) {
+                if (lightningBolts[i].isHit) lightningBolts.splice(i, 1);
+            }
 
             // Scale sword interval with fire rate (lower interval = faster swinging)
             let currentSwordInterval = SWORD_SWING_INTERVAL;
@@ -3845,30 +3866,51 @@ for (let i = lightningBolts.length - 1; i >= 0; i--) {
             if (smokeParticles.length > 30) smokeParticles.splice(0, smokeParticles.length - 30);
 
 
-            antiGravityPulses = antiGravityPulses.filter(p => now - p.spawnTime < p.duration);
-            explosions = explosions.filter(exp => now - exp.startTime < exp.duration);
-            vengeanceNovas.forEach(nova => {
+            // In-place array cleanup to avoid garbage collection from .filter()
+            for (let i = antiGravityPulses.length - 1; i >= 0; i--) {
+                if (now - antiGravityPulses[i].spawnTime >= antiGravityPulses[i].duration) antiGravityPulses.splice(i, 1);
+            }
+            for (let i = explosions.length - 1; i >= 0; i--) {
+                if (now - explosions[i].startTime >= explosions[i].duration) explosions.splice(i, 1);
+            }
+            for (let i = vengeanceNovas.length - 1; i >= 0; i--) {
+                const nova = vengeanceNovas[i];
                 const age = now - nova.startTime;
                 if (age < nova.duration) {
                     const currentRadius = nova.maxRadius * (age / nova.duration);
-                    for (let i = enemies.length - 1; i >= 0; i--) {
-                        const enemy = enemies[i];
+                    for (let j = enemies.length - 1; j >= 0; j--) {
+                        const enemy = enemies[j];
                         const dx = nova.x - enemy.x;
                         const dy = nova.y - enemy.y;
                         if (!enemy.isHit && (dx*dx + dy*dy) < currentRadius*currentRadius) {
                             handleEnemyDeath(enemy);
                         }
                     }
+                } else {
+                    vengeanceNovas.splice(i, 1);
                 }
-            });
-            vengeanceNovas = vengeanceNovas.filter(nova => now - nova.startTime < nova.duration);
-            floatingTexts = floatingTexts.filter(ft => now - ft.startTime < ft.duration);
-            visualWarnings = visualWarnings.filter(vw => now - vw.startTime < vw.duration);
-            enemies = enemies.filter(e => !e.isHit);
-            eyeProjectiles = eyeProjectiles.filter(p => !p.isHit);
-            dogHomingShots = dogHomingShots.filter(s => !s.isHit);
-            owlProjectiles = owlProjectiles.filter(p => !p.isHit);
-            lightningStrikes = lightningStrikes.filter(ls => now - ls.startTime < ls.duration);
+            }
+            for (let i = floatingTexts.length - 1; i >= 0; i--) {
+                if (now - floatingTexts[i].startTime >= floatingTexts[i].duration) floatingTexts.splice(i, 1);
+            }
+            for (let i = visualWarnings.length - 1; i >= 0; i--) {
+                if (now - visualWarnings[i].startTime >= visualWarnings[i].duration) visualWarnings.splice(i, 1);
+            }
+            for (let i = enemies.length - 1; i >= 0; i--) {
+                if (enemies[i].isHit) enemies.splice(i, 1);
+            }
+            for (let i = eyeProjectiles.length - 1; i >= 0; i--) {
+                if (eyeProjectiles[i].isHit) eyeProjectiles.splice(i, 1);
+            }
+            for (let i = dogHomingShots.length - 1; i >= 0; i--) {
+                if (dogHomingShots[i].isHit) dogHomingShots.splice(i, 1);
+            }
+            for (let i = owlProjectiles.length - 1; i >= 0; i--) {
+                if (owlProjectiles[i].isHit) owlProjectiles.splice(i, 1);
+            }
+            for (let i = lightningStrikes.length - 1; i >= 0; i--) {
+                if (now - lightningStrikes[i].startTime >= lightningStrikes[i].duration) lightningStrikes.splice(i, 1);
+            }
         }
 
         // draw() moved to `game_render.js`

@@ -272,6 +272,7 @@
         const gameSpeedButton = document.getElementById('gameSpeedButton');
         const startButton = document.getElementById('startButton');
         const gameStats = document.getElementById('gameStats');
+        const gameStatsWrapper = document.getElementById('gameStatsWrapper');
         const gameStartOverlay = document.getElementById('gameStartOverlay');
         const gameStartText = document.getElementById('gameStartText');
         const gameStartDifficulty = document.getElementById('gameStartDifficulty');
@@ -363,8 +364,6 @@
             isSlowedByMosquitoPuddle: false,
             originalPlayerSpeed: 1.4,
             damageMultiplier: 1,
-            projectileSizeMultiplier: 1,
-            projectileSpeedMultiplier: 1,
             bulletSizeMultiplier: 1,
             knockbackStrength: 0, 
             facing: 'down',
@@ -738,7 +737,7 @@ let doppelganger = null;
         let laserCrossLastDamageTime = 0;
         const LASER_CROSS_DAMAGE = 0.5;
         const LASER_CROSS_RADIUS_MULTIPLIER = 4; // 4x player size
-        const LASER_CROSS_ROTATION_SPEED = Math.PI; // One full revolution every 2 seconds (π rad/s)
+        const LASER_CROSS_ROTATION_SPEED = Math.PI / 3; // One full revolution every 6 seconds (1/3 original speed)
         const LASER_CROSS_DAMAGE_INTERVAL = 200; // Damage each enemy every 200ms
         const LASER_CROSS_BEAM_WIDTH = 6;
 
@@ -1979,7 +1978,13 @@ document.body.addEventListener('touchstart', (e) => {
                 if(!runStats.killsPerExplosion[explosionId]) runStats.killsPerExplosion[explosionId] = 0;
                 runStats.killsPerExplosion[explosionId]++;
             }
-            checkAchievements();
+            // Throttle achievement checks to prevent lag spikes during multi-kills
+            // Main game loop already checks achievements once per second
+            const now = Date.now();
+            if (!handleEnemyDeath._lastAchievementCheck || now - handleEnemyDeath._lastAchievementCheck > 1000) {
+                checkAchievements();
+                handleEnemyDeath._lastAchievementCheck = now;
+            }
 
             createBloodPuddle(enemy.x, enemy.y, enemy.size);
             playSound('enemyDeath');
@@ -2546,7 +2551,14 @@ function createBoss() {
             playSound('playerShoot');
         }
 
+        const MAX_BLOOD_SPLATTERS = 40;
+        const MAX_BLOOD_PUDDLES = 30;
+
         function createBloodSplatter(x, y) {
+            // Remove oldest splatters if at cap
+            if (bloodSplatters.length >= MAX_BLOOD_SPLATTERS) {
+                bloodSplatters.splice(0, 6); // Remove oldest batch
+            }
             const particleCount = 6;
             const speed = 2 + Math.random() * 2;
             for (let i = 0; i < particleCount; i++) {
@@ -2561,6 +2573,10 @@ function createBoss() {
 
         function createBloodPuddle(x, y, size) {
             if (!sprites.bloodPuddle) return;
+            // Remove oldest puddle if at cap
+            if (bloodPuddles.length >= MAX_BLOOD_PUDDLES) {
+                bloodPuddles.shift();
+            }
             bloodPuddles.push({
                 x: x, y: y, initialSize: size * 1.5,
                 spawnTime: Date.now(), rotation: Math.random() * Math.PI * 2, lifetime: 10000
@@ -3204,13 +3220,13 @@ async function startGame() {
             if (cheatsModal) cheatsModal.style.display = 'none';
             if (pauseButton) pauseButton.style.display = 'block'; 
             if (gameContainer) gameContainer.style.display = 'block'; 
-            if (gameStats) gameStats.style.display = 'block'; // Show game stats
+            if (gameStatsWrapper) gameStatsWrapper.style.display = 'block'; // Show game stats
             
             if (isMobileDevice) {
                 if (movementStickBase) movementStickBase.style.display = 'flex';
                 if (firestickBase) firestickBase.style.display = 'flex';
                 if (mobileResetButton) mobileResetButton.style.display = 'none'; // Hide mobile reset button
-                cameraZoom = 2.0; zoomToggle.checked = true;
+                cameraZoom = 1.5; zoomToggle.checked = true;
             } else {
                 if (movementStickBase) movementStickBase.style.display = 'none';
                 if (firestickBase) firestickBase.style.display = 'none';
@@ -3349,7 +3365,7 @@ async function startGame() {
             document.querySelector('.bottom-menu-buttons').style.display = 'flex';
 
             if (gameContainer) gameContainer.style.display = 'none';
-            if (gameStats) gameStats.style.display = 'none';
+            if (gameStatsWrapper) gameStatsWrapper.style.display = 'none';
             if (mobileResetButton) mobileResetButton.style.display = 'none';
             if (movementStickBase) movementStickBase.style.display = 'none';
             if (firestickBase) firestickBase.style.display = 'none';

@@ -341,7 +341,7 @@ function purchaseFromMerchant(option) {
         activatePowerup(option.powerupId);
         
         floatingTexts.push({
-            text: `${option.name}!`,
+            text: `${option.name || 'Powerup'}!`,
             x: player.x,
             y: player.y - player.size,
             startTime: Date.now(),
