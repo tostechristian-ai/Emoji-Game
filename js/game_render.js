@@ -230,7 +230,8 @@
             if (damagingCircleActive) {
                 damagingCircleAngle += DAMAGING_CIRCLE_SPIN_SPEED;
                 const pulse = 1 + Math.sin(now / 300) * 0.1;
-                const size = DAMAGING_CIRCLE_RADIUS * 2 * pulse;
+                const scaledRadius = DAMAGING_CIRCLE_RADIUS * (player.bulletSizeMultiplier || 1);
+                const size = scaledRadius * 2 * pulse;
                 ctx.save();
                 ctx.globalAlpha = 0.5;
                 ctx.translate(player.x, player.y);
@@ -284,7 +285,8 @@
                 const age = now - puddle.spawnTime;
                 if (age < puddle.lifetime) {
                     const lifeRatio = age / puddle.lifetime;
-                    const currentSize = puddle.initialSize * (1 - lifeRatio);
+                    const currentSize = Math.max(0, puddle.initialSize * (1 - lifeRatio));
+                    if (currentSize <= 0) return;
                     ctx.save();
                     ctx.globalAlpha = 0.5;
                     ctx.translate(puddle.x, puddle.y);
@@ -297,7 +299,8 @@
             antiGravityPulses.forEach(pulse => {
                 const age = now - pulse.spawnTime;
                 const lifeRatio = age / pulse.duration;
-                const currentRadius = ANTI_GRAVITY_RADIUS * lifeRatio;
+                if (lifeRatio >= 1) return; // Skip expired pulses
+                const currentRadius = Math.max(0, ANTI_GRAVITY_RADIUS * lifeRatio);
                 const alpha = 1 - lifeRatio;
                 ctx.save();
                 ctx.strokeStyle = `rgba(255, 255, 255, ${alpha})`;
@@ -311,14 +314,15 @@
             blackHoles.forEach(hole => {
                 const age = now - hole.spawnTime;
                 const lifeRatio = age / hole.lifetime;
-                const alpha = 1 - lifeRatio;
+                if (lifeRatio >= 1) return; // Skip expired black holes
+                const alpha = Math.max(0, 1 - lifeRatio);
                 ctx.save();
                 const timeIntoDelay = now - hole.spawnTime;
                 let currentRadius = hole.radius;
-                let coreRadius = 20 * (1 - lifeRatio);
+                let coreRadius = Math.max(0, 20 * (1 - lifeRatio));
                 if (timeIntoDelay < BLACK_HOLE_DELAY) {
                     const delayProgress = timeIntoDelay / BLACK_HOLE_DELAY;
-                    currentRadius = hole.radius * delayProgress;
+                    currentRadius = Math.max(0, hole.radius * delayProgress);
                     const pulse = 1 + Math.sin(now / 100) * 0.2;
                     coreRadius = 10 * pulse;
                     ctx.beginPath();
@@ -334,10 +338,12 @@
                     ctx.fillStyle = `rgba(50, 0, 100, ${alpha * 0.2})`;
                     ctx.fill();
                 }
-                ctx.beginPath();
-                ctx.arc(hole.x, hole.y, coreRadius, 0, Math.PI * 2);
-                ctx.fillStyle = `rgba(0, 0, 0, ${alpha})`;
-                ctx.fill();
+                if (coreRadius > 0) {
+                    ctx.beginPath();
+                    ctx.arc(hole.x, hole.y, coreRadius, 0, Math.PI * 2);
+                    ctx.fillStyle = `rgba(0, 0, 0, ${alpha})`;
+                    ctx.fill();
+                }
                 ctx.restore();
             });
 
@@ -345,7 +351,8 @@
             timeFreezeZones.forEach(zone => {
                 const age = now - zone.spawnTime;
                 const lifeRatio = age / zone.lifetime;
-                const alpha = 1 - lifeRatio;
+                if (lifeRatio >= 1) return; // Skip expired zones
+                const alpha = Math.max(0, 1 - lifeRatio);
                 const pulse = 1 + Math.sin(now / 150) * 0.1;
 
                 ctx.save();
@@ -546,12 +553,15 @@
                     ctx.lineWidth = 3;
                     ctx.stroke();
                     
-                    // Inner glow effect
-                    ctx.beginPath();
-                    ctx.arc(enemy.x, enemy.y, enemy.pulseRadius - 2, 0, Math.PI * 2);
-                    ctx.strokeStyle = `rgba(255, 100, 100, ${alpha * 0.5})`;
-                    ctx.lineWidth = 2;
-                    ctx.stroke();
+                    // Inner glow effect (ensure radius never goes negative)
+                    const innerRadius = Math.max(0, enemy.pulseRadius - 2);
+                    if (innerRadius > 0) {
+                        ctx.beginPath();
+                        ctx.arc(enemy.x, enemy.y, innerRadius, 0, Math.PI * 2);
+                        ctx.strokeStyle = `rgba(255, 100, 100, ${alpha * 0.5})`;
+                        ctx.lineWidth = 2;
+                        ctx.stroke();
+                    }
                     
                     ctx.restore();
                 }
@@ -673,8 +683,8 @@
                 const age = now - explosion.startTime;
                 if (age < explosion.duration) {
                     const lifeRatio = age / explosion.duration;
-                    const currentRadius = explosion.radius * lifeRatio;
-                    const alpha = 1 - lifeRatio;
+                    const currentRadius = Math.max(0, explosion.radius * lifeRatio);
+                    const alpha = Math.max(0, 1 - lifeRatio);
                     ctx.save();
                     ctx.beginPath();
                     ctx.arc(explosion.x, explosion.y, currentRadius, 0, Math.PI * 2);
@@ -691,8 +701,8 @@
                 const age = now - nova.startTime;
                 if (age < nova.duration) {
                     const lifeRatio = age / nova.duration;
-                    const currentRadius = nova.maxRadius * lifeRatio;
-                    const alpha = 1 - lifeRatio;
+                    const currentRadius = Math.max(0, nova.maxRadius * lifeRatio);
+                    const alpha = Math.max(0, 1 - lifeRatio);
                     ctx.save();
                     ctx.strokeStyle = `rgba(255, 0, 0, ${alpha})`;
                     ctx.lineWidth = 5;
@@ -819,7 +829,7 @@
                     const jagSize = 4 * lifeRatio;
                     
                     ctx.beginPath();
-                    ctx.moveTo(segment.fromX - camera.x, segment.fromY - camera.y);
+                    ctx.moveTo(segment.fromX - finalCameraOffsetX, segment.fromY - finalCameraOffsetY);
                     
                     const dx = segment.toX - segment.fromX;
                     const dy = segment.toY - segment.fromY;
@@ -829,8 +839,8 @@
                     // Draw jagged line
                     for (let i = 1; i <= numJags; i++) {
                         const t = i / numJags;
-                        const baseX = segment.fromX + dx * t - camera.x;
-                        const baseY = segment.fromY + dy * t - camera.y;
+                        const baseX = segment.fromX + dx * t - finalCameraOffsetX;
+                        const baseY = segment.fromY + dy * t - finalCameraOffsetY;
                         
                         // Add random jitter perpendicular to line direction
                         const perpAngle = angle + Math.PI / 2;
@@ -839,7 +849,7 @@
                         ctx.lineTo(baseX + Math.cos(perpAngle) * jitter, baseY + Math.sin(perpAngle) * jitter);
                     }
                     
-                    ctx.lineTo(segment.toX - camera.x, segment.toY - camera.y);
+                    ctx.lineTo(segment.toX - finalCameraOffsetX, segment.toY - finalCameraOffsetY);
                     
                     // Style the lightning
                     ctx.strokeStyle = `rgba(0, 255, 255, ${lifeRatio * 0.9})`;
@@ -888,24 +898,21 @@
             // Render laser cannon beams
             laserCannonBeams.forEach(beam => {
                 const age = now - beam.spawnTime;
-                const alpha = 1 - (age / beam.lifetime);
+                const alpha = Math.max(0, 1 - (age / beam.lifetime));
+                if (alpha <= 0) return;
                 
                 ctx.save();
-                ctx.globalAlpha = alpha * 0.6;
+                // Draw outer glow (no shadowBlur — use thick translucent line)
+                ctx.globalAlpha = alpha * 0.3;
                 ctx.strokeStyle = '#00ff00';
-                ctx.lineWidth = 8;
+                ctx.lineWidth = 14;
                 ctx.lineCap = 'round';
-                
-                // Draw outer glow
-                ctx.shadowColor = '#00ff00';
-                ctx.shadowBlur = 15;
                 ctx.beginPath();
                 ctx.moveTo(beam.startX, beam.startY);
                 ctx.lineTo(beam.endX, beam.endY);
                 ctx.stroke();
                 
                 // Draw inner bright line
-                ctx.shadowBlur = 0;
                 ctx.globalAlpha = alpha * 0.9;
                 ctx.strokeStyle = '#88ff88';
                 ctx.lineWidth = 3;
@@ -919,7 +926,8 @@
 
             // Render laser cross - spinning blue cross beams
             if (laserCrossActive) {
-                const beamRadius = player.size * LASER_CROSS_RADIUS_MULTIPLIER;
+                const pSizeMult = player.bulletSizeMultiplier || 1;
+                const beamRadius = player.size * LASER_CROSS_RADIUS_MULTIPLIER * pSizeMult;
                 const beamAngles = [
                     laserCrossAngle,
                     laserCrossAngle + Math.PI / 2,
@@ -934,13 +942,11 @@
                     const endX = Math.cos(angle) * beamRadius;
                     const endY = Math.sin(angle) * beamRadius;
 
-                    // Draw outer glow (more transparent since always on)
-                    ctx.globalAlpha = 0.2;
+                    // Draw outer glow (no shadowBlur — use thick translucent line instead)
+                    ctx.globalAlpha = 0.15;
                     ctx.strokeStyle = '#0088ff';
-                    ctx.lineWidth = 10;
+                    ctx.lineWidth = 14 * pSizeMult;
                     ctx.lineCap = 'round';
-                    ctx.shadowColor = '#0088ff';
-                    ctx.shadowBlur = 12;
                     ctx.beginPath();
                     ctx.moveTo(0, 0);
                     ctx.lineTo(endX, endY);
@@ -949,8 +955,7 @@
                     // Draw middle layer
                     ctx.globalAlpha = 0.25;
                     ctx.strokeStyle = '#00aaff';
-                    ctx.lineWidth = 6;
-                    ctx.shadowBlur = 8;
+                    ctx.lineWidth = 6 * pSizeMult;
                     ctx.beginPath();
                     ctx.moveTo(0, 0);
                     ctx.lineTo(endX, endY);
@@ -959,8 +964,7 @@
                     // Draw inner bright core
                     ctx.globalAlpha = 0.35;
                     ctx.strokeStyle = '#88ddff';
-                    ctx.lineWidth = 3;
-                    ctx.shadowBlur = 4;
+                    ctx.lineWidth = 3 * pSizeMult;
                     ctx.beginPath();
                     ctx.moveTo(0, 0);
                     ctx.lineTo(endX, endY);
@@ -989,14 +993,18 @@
                     ctx.save();
                     ctx.translate(bolt.x, bolt.y);
                     ctx.rotate(bolt.angle + Math.PI / 2);
-                    ctx.drawImage(preRendered, -preRendered.width/2, -preRendered.height/2);
+                    const boltSize = bolt.size || LIGHTNING_SIZE;
+                    ctx.drawImage(preRendered, -boltSize/2, -boltSize/2, boltSize, boltSize);
                     ctx.restore();
                 }
             });
 
             bombs.forEach(bomb => {
                 const preRendered = preRenderedEntities['💣'];
-                if(preRendered) ctx.drawImage(preRendered, bomb.x - preRendered.width/2, bomb.y - preRendered.height/2);
+                if(preRendered) {
+                    const scaledBombSize = BOMB_SIZE * (player.bulletSizeMultiplier || 1);
+                    ctx.drawImage(preRendered, bomb.x - scaledBombSize/2, bomb.y - scaledBombSize/2, scaledBombSize, scaledBombSize);
+                }
             });
 
             // Render dynamite projectiles
@@ -1107,15 +1115,39 @@
                 if(preRendered) ctx.drawImage(preRendered, item.x - preRendered.width/2, item.y - preRendered.height/2);
             });
             eyeProjectiles.forEach(proj => {
-                const preRendered = preRenderedEntities[proj.emoji];
-                if(preRendered) {
-                    // Draw red outline like enemies have
-                    ctx.save();
-                    ctx.shadowColor = 'rgba(255, 0, 0, 0.8)';
-                    ctx.shadowBlur = 4;
-                    ctx.drawImage(preRendered, proj.x - preRendered.width/2, proj.y - preRendered.height/2);
-                    ctx.restore();
+                // Pulsing color cycle: red -> white -> yellow -> red
+                const pulsePhase = (Date.now() % 600) / 600;
+                let fillColor;
+                if (pulsePhase < 0.33) {
+                    fillColor = '#FF0000'; // Red
+                } else if (pulsePhase < 0.66) {
+                    fillColor = '#FFFFFF'; // White
+                } else {
+                    fillColor = '#FFFF00'; // Yellow
                 }
+
+                ctx.save();
+
+                // Glow ring (no shadowBlur — draw a larger translucent circle behind)
+                ctx.globalAlpha = 0.3;
+                ctx.beginPath();
+                ctx.arc(proj.x, proj.y, proj.size * 0.9, 0, Math.PI * 2);
+                ctx.fillStyle = fillColor;
+                ctx.fill();
+
+                // Plain pulsing circle
+                ctx.globalAlpha = 1;
+                ctx.beginPath();
+                ctx.arc(proj.x, proj.y, proj.size * 0.7, 0, Math.PI * 2);
+                ctx.fillStyle = fillColor;
+                ctx.fill();
+
+                // Red outline
+                ctx.strokeStyle = '#FF0000';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                ctx.restore();
             });
             
             merchants.forEach(m => {
@@ -1396,7 +1428,8 @@
                 ctx.save();
                 ctx.translate(orbitX, orbitY);
                 ctx.rotate(orbitingImageAngle);
-                ctx.drawImage(sprites.spinninglight, -ORBIT_POWER_UP_SIZE / 2, -ORBIT_POWER_UP_SIZE / 2, ORBIT_POWER_UP_SIZE, ORBIT_POWER_UP_SIZE);
+                const scaledOrbitSize = ORBIT_POWER_UP_SIZE * (player.bulletSizeMultiplier || 1);
+                ctx.drawImage(sprites.spinninglight, -scaledOrbitSize / 2, -scaledOrbitSize / 2, scaledOrbitSize, scaledOrbitSize);
                 ctx.restore();
             }
 
@@ -1408,16 +1441,17 @@
                 // Draw both books
                 for (const bookPos of levitatingBooksPositions) {
                     const preRendered = preRenderedEntities[LEVITATING_BOOKS_EMOJI];
+                    const scaledBookSize = LEVITATING_BOOKS_SIZE * (player.bulletSizeMultiplier || 1);
                     if (preRendered) {
-                        ctx.drawImage(preRendered, 
-                            bookPos.x - LEVITATING_BOOKS_SIZE / 2, 
-                            bookPos.y - LEVITATING_BOOKS_SIZE / 2, 
-                            LEVITATING_BOOKS_SIZE, 
-                            LEVITATING_BOOKS_SIZE
+                        ctx.drawImage(preRendered,
+                            bookPos.x - scaledBookSize / 2,
+                            bookPos.y - scaledBookSize / 2,
+                            scaledBookSize,
+                            scaledBookSize
                         );
                     } else {
                         // Fallback to drawing emoji directly
-                        ctx.font = `${LEVITATING_BOOKS_SIZE}px serif`;
+                        ctx.font = `${scaledBookSize}px serif`;
                         ctx.textAlign = 'center';
                         ctx.textBaseline = 'middle';
                         ctx.fillText(LEVITATING_BOOKS_EMOJI, bookPos.x, bookPos.y);
@@ -1438,12 +1472,10 @@
                 ctx.restore();
             }
 
-            // Spear rendering - brown handle with grey arrow tip
+            // Spear rendering - always visible, points in movement direction
             if (spearActive && currentSpearSwing) {
-                const swingProgress = (now - currentSpearSwing.startTime) / SPEAR_SWING_DURATION;
                 const spearSizeMult = player.projectileSizeMultiplier || 1;
-                const thrustOffset = Math.sin(swingProgress * Math.PI) * (SPEAR_LENGTH * 0.3 * spearSizeMult);
-                const currentLength = (SPEAR_HANDLE_LENGTH * spearSizeMult) + thrustOffset;
+                const currentLength = SPEAR_HANDLE_LENGTH * spearSizeMult;
                 const handleWidth = SPEAR_HANDLE_WIDTH * spearSizeMult;
                 const tipSize = SPEAR_TIP_SIZE * 2 * spearSizeMult;
 
@@ -1477,23 +1509,42 @@
                 if(preRendered) {
                     ctx.drawImage(preRendered, catAlly.x - preRendered.width/2, catAlly.y - preRendered.height/2);
                     
-                    // Draw carried item above cat if carrying something
+                    // Draw carried item - visually looks like cat is carrying it
                     if (catAlly.carriedItem) {
                         let carriedEmoji = '💎';
                         if (catAlly.carriedItem.type === 'apple') carriedEmoji = '🍎';
-                        else if (catAlly.carriedItem.type === 'box') carriedEmoji = '📦';
+                        else if (catAlly.carriedItem.type === 'box') carriedEmoji = ''; // Hide powerup box when carried
                         else if (catAlly.carriedItem.type === 'xp') {
-                            // Show appropriate XP emoji based on value
                             if (catAlly.carriedItem.xpValue >= DEMON_XP_VALUE) carriedEmoji = DEMON_XP_EMOJI;
                             else if (catAlly.carriedItem.xpValue >= RING_SYMBOL_XP_VALUE) carriedEmoji = RING_SYMBOL_EMOJI;
                             else if (catAlly.carriedItem.xpValue >= DIAMOND_XP_VALUE) carriedEmoji = DIAMOND_EMOJI;
                             else carriedEmoji = COIN_EMOJI;
                         }
-                        
-                        ctx.font = '14px sans-serif';
-                        ctx.textAlign = 'center';
-                        ctx.textBaseline = 'middle';
-                        ctx.fillText(carriedEmoji, catAlly.x, catAlly.y - catAlly.size);
+
+                        // Only render if there's an actual emoji to show (skip for powerup boxes)
+                        if (carriedEmoji) {
+                            // Bobbing animation so item looks alive while being carried
+                            const bobOffset = Math.sin(Date.now() / 100) * 3;
+                            const carryX = catAlly.x + (catAlly.size * 0.3);
+                            const carryY = catAlly.y - (catAlly.size * 0.3) + bobOffset;
+
+                            // Draw connection line to show it's being held
+                            ctx.beginPath();
+                            ctx.moveTo(catAlly.x, catAlly.y - catAlly.size * 0.2);
+                            ctx.lineTo(carryX, carryY);
+                            ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+                            ctx.lineWidth = 2;
+                            ctx.stroke();
+
+                            // Draw the item with drop shadow for visibility
+                            ctx.font = 'bold 16px sans-serif';
+                            ctx.textAlign = 'center';
+                            ctx.textBaseline = 'middle';
+                            ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+                            ctx.fillText(carriedEmoji, carryX + 1, carryY + 1);
+                            ctx.fillStyle = 'white';
+                            ctx.fillText(carriedEmoji, carryX, carryY);
+                        }
                     }
                 }
             }
@@ -1720,7 +1771,8 @@
                 ctx.translate(axeX, axeY);
                 ctx.rotate(whirlwindAxeAngle + Math.PI / 2);
                 const preRendered = preRenderedEntities['🪓'];
-                if(preRendered) ctx.drawImage(preRendered, -preRendered.width/2, -preRendered.height/2);
+                const scaledAxeSize = WHIRLWIND_AXE_SIZE * (player.bulletSizeMultiplier || 1);
+                if(preRendered) ctx.drawImage(preRendered, -scaledAxeSize / 2, -scaledAxeSize / 2, scaledAxeSize, scaledAxeSize);
                 ctx.restore();
             }
             lightningStrikes.forEach(strike => {
@@ -1761,6 +1813,7 @@
 
             // Render visual warnings (boss warnings, etc.)
             visualWarnings.forEach(vw => {
+                if (!vw.text) return; // Skip if no text defined
                 const elapsed = now - vw.startTime;
                 const alpha = 1.0 - (elapsed / vw.duration);
                 ctx.save();
@@ -1819,15 +1872,13 @@
             if (isMouseInCanvas && gameActive && sprites.crosshair && !document.body.classList.contains('is-mobile')) {
                 const reticleSize = 24;
                 ctx.save();
-                // Orange-red circle glow behind the crosshair sprite
+                // Orange-red circle glow behind the crosshair sprite (no shadowBlur)
                 ctx.globalAlpha = 0.4;
                 ctx.fillStyle = '#ff5500';
                 ctx.beginPath();
-                ctx.arc(mouseX, mouseY, reticleSize / 2, 0, Math.PI * 2);
+                ctx.arc(mouseX, mouseY, reticleSize / 2 + 4, 0, Math.PI * 2);
                 ctx.fill();
                 ctx.globalAlpha = 1;
-                ctx.shadowColor = '#ff5500';
-                ctx.shadowBlur = 12;
                 ctx.drawImage(sprites.crosshair, mouseX - reticleSize / 2, mouseY - reticleSize / 2, reticleSize, reticleSize);
                 ctx.restore();
             }

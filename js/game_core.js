@@ -30,8 +30,135 @@
     merchants.push({ x: x, y: y, size: 40 }); 
     console.log(`A new merchant has appeared! Total merchants: ${merchants.length}`);
 }
-        
 
+// BOX cheat: Spawn all available power-up boxes around the player (debug/testing)
+function spawnAllPowerupBoxes() {
+    if (!gameActive || !player) return;
+
+    const boxSize = 30;
+    const radius = 150; // Spawn in a circle around player
+    const unlocked = playerData.unlockedPickups;
+    const powerUpChoices = [];
+
+    // Build list of all available powerups
+    if (vShapeProjectileLevel < 4 && !shotgunBlastActive) powerUpChoices.push({id: 'v_shape_projectile', name: 'V-Shape Shots', label: 'VSH'});
+    if (!magneticProjectileActive) powerUpChoices.push({id: 'magnetic_projectile', name: 'Magnetic Shots', label: 'MAG'});
+    if (!iceProjectileActive) powerUpChoices.push({id: 'ice_projectile', name: 'Ice Projectiles', label: 'ICE'});
+    if (!ricochetActive) powerUpChoices.push({id: 'ricochet', name: 'Ricochet Shots', label: 'RIC'});
+    if (!explosiveBulletsActive) powerUpChoices.push({id: 'explosive_bullets', name: 'Explosive Bullets', label: 'EXP'});
+    if (!puddleTrailActive) powerUpChoices.push({id: 'puddle_trail', name: 'Slime Trail', label: 'SLM'});
+    if (!player.swordActive) powerUpChoices.push({id: 'sword', name: 'Auto-Sword', label: 'SWD'});
+    if (!spearActive) powerUpChoices.push({id: 'spear', name: 'Spear', label: 'SPR'});
+    if (!laserPointerActive) powerUpChoices.push({id: 'laser_pointer', name: 'Laser Pointer', label: 'LSR'});
+    if (!flamethrowerActive) powerUpChoices.push({id: 'flamethrower', name: 'Flamethrower', label: 'FLM'});
+    if (!laserCannonActive) powerUpChoices.push({id: 'laser_cannon', name: 'Laser Cannon', label: 'LCN'});
+    if (!laserCrossActive) powerUpChoices.push({id: 'laser_cross', name: 'Laser Cross', label: 'LCR'});
+    if (!autoAimActive) powerUpChoices.push({id: 'auto_aim', name: 'Auto-Aim', label: 'AIM'});
+    if (!dualGunActive) powerUpChoices.push({id: 'dual_gun', name: 'Dual Gun', label: 'DUL'});
+    if (!dualRevolversActive) powerUpChoices.push({id: 'dual_revolvers', name: 'Dual Revolvers', label: 'REV'});
+    if (!bombEmitterActive) powerUpChoices.push({id: 'bomb', name: 'Bomb Emitter', label: 'BMB'});
+    if (!orbitingPowerUpActive) powerUpChoices.push({id: 'orbiter', name: 'Spinning Orbiter', label: 'ORB'});
+    if (!levitatingBooksActive) powerUpChoices.push({id: 'levitating_books', name: 'Levitating Books', label: 'BKS'});
+    if (!lightningProjectileActive) powerUpChoices.push({id: 'lightning_projectile', name: 'Lightning Projectile', label: 'LTN'});
+    if (!bugSwarmActive) powerUpChoices.push({id: 'bug_swarm', name: 'Bug Swarm', label: 'BUG'});
+    if (!peaShooterActive) powerUpChoices.push({id: 'pea_shooter', name: 'Pea Shooter', label: 'PEA'});
+    if (!lightningStrikeActive) powerUpChoices.push({id: 'lightning_strike', name: 'Lightning Strike', label: 'STK'});
+    if (unlocked.shotgun && !shotgunActive) powerUpChoices.push({id: 'shotgun', name: 'Shotgun', label: 'SGN'});
+    if (unlocked.ice_cannon && !iceCannonActive) powerUpChoices.push({id: 'ice_cannon', name: 'Ice Cannon', label: 'ICE'});
+    if (unlocked.dynamite && !dynamiteActive) powerUpChoices.push({id: 'dynamite', name: 'Dynamite', label: 'DYN'});
+    if (unlocked.pistol && !player._hasPistol && equippedCharacterID !== 'cowboy') powerUpChoices.push({id: 'pistol', name: 'Pistol', label: 'PST'});
+    if (unlocked.bone_shot && !boneShotActive) powerUpChoices.push({id: 'bone_shot', name: 'Bone Shot', label: 'BON'});
+    if (!hasDashInvincibility) powerUpChoices.push({id: 'dash_invincibility', name: 'Dash Invincibility', label: 'DSH'});
+    if (!playerData.hasReducedDashCooldown) powerUpChoices.push({id: 'dash_cooldown', name: 'Dash Cooldown', label: 'CDN'});
+    if (unlocked.doppelganger && !doppelgangerActive) powerUpChoices.push({id: 'doppelganger', name: 'Doppelganger', label: 'DOP'});
+    if (unlocked.temporal_ward && !temporalWardActive) powerUpChoices.push({id: 'temporal_ward', name: 'Temporal Ward', label: 'TME'});
+    if (unlocked.circle && !damagingCircleActive) powerUpChoices.push({id:'circle', name: 'Damaging Circle', label: 'CIR'});
+    if (unlocked.vengeance_nova && !vengeanceNovaActive) powerUpChoices.push({id: 'vengeance_nova', name: 'Vengeance Nova', label: 'VNG'});
+    if (unlocked.dodge_nova && !dodgeNovaActive) powerUpChoices.push({id: 'dodge_nova', name: 'Dodge Nova', label: 'DNV'});
+    if (unlocked.dog_companion && !dogCompanionActive) powerUpChoices.push({id: 'dog_companion', name: 'Dog Companion', label: 'DOG'});
+    if (unlocked.cat_ally && !catAllyActive) powerUpChoices.push({id: 'cat_ally', name: 'Cat Ally', label: 'CAT'});
+    if (unlocked.anti_gravity && !antiGravityActive) powerUpChoices.push({id: 'anti_gravity', name: 'Anti-Gravity', label: 'AGV'});
+    if (unlocked.rocket_launcher && !rocketLauncherActive && !shotgunBlastActive) powerUpChoices.push({id: 'rocket_launcher', name: 'Heavy Shells', label: 'RKT'});
+    if (unlocked.black_hole && !blackHoleActive) powerUpChoices.push({id: 'black_hole', name: 'Black Hole', label: 'BLK'});
+    if (unlocked.time_freeze && !timeFreezeActive) powerUpChoices.push({id: 'time_freeze', name: 'Time Freeze', label: 'FRZ'});
+    if (unlocked.flaming_bullets && !flamingBulletsActive) powerUpChoices.push({id: 'flaming_bullets', name: 'Flaming Bullets', label: 'FIR'});
+    if (unlocked.night_owl && !nightOwlActive) powerUpChoices.push({id: 'night_owl', name: 'Night Owl', label: 'OWL'});
+    if (unlocked.whirlwind_axe && !whirlwindAxeActive) powerUpChoices.push({id: 'whirlwind_axe', name: 'Whirlwind Axe', label: 'AXE'});
+    if (unlocked.robot_drone && !robotDroneActive) powerUpChoices.push({id: 'robot_drone', name: 'Robot Drone', label: 'RBT'});
+    if (unlocked.boomerang && !boomerangActive) powerUpChoices.push({id: 'boomerang', name: 'Boomerang', label: 'BMG'});
+    if (unlocked.chain_lightning && !chainLightningActive) powerUpChoices.push({id: 'chain_lightning', name: 'Chain Lightning', label: 'CHN'});
+    if (unlocked.flying_turret && !flyingTurretActive && !turretActive) powerUpChoices.push({id: 'flying_turret', name: 'Flying Turret', label: 'FTR'});
+    if (!turretActive && !flyingTurretActive) powerUpChoices.push({id: 'turret', name: 'Turret', label: 'TRT'});
+    if (!stoneGlareActive) powerUpChoices.push({id: 'stone_glare', name: 'Stone Glare', label: 'STN'});
+
+    // Spawn boxes in a circle around the player
+    const count = powerUpChoices.length;
+    for (let i = 0; i < count; i++) {
+        const angle = (i / count) * 2 * Math.PI;
+        const x = player.x + Math.cos(angle) * radius;
+        const y = player.y + Math.sin(angle) * radius;
+
+        const pickup = {
+            x: Math.max(20, Math.min(WORLD_WIDTH - 20, x)),
+            y: Math.max(20, Math.min(WORLD_HEIGHT - 20, y)),
+            size: boxSize,
+            type: 'box',
+            xpValue: 0,
+            spawnTime: Date.now(),
+            glimmerStartTime: Date.now() + Math.random() * 2000,
+            powerupId: powerUpChoices[i].id,
+            powerupName: powerUpChoices[i].name,
+            powerupLabel: powerUpChoices[i].label
+        };
+        pickupItems.push(pickup);
+    }
+
+    // Show feedback
+    floatingTexts.push({
+        text: `BOX CHEAT: ${count} boxes spawned!`,
+        x: player.x,
+        y: player.y - player.size - 30,
+        startTime: Date.now(),
+        duration: 2000,
+        color: '#FFD700'
+    });
+}
+
+// GOD cheat: Unlock all upgrades and max out everything in the upgrade shop
+function activateGodMode() {
+    // Max out all permanent upgrades
+    for (const key in PERMANENT_UPGRADES) {
+        playerData.upgrades[key] = PERMANENT_UPGRADES[key].maxLevel;
+    }
+
+    // Unlock all unlockable pickups
+    for (const key in UNLOCKABLE_PICKUPS) {
+        playerData.unlockedPickups[key] = true;
+    }
+
+    // Special flags
+    playerData.hasReducedDashCooldown = true;
+
+    savePlayerData();
+
+    // Update music player button visibility
+    if (typeof updateMusicPlayerButton === 'function') updateMusicPlayerButton();
+
+    // Show feedback (use floating text if in game, alert otherwise)
+    const message = "GOD MODE ACTIVATED! All upgrades maxed and all items unlocked!";
+    if (gameActive && player) {
+        floatingTexts.push({
+            text: "GOD MODE ACTIVATED!",
+            x: player.x,
+            y: player.y - player.size - 50,
+            startTime: Date.now(),
+            duration: 3000,
+            color: '#FF0000',
+            fontSize: 16
+        });
+    }
+    console.log(message);
+}
 
         // ================================================================================= //
         // ======================= OPTIMIZATION: QUADTREE IMPLEMENTATION =================== //
@@ -162,6 +289,7 @@
                     window.hasLoadedOnce = true;
                 }, 3000);
             } else {
+                if (typeof updateMusicPlayerButton === 'function') updateMusicPlayerButton();
                 difficultyContainer.style.display = 'block';
                 startMainMenuBGM();
             }
@@ -180,6 +308,7 @@
             function endIntro() {
                 video.pause();
                 overlay.style.display = 'none';
+                if (typeof updateMusicPlayerButton === 'function') updateMusicPlayerButton();
                 difficultyContainer.style.display = 'block';
                 startMainMenuBGM();
                 overlay.removeEventListener('click', endIntro);
@@ -534,13 +663,13 @@ let doppelganger = null;
         let peas = []; // Array of pea projectiles
         let lastPeaShootTime = 0;
         let peaShooterSpinAngle = 0; // Current rotation angle for wheel pattern
-        const PEA_SHOOT_INTERVAL = 100; // Shoot every 0.1 seconds
+        const PEA_SHOOT_INTERVAL = 200; // Shoot every 0.2 seconds (half as frequent)
         const PEA_SPIN_SPEED = 2.0; // How fast the wheel spins (radians per second)
         const PEA_DAMAGE = 0.1;
         const PEA_SPEED = 5;
         const PEA_SIZE = 8;
-        const PEA_LIFETIME = 3000; // 3 seconds before disappearing
-        const PEA_SPIN_SPOKES = 8; // Number of peas per full rotation (wheel spokes)
+        const PEA_LIFETIME = 1500; // 1.5 seconds before disappearing (was 3s)
+        const PEA_SPIN_SPOKES = 1; // Single pea creating one spinning arc (was 8 spokes)
 
         let nightOwlActive = false;
         let owl = null; 
@@ -650,10 +779,11 @@ let doppelganger = null;
         let enemies = [];
         
         // OPTIMIZATION: WEAPON OBJECT POOL
-        const MAX_WEAPONS = 500;
+        // Increased to 1200 to handle many simultaneous powerups without exhaustion
+        const MAX_WEAPONS = 1200;
         const weaponPool = [];
         for (let i = 0; i < MAX_WEAPONS; i++) {
-            weaponPool.push({ active: false, hitEnemies: [] });
+            weaponPool.push({ active: false, hitEnemies: new Set() });
         }
         
         let bombs = [];
@@ -735,16 +865,16 @@ let doppelganger = null;
         let laserCrossActive = false;
         let laserCrossAngle = 0;
         let laserCrossLastDamageTime = 0;
-        const LASER_CROSS_DAMAGE = 0.5;
+        const LASER_CROSS_DAMAGE = 0.3;
         const LASER_CROSS_RADIUS_MULTIPLIER = 4; // 4x player size
         const LASER_CROSS_ROTATION_SPEED = Math.PI / 3; // One full revolution every 6 seconds (1/3 original speed)
         const LASER_CROSS_DAMAGE_INTERVAL = 200; // Damage each enemy every 200ms
         const LASER_CROSS_BEAM_WIDTH = 6;
 
         // Stone Glare powerup - creates a cone that slows enemies
-        const STONE_GLARE_RANGE = 250; // Range of the cone
+        const STONE_GLARE_RANGE = 167; // Range of the cone (2/3 of original 250)
         const STONE_GLARE_ANGLE = Math.PI / 3; // 60 degree cone
-        const STONE_GLARE_SLOW_FACTOR = 0.7; // 30% slow (enemies move at 70% speed)
+        const STONE_GLARE_SLOW_FACTOR = 0.4; // 60% slow (enemies move at 40% speed when petrified)
         let stoneGlareActive = false;
 
         // Robot Drone powerup
@@ -1275,7 +1405,19 @@ function handleGamepadInput() {
                 savePlayerData();
                 floatingTexts.push({ text: "+5000 Coins!", x: player.x, y: player.y - player.size, startTime: Date.now(), duration: 2000, color: '#FFD700' });
             }
-            
+
+            // BOX cheat: B+O+X keys spawn all power-up boxes around player (debug/testing)
+            if ((keys['b'] || keys['B']) && (keys['o'] || keys['O']) && (keys['x'] || keys['X'])) {
+                if (gameActive && !gameOver && !gamePaused) {
+                    spawnAllPowerupBoxes();
+                }
+            }
+
+            // GOD cheat: G+O+D keys unlock all upgrades and max out shop (works on any menu)
+            if ((keys['g'] || keys['G']) && (keys['o'] || keys['O']) && (keys['d'] || keys['D'])) {
+                activateGodMode();
+            }
+
             if (e.key === 'Insert' && gameActive && !gameOver && !gamePaused) {
                 if (player.lives > 1 && (!player2 || !player2.active)) {
                     player.lives--;
@@ -1875,7 +2017,7 @@ document.body.addEventListener('touchstart', (e) => {
             '😈': { size: 20 * 0.8, baseHealth: 3, speedMultiplier: 1.84, type: 'devil', minLevel: 12, initialProps: () => ({ moveAxis: 'x', lastAxisSwapTime: Date.now() }) }, 
             '👹': { size: 28 * 0.7, baseHealth: 4, speedMultiplier: 1.8975, type: 'demon', minLevel: 15, initialProps: () => ({ moveState: 'following', lastStateChangeTime: Date.now(), randomDx: 0, randomDy: 0 }) },
             '👻': { size: 22, baseHealth: 4, speedMultiplier: 1.2, type: 'ghost', minLevel: 12, initialProps: () => ({ isVisible: true, lastPhaseChange: Date.now(), phaseDuration: 3000, bobOffset: 0 }) },
-            '👁️': { size: 25 * 0.6, baseHealth: 4, speedMultiplier: 1.1 * 1.1, type: 'eye', minLevel: 20, initialProps: () => ({ lastEyeProjectileTime: Date.now() }) },
+            '👁️': { size: 25 * 0.6, baseHealth: 4, speedMultiplier: 1.1 * 1.1, type: 'eye', minLevel: 20, spawnWeight: 0.5, initialProps: () => ({ lastEyeProjectileTime: Date.now() }) },
             '🧞': { size: 24, baseHealth: 8, speedMultiplier: 0.4, type: 'genie', minLevel: 25, spawnWeight: 0.3, initialProps: () => ({ gravityRadius: 80, gravityStrength: 0.15 }) },
             '🧛‍♀️': { size: 20, baseHealth: 5, speedMultiplier: 1.2, type: 'vampire', minLevel: 30 },
             '👾': { size: 22, baseHealth: 1.5, speedMultiplier: 0.9, type: 'invader', minLevel: 2, spawnWeight: 0.05, initialProps: () => ({ zigzagPhase: 0 }) },
@@ -2519,7 +2661,7 @@ function createBoss() {
                             weapon.hitsLeft = rocketLauncherActive ? 3 : (ricochetActive ? 2 : 1);
                             weapon._isBoneShot = false;
                         }
-                        weapon.hitEnemies.length = 0; // Clear the hit list
+                        weapon.hitEnemies.clear(); // Clear the hit list
                         weapon.owner = (shooter === player) ? 'player' : 'other';
                         weapon.active = true;
                         if (weapon.owner === 'player' && typeof runStats !== 'undefined') {
@@ -2595,7 +2737,7 @@ function createBoss() {
                     weapon.dy = Math.sin(player2.gunAngle) * weapon.speed;
                     weapon.lifetime = Date.now() + 2000;
                     weapon.hitsLeft = 1;
-                    weapon.hitEnemies.length = 0;
+                    weapon.hitEnemies.clear();
                     weapon.active = true;
                     break; // Only fire one bullet
                 }
@@ -2607,11 +2749,13 @@ function createBoss() {
         const MAX_BLOOD_PUDDLES = 30;
 
         function createBloodSplatter(x, y) {
+            // Skip if way over cap to prevent burst creation from flooding
+            if (bloodSplatters.length >= MAX_BLOOD_SPLATTERS + 20) return;
             // Remove oldest splatters if at cap
             if (bloodSplatters.length >= MAX_BLOOD_SPLATTERS) {
-                bloodSplatters.splice(0, 6); // Remove oldest batch
+                bloodSplatters.splice(0, 4); // Remove oldest batch
             }
-            const particleCount = 6;
+            const particleCount = 4;
             const speed = 2 + Math.random() * 2;
             for (let i = 0; i < particleCount; i++) {
                 const angle = (i / particleCount) * Math.PI * 2;
@@ -2772,19 +2916,29 @@ if (firstCard) {
             }, { once: true });
         }
 
+        // Frame counter for throttling UI updates (100ms = ~6 frames at 60fps)
+        let _uiUpdateFrame = 0;
+        let _lastTimerSecond = -1;
+
         function updateUIStats() {
-            // Update timer display (accounts for paused time)
+            _uiUpdateFrame = (_uiUpdateFrame + 1) % 6; // Every 6th frame (~100ms)
+            const isThrottledUpdate = _uiUpdateFrame === 0;
+            const now = Date.now();
+
+            // Timer: only update when the displayed second changes (not every frame)
             if (gameTimerSpan && gameActive && gameStartTime) {
-                let elapsedMs = Date.now() - gameStartTime - gameTimeOffset;
-                // If currently paused, don't count time since pause started
+                let elapsedMs = now - gameStartTime - gameTimeOffset;
                 if (gamePaused && gameTimePausedAt > 0) {
                     elapsedMs = gameTimePausedAt - gameStartTime - gameTimeOffset;
                 }
                 const totalSeconds = Math.floor(elapsedMs / 1000);
-                const minutes = Math.floor(totalSeconds / 60);
-                const seconds = totalSeconds % 60;
-                const timeStr = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-                gameTimerSpan.textContent = timeStr;
+                // Only update DOM when the second changes
+                if (totalSeconds !== _lastTimerSecond) {
+                    _lastTimerSecond = totalSeconds;
+                    const minutes = Math.floor(totalSeconds / 60);
+                    const seconds = totalSeconds % 60;
+                    gameTimerSpan.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                }
             }
 
             const oldLevel = currentLevelSpan.textContent;
@@ -2808,25 +2962,39 @@ if (firstCard) {
                 currentXpSpan.textContent = newXp;
                 triggerAnimation(currentXpSpan, 'stat-updated');
             }
-            
+
             const oldRequiredXp = requiredXpSpan.textContent;
             const newRequiredXp = player.xpToNextLevel;
             if(oldRequiredXp !== newRequiredXp.toString()){ requiredXpSpan.textContent = newRequiredXp; }
-            
+
             const oldScore = currentScoreSpan.textContent;
             const newScore = Math.floor(score);
             if(oldScore !== newScore.toString()){ currentScoreSpan.textContent = newScore; }
-            
-            if (appleCounterSpan) appleCounterSpan.textContent = player.appleCount;
-            if (coinCounterSpan) coinCounterSpan.textContent = player.coins;
-            if (xpBar) xpBar.style.width = `${(player.xp / player.xpToNextLevel) * 100}%`;
+
+            // Throttled updates: apple/coin counters and XP bar (every ~100ms is plenty for visual feedback)
+            if (isThrottledUpdate) {
+                if (appleCounterSpan) {
+                    const oldApples = appleCounterSpan.textContent;
+                    const newApples = String(player.appleCount);
+                    if (oldApples !== newApples) appleCounterSpan.textContent = newApples;
+                }
+                if (coinCounterSpan) {
+                    const oldCoins = coinCounterSpan.textContent;
+                    const newCoins = String(player.coins);
+                    if (oldCoins !== newCoins) coinCounterSpan.textContent = newCoins;
+                }
+                if (xpBar) xpBar.style.width = `${(player.xp / player.xpToNextLevel) * 100}%`;
+            }
         }
 
         
+        // Cache for powerup icon state to avoid unnecessary DOM rebuilds
+        let _lastPowerupSignature = '';
+
         function updatePowerupIconsUI() {
-            powerupIconsDiv.innerHTML = '';
+            // Build a signature string of all active powerups - much faster than building DOM
             const icons = [];
-            
+
             // Weapon modifiers (mutually exclusive)
             if (shotgunBlastActive) {
                 icons.push('💥');
@@ -2834,7 +3002,7 @@ if (firstCard) {
                 if (rocketLauncherActive) icons.push('🚀');
                 if (vShapeProjectileLevel > 0) icons.push(`🕊️${vShapeProjectileLevel > 1 ? `x${vShapeProjectileLevel}` : ''}`);
             }
-            
+
             // Companions and targeting
             if (dogCompanionActive && catAllyActive && autoAimActive) {
                 icons.push('🐶🐱🎯');
@@ -2849,7 +3017,7 @@ if (firstCard) {
                 if (catAllyActive) icons.push('🐱');
                 if (autoAimActive) icons.push('🎯');
             }
-            
+
             // Bullet modifiers
             if (magneticProjectileActive) icons.push('🧲');
             if (iceProjectileActive) icons.push('❄️');
@@ -2858,12 +3026,12 @@ if (firstCard) {
             if (flamingBulletsActive) icons.push('🔥');
             if (flamethrowerActive) icons.push('🔥💨');
             if (boneShotActive) icons.push('🦴');
-            
+
             // Melee weapons
             if (player.swordActive) icons.push('🗡️');
             if (spearActive) icons.push('🔘');
             if (whirlwindAxeActive) icons.push('🪓');
-            
+
             // Projectile weapons
             if (dualGunActive) icons.push('🔫');
             if (dualRevolversActive) icons.push('🔫🔫');
@@ -2878,7 +3046,7 @@ if (firstCard) {
             if (iceCannonActive) icons.push('❄️❄️');
             if (dynamiteActive) icons.push('🧨');
             if (player._hasPistol) icons.push('🔫');
-            
+
             // Area effects
             if (orbitingPowerUpActive) icons.push('💫');
             if (levitatingBooksActive) icons.push('📖');
@@ -2889,7 +3057,7 @@ if (firstCard) {
             if (antiGravityActive) icons.push('💨');
             if (turretActive) icons.push('🏛️');
             if (flyingTurretActive) icons.push('🏛️🪽');
-            
+
             // Companions
             if (nightOwlActive) icons.push('🦉');
             if (bugSwarmActive) icons.push('🪰');
@@ -2904,23 +3072,43 @@ if (firstCard) {
             if (hasDashInvincibility) icons.push('🛡️💨');
             if (laserPointerActive) icons.push('🔴');
             if (stoneGlareActive) icons.push('👁️');
-            
-            // Render all icons
+
+            // Check if powerup state changed - skip DOM rebuild if same
+            const signature = icons.join('|');
+            if (signature === _lastPowerupSignature) return; // No change, skip expensive DOM ops
+            _lastPowerupSignature = signature;
+
+            // Only rebuild DOM if state actually changed
+            powerupIconsDiv.innerHTML = '';
             icons.forEach(icon => {
                 const span = document.createElement('span');
                 span.textContent = icon;
                 powerupIconsDiv.appendChild(span);
             });
-            
-            if (powerupIconsDiv.scrollHeight > powerupIconsDiv.clientHeight) { 
-                powerupIconsDiv.classList.add('small-icons'); 
-            } else { 
-                powerupIconsDiv.classList.remove('small-icons'); 
+
+            if (powerupIconsDiv.scrollHeight > powerupIconsDiv.clientHeight) {
+                powerupIconsDiv.classList.add('small-icons');
+            } else {
+                powerupIconsDiv.classList.remove('small-icons');
             }
         }
 
         
+        // Cache for upgrade stats to avoid unnecessary DOM rebuilds
+        let _lastUpgradeStatsSignature = '';
+
         function updateUpgradeStatsUI() {
+            // Build a signature from all upgrade levels
+            const entries = Object.entries(player.upgradeLevels);
+            const signature = entries
+                .filter(([_, level]) => level > 0)
+                .map(([type, level]) => `${type}:${level}`)
+                .join(',');
+
+            // Skip DOM rebuild if signature hasn't changed
+            if (signature === _lastUpgradeStatsSignature) return;
+            _lastUpgradeStatsSignature = signature;
+
             upgradeStatsDiv.innerHTML = '';
             const upgradeNames = {
                 speed: 'SPD', fireRate: 'FR', magnetRadius: 'MAG',
@@ -3482,6 +3670,7 @@ async function startGame() {
             stopBGM();
             startMainMenuBGM();
             displayHighScores();
+            if (typeof updateMusicPlayerButton === 'function') updateMusicPlayerButton();
             if (difficultyContainer) difficultyContainer.style.display = 'block';
             if (canvas) canvas.style.cursor = 'default';
             isMouseInCanvas = false; cameraZoom = 1.0;
@@ -3543,6 +3732,10 @@ async function startGame() {
             if (!gameSpeedUnlocked) return; // Can't toggle if not unlocked
             gameSpeedLevel = (gameSpeedLevel + 1) % GAME_SPEED_LEVELS.length;
             gameTimeScale = GAME_SPEED_LEVELS[gameSpeedLevel];
+            // Reset the speed accumulator to prevent timing issues when switching to/from 0.5x
+            if (typeof _gameSpeedAccumulator !== 'undefined') {
+                _gameSpeedAccumulator = 0;
+            }
             if (gameSpeedButton) {
                 const speedLabel = gameTimeScale === 0.5 ? '0.5x' : `${gameTimeScale}x`;
                 gameSpeedButton.textContent = `Speed: ${speedLabel}`;
@@ -3552,9 +3745,10 @@ async function startGame() {
         }
         
         function triggerDash(entity) {
+            if (!entity) return;
             const now = Date.now();
             const effectiveCooldown = (cheats.infinite_stamina && entity === player) ? 0 : entity.dashCooldown;
-            if (!entity || entity.isDashing || now - entity.lastDashTime < effectiveCooldown) {
+            if (entity.isDashing || now - entity.lastDashTime < effectiveCooldown) {
                 return;
             }
             entity.isDashing = true;
@@ -3580,7 +3774,7 @@ async function startGame() {
                             w.dy = Math.sin(angle) * novaBulletSpeed;
                             w.lifetime = now + 1500;
                             w.hitsLeft = 1;
-                            w.hitEnemies.length = 0;
+                            w.hitEnemies.clear();
                             w.owner = 'player';
                             w.active = true;
                             w._isDodgeNova = true;
@@ -3602,7 +3796,7 @@ async function startGame() {
             const numEnemies = 24;
             const radius = Math.min(canvas.width, canvas.height);
             const enemyType = Math.random() < 0.5 ? '🧟' : '💀';
-            visualWarnings.push({ x: player.x, y: player.y, radius: radius, spawnTime: Date.now(), duration: 2000 });
+            visualWarnings.push({ text: 'ENCIRCLEMENT!', x: player.x, y: player.y, radius: radius, spawnTime: Date.now(), duration: 2000 });
             setTimeout(() => {
                 for (let i = 0; i < numEnemies; i++) {
                     const angle = (i / numEnemies) * 2 * Math.PI;

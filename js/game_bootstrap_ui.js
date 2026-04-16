@@ -518,9 +518,18 @@ window.onload = function() {
   }
 
   // Check if music player is unlocked and show button
-  function updateMusicPlayerButton() {
+  window.updateMusicPlayerButton = function updateMusicPlayerButton() {
+    console.log('[Music Player] updateMusicPlayerButton called');
+    console.log('[Music Player] musicPlayerButton:', musicPlayerButton);
+    console.log('[Music Player] playerData:', playerData);
+    console.log('[Music Player] unlockedPickups:', playerData?.unlockedPickups);
+    console.log('[Music Player] music_player unlocked:', playerData?.unlockedPickups?.music_player);
+    
     if (musicPlayerButton && playerData.unlockedPickups && playerData.unlockedPickups.music_player) {
       musicPlayerButton.classList.add('unlocked');
+      console.log('[Music Player] Button shown - unlocked class added');
+    } else {
+      console.log('[Music Player] Button NOT shown - conditions not met');
     }
   }
 
