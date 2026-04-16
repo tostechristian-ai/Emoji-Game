@@ -2550,6 +2550,21 @@
             contain: layout style paint;
             min-width: max-content;
         }
+        
+        /* Portrait mode: bound canvas to box to prevent stretching */
+        body.is-mobile canvas {
+            object-fit: contain;
+            width: 100%;
+            height: 100%;
+        }
+        
+        /* Portrait mode: UI half size */
+        body.is-mobile #gameStatsWrapper {
+            transform: scale(0.5);
+            transform-origin: top left;
+            top: 15px;
+            left: 4px;
+        }
     }
 
     body.is-mobile #powerupIcons,
