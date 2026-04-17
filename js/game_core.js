@@ -1508,7 +1508,8 @@ function handleGamepadInput() {
                     const playerScreenY = player.y - cameraOffsetY;
                     const clickAngle = Math.atan2(mouseY - playerScreenY, mouseX - playerScreenX);
                     createWeapon(player, clickAngle);
-                    lastWeaponFireTime = Date.now();
+                    // Use virtual time to match update() loop timing
+                    lastWeaponFireTime = (typeof update !== 'undefined' && update._virtualTime) ? update._virtualTime : Date.now();
                 } else {
                     triggerDash(player);
                 }
@@ -2701,13 +2702,15 @@ function createBoss() {
                         weapon.dx = Math.cos(angle) * weapon.speed;
                         weapon.dy = Math.sin(angle) * weapon.speed;
                         // Bone shots: 5 second lifetime, piercing (999 hits), marked with _isBoneShot
+                        // Use virtual time for lifetime so it scales with game speed
+                        const virtualNow = (typeof update !== 'undefined' && update._virtualTime) ? update._virtualTime : Date.now();
                         if (isBoneShot) {
-                            weapon.lifetime = Date.now() + 5000; // 5 seconds
+                            weapon.lifetime = virtualNow + 5000; // 5 seconds
                             weapon.hitsLeft = 999; // Piercing
                             weapon._isBoneShot = true;
                             weapon._boneDamage = 1; // Fixed 1 damage
                         } else {
-                            weapon.lifetime = Date.now() + 2000;
+                            weapon.lifetime = virtualNow + 2000;
                             weapon.hitsLeft = rocketLauncherActive ? 3 : (ricochetActive ? 2 : 1);
                             weapon._isBoneShot = false;
                         }
@@ -2753,7 +2756,7 @@ function createBoss() {
                 if(cheats.double_game_speed) currentInterval /= 2;
                 currentInterval = Math.max(50, currentInterval);
                 // Second shot fires at half the current fire interval (staggered fire pattern)
-                pendingRevolverShot = { angles: [...angles], fireAt: Date.now() + (currentInterval * 0.5) };
+                pendingRevolverShot = { angles: [...angles], fireAt: (typeof update !== 'undefined' && update._virtualTime ? update._virtualTime : Date.now()) + (currentInterval * 0.5) };
             }
 
             if (shooter === player) {
@@ -3766,10 +3769,8 @@ async function startGame() {
                 if (gameTimePausedAt > 0) {
                     const pauseDuration = Date.now() - gameTimePausedAt;
                     gameTimeOffset += pauseDuration;
-                    // Extend fire rate boost end time by pause duration (real time)
-                    if (fireRateBoostActive && fireRateBoostEndTime > 0) {
-                        fireRateBoostEndTime += pauseDuration;
-                    }
+                    // Note: fireRateBoostEndTime now uses virtual time, so it naturally pauses during game pause
+                    // No need to extend it - virtual time stops advancing when game is paused
                     gameTimePausedAt = 0;
                 }
                 // Reset virtual time tracking so it doesn't jump after unpause
@@ -3794,6 +3795,10 @@ async function startGame() {
             if (!gameSpeedUnlocked) return; // Can't toggle if not unlocked
             gameSpeedLevel = (gameSpeedLevel + 1) % GAME_SPEED_LEVELS.length;
             gameTimeScale = GAME_SPEED_LEVELS[gameSpeedLevel];
+            // Reset virtual time tracking to prevent timing drift when switching speeds
+            if (typeof update !== 'undefined') {
+                update._lastRealTime = Date.now();
+            }
             if (gameSpeedButton) {
                 const speedLabel = gameTimeScale === 0.5 ? '0.5x' : `${gameTimeScale}x`;
                 gameSpeedButton.textContent = `Speed: ${speedLabel}`;

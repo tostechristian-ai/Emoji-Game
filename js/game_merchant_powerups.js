@@ -323,7 +323,8 @@ function purchaseFromMerchant(option) {
     else if (option.type === 'fire_boost') {
         player.coins -= option.cost;
         fireRateBoostActive = true;
-        fireRateBoostEndTime = Date.now() + 10000; // 10 seconds
+        const _virtualNowBoost = (typeof update !== 'undefined' && update._virtualTime) ? update._virtualTime : Date.now();
+        fireRateBoostEndTime = _virtualNowBoost + 10000; // 10 seconds
         
         floatingTexts.push({
             text: 'Fire Rate Boost!',
@@ -375,7 +376,7 @@ function activatePowerup(id) {
     // ─── COMPANION POWERUPS ─────────────────────────────────────────────────
     if (id === 'doppelganger') {
         doppelgangerActive = true;
-        runStats.lastDoppelgangerStartTime = Date.now();
+        runStats.lastDoppelgangerStartTime = (typeof update !== 'undefined' && update._virtualTime) ? update._virtualTime : Date.now();
 
         // Create doppelganger object with HP system (3 HP, no duration limit)
         doppelganger = {
@@ -412,7 +413,7 @@ function activatePowerup(id) {
         turret.x = player.x;
         turret.y = player.y;
         turret.aimAngle = 0;
-        turret.lastFireTime = Date.now();
+        turret.lastFireTime = (typeof update !== 'undefined' && update._virtualTime) ? update._virtualTime : Date.now();
     }
 
     // ─── DEFENSIVE POWERUPS ─────────────────────────────────────────────────
@@ -464,15 +465,18 @@ function activatePowerup(id) {
     // ─── PASSIVE EFFECT POWERUPS ────────────────────────────────────────────
     else if (id === 'sword') {
         player.swordActive = true;
-        player.lastSwordSwingTime = Date.now() - SWORD_SWING_INTERVAL;
+        const _virtualNow = (typeof update !== 'undefined' && update._virtualTime) ? update._virtualTime : Date.now();
+        player.lastSwordSwingTime = _virtualNow - SWORD_SWING_INTERVAL;
     }
     else if (id === 'spear') {
         spearActive = true;
-        lastSpearSwingTime = Date.now() - SPEAR_SWING_INTERVAL;
+        const _virtualNow2 = (typeof update !== 'undefined' && update._virtualTime) ? update._virtualTime : Date.now();
+        lastSpearSwingTime = _virtualNow2 - SPEAR_SWING_INTERVAL;
     }
     else if (id === 'puddle_trail') {
         puddleTrailActive = true;
-        lastPlayerPuddleSpawnTime = Date.now() - PLAYER_PUDDLE_SPAWN_INTERVAL;
+        const _virtualNow3 = (typeof update !== 'undefined' && update._virtualTime) ? update._virtualTime : Date.now();
+        lastPlayerPuddleSpawnTime = _virtualNow3 - PLAYER_PUDDLE_SPAWN_INTERVAL;
     }
     else if (id === 'laser_pointer') {
         laserPointerActive = true; // Show aiming line
@@ -484,11 +488,11 @@ function activatePowerup(id) {
     // ─── ACTIVE ABILITY POWERUPS ────────────────────────────────────────────
     else if (id === 'bomb') {
         bombEmitterActive = true;
-        lastBombEmitMs = Date.now();
+        lastBombEmitMs = (typeof update !== 'undefined' && update._virtualTime) ? update._virtualTime : Date.now();
     }
     else if (id === 'pea_shooter') {
         peaShooterActive = true;
-        lastPeaShootTime = Date.now();
+        lastPeaShootTime = (typeof update !== 'undefined' && update._virtualTime) ? update._virtualTime : Date.now();
         peaShooterSpinAngle = 0;
     }
     else if (id === 'orbiter') {
@@ -498,31 +502,31 @@ function activatePowerup(id) {
     else if (id === 'levitating_books') {
         levitatingBooksActive = true;
         levitatingBooksAngle = 0;
-        levitatingBooksFadeStartTime = Date.now();
+        levitatingBooksFadeStartTime = (typeof update !== 'undefined' && update._virtualTime) ? update._virtualTime : Date.now();
     }
     else if (id === 'circle') {
         damagingCircleActive = true;
-        lastDamagingCircleDamageTime = Date.now();
+        lastDamagingCircleDamageTime = (typeof update !== 'undefined' && update._virtualTime) ? update._virtualTime : Date.now();
     }
     else if (id === 'lightning_projectile') {
         lightningProjectileActive = true;
-        lastLightningSpawnTime = Date.now();
+        lastLightningSpawnTime = (typeof update !== 'undefined' && update._virtualTime) ? update._virtualTime : Date.now();
     }
     else if (id === 'lightning_strike') {
         lightningStrikeActive = true;
-        lastLightningStrikeTime = Date.now();
+        lastLightningStrikeTime = (typeof update !== 'undefined' && update._virtualTime) ? update._virtualTime : Date.now();
     }
     else if (id === 'anti_gravity') {
         antiGravityActive = true;
-        lastAntiGravityPushTime = Date.now();
+        lastAntiGravityPushTime = (typeof update !== 'undefined' && update._virtualTime) ? update._virtualTime : Date.now();
     }
     else if (id === 'black_hole') {
         blackHoleActive = true;
-        lastBlackHoleTime = Date.now();
+        lastBlackHoleTime = (typeof update !== 'undefined' && update._virtualTime) ? update._virtualTime : Date.now();
     }
     else if (id === 'time_freeze') {
         timeFreezeActive = true;
-        lastTimeFreezeTime = Date.now();
+        lastTimeFreezeTime = (typeof update !== 'undefined' && update._virtualTime) ? update._virtualTime : Date.now();
     }
     else if (id === 'whirlwind_axe') {
         whirlwindAxeActive = true;
@@ -532,28 +536,28 @@ function activatePowerup(id) {
     }
     else if (id === 'bug_swarm') {
         bugSwarmActive = true;
-        lastBugSwarmSpawnTime = Date.now();
+        lastBugSwarmSpawnTime = (typeof update !== 'undefined' && update._virtualTime) ? update._virtualTime : Date.now();
     }
     
     // ─── SPECIAL WEAPON POWERUPS ────────────────────────────────────────────
     else if (id === 'flamethrower') {
         flamethrowerActive = true;
-        lastFlameEmitTime = Date.now();
+        lastFlameEmitTime = (typeof update !== 'undefined' && update._virtualTime) ? update._virtualTime : Date.now();
     }
     else if (id === 'boomerang') {
         boomerangActive = true;
-        lastBoomerangTime = Date.now();
+        lastBoomerangTime = (typeof update !== 'undefined' && update._virtualTime) ? update._virtualTime : Date.now();
     }
     else if (id === 'chain_lightning') {
         chainLightningActive = true;
-        lastChainLightningTime = Date.now();
+        lastChainLightningTime = (typeof update !== 'undefined' && update._virtualTime) ? update._virtualTime : Date.now();
     }
     else if (id === 'flying_turret') {
         flyingTurretActive = true;
         // Spawn at player position with random diagonal direction
         flyingTurret.x = player.x;
         flyingTurret.y = player.y;
-        flyingTurret.lastFireTime = Date.now();
+        flyingTurret.lastFireTime = (typeof update !== 'undefined' && update._virtualTime) ? update._virtualTime : Date.now();
         // Random diagonal direction (NE, NW, SE, SW)
         const dirX = Math.random() > 0.5 ? 1 : -1;
         const dirY = Math.random() > 0.5 ? 1 : -1;
@@ -562,28 +566,29 @@ function activatePowerup(id) {
     }
     else if (id === 'laser_cannon') {
         laserCannonActive = true;
-        lastLaserCannonFireTime = Date.now();
+        lastLaserCannonFireTime = (typeof update !== 'undefined' && update._virtualTime) ? update._virtualTime : Date.now();
     }
     else if (id === 'laser_cross') {
         laserCrossActive = true;
         laserCrossAngle = 0;
-        laserCrossLastDamageTime = Date.now();
+        laserCrossLastDamageTime = (typeof update !== 'undefined' && update._virtualTime) ? update._virtualTime : Date.now();
     }
     else if (id === 'shotgun') {
         shotgunActive = true;
-        lastShotgunTime = Date.now();
+        lastShotgunTime = (typeof update !== 'undefined' && update._virtualTime) ? update._virtualTime : Date.now();
     }
     else if (id === 'ice_cannon') {
         iceCannonActive = true;
-        lastIceCannonTime = Date.now();
+        lastIceCannonTime = (typeof update !== 'undefined' && update._virtualTime) ? update._virtualTime : Date.now();
     }
     else if (id === 'smoke_bomb') {
         smokeBombActive = true;
-        lastSmokeBombTime = Date.now() - SMOKE_BOMB_BASE_INTERVAL; // Ready to use immediately
+        const _virtualNow4 = (typeof update !== 'undefined' && update._virtualTime) ? update._virtualTime : Date.now();
+        lastSmokeBombTime = _virtualNow4 - SMOKE_BOMB_BASE_INTERVAL; // Ready to use immediately
     }
     else if (id === 'dynamite') {
         dynamiteActive = true;
-        lastDynamiteTime = Date.now();
+        lastDynamiteTime = (typeof update !== 'undefined' && update._virtualTime) ? update._virtualTime : Date.now();
     }
     else if (id === 'pistol') {
         player._hasPistol = true;

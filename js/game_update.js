@@ -101,7 +101,9 @@
     if (typeof update._lastRealTime === 'undefined') update._lastRealTime = realNow;
     const realDelta = Math.min(realNow - update._lastRealTime, 100); // Cap at 100ms to prevent jumps after unpause
     update._lastRealTime = realNow;
-    update._virtualTime += realDelta * (gameTimeScale || 1);
+    // Apply both game speed setting and Time Warp cheat scale
+    const effectiveTimeScale = (gameTimeScale || 1) * timeScale;
+    update._virtualTime += realDelta * effectiveTimeScale;
     const now = update._virtualTime;
     const realNowRef = realNow; // Available for UI/stats that need real time
 
@@ -1470,7 +1472,7 @@ for (let i = merchants.length - 1; i >= 0; i--) {
                             vibrateHit(true);
                             playSound('playerScream');
                             isPlayerHitShaking = true;
-                            playerHitShakeStartTime = now;
+                            playerHitShakeStartTime = realNowRef; // Use real time for visual effects
                             
                             // Show damage text
                             if (floatingTexts.length < 30) floatingTexts.push({
@@ -1675,7 +1677,7 @@ for (let i = merchants.length - 1; i >= 0; i--) {
                     createBloodSplatter(player.x, player.y); createBloodPuddle(player.x, player.y, player.size);
                     vibrateHit(true); // Player hit vibration
                     playSound('playerScream');
-                    isPlayerHitShaking = true; playerHitShakeStartTime = now;
+                    isPlayerHitShaking = true; playerHitShakeStartTime = realNowRef; // Use real time for visual effects
                     if (vengeanceNovaActive) { vengeanceNovas.push({ x: player.x, y: player.y, startTime: now, duration: 500, maxRadius: player.size * 3 }); }
                     if (temporalWardActive) { isTimeStopped = true; timeStopEndTime = now + 2000; playSound('levelUpSelect'); }
                     if (player.lives <= 0) { 
@@ -2464,6 +2466,8 @@ if(fireRateBoostActive) currentFireInterval /= 2;
 if(cheats.fastShooting) currentFireInterval /= 5;
 if(cheats.double_game_speed) currentFireInterval /= 2;
 currentFireInterval = Math.max(50, currentFireInterval);
+// Safety: if lastWeaponFireTime is somehow ahead of virtual time, reset it
+if (lastWeaponFireTime > now) lastWeaponFireTime = now;
 if (!player._isLumberjack && !player._isKnight && (aimDx !== 0 || aimDy !== 0) && (now - lastWeaponFireTime > currentFireInterval)) {
     if (!cheats.click_to_fire) {
         createWeapon();
@@ -3919,7 +3923,7 @@ for (let i = lightningBolts.length - 1; i >= 0; i--) {
                     createBloodSplatter(player.x, player.y); createBloodPuddle(player.x, player.y, player.size);
                     playSound('playerScream'); playEyeProjectileHitSound(); 
                     updateUIStats(); eyeProj.isHit = true;
-                    isPlayerHitShaking = true; playerHitShakeStartTime = now;
+                    isPlayerHitShaking = true; playerHitShakeStartTime = realNowRef; // Use real time for visual effects
                     if (player.lives <= 0) {
                         // Second Life cheat: revive once per run at full health
                         if (cheats.second_life && !player._hasRevivedWithSecondLife) {
