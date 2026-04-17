@@ -645,9 +645,21 @@
 
                 // Boss health bar
                 if (enemy.isBoss) {
-                    const maxHp = enemy.isMegaBoss 
-                        ? Math.floor((20 + (player.level || 1) * 1.5) * 10) // Mega boss has 10x health
-                        : Math.floor(20 + (player.level || 1) * 1.5);
+                    let maxHp;
+                    if (enemy.isMegaBoss) {
+                        // Match createMegaBoss() calculation: base * power-up scaling
+                        let baseMegaHp = Math.floor((20 + (player.level || 1) * 1.5) * 10);
+                        const powerUpCount = player.boxPickupsCollectedCount || 0;
+                        if (powerUpCount >= 15) {
+                            maxHp = Math.floor(baseMegaHp * 1.75);
+                        } else if (powerUpCount >= 10) {
+                            maxHp = Math.floor(baseMegaHp * 1.5);
+                        } else {
+                            maxHp = baseMegaHp;
+                        }
+                    } else {
+                        maxHp = Math.floor(20 + (player.level || 1) * 1.5);
+                    }
                     const hpRatio = Math.max(0, enemy.health / maxHp);
                     const barW = enemy.size * 1.2;
                     const barH = enemy.isMegaBoss ? 8 : 5; // Larger bar for mega boss

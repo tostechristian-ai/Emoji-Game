@@ -94,15 +94,25 @@
     if (doppelganger) quadtree.insert({ x: doppelganger.x - doppelganger.size/2, y: doppelganger.y - doppelganger.size/2, width: doppelganger.size, height: doppelganger.size, ref: doppelganger });
     // *** END OF QUADTREE POPULATION ***
 
-    const now = Date.now();
-            const deltaTime = now - lastFrameTime;
+    // Virtual time system: game time advances at gameTimeScale rate
+    // This makes all intervals, lifetimes, and timed effects scale with game speed
+    const realNow = Date.now();
+    if (typeof update._virtualTime === 'undefined') update._virtualTime = realNow;
+    if (typeof update._lastRealTime === 'undefined') update._lastRealTime = realNow;
+    const realDelta = Math.min(realNow - update._lastRealTime, 100); // Cap at 100ms to prevent jumps after unpause
+    update._lastRealTime = realNow;
+    update._virtualTime += realDelta * (gameTimeScale || 1);
+    const now = update._virtualTime;
+    const realNowRef = realNow; // Available for UI/stats that need real time
+
+            const deltaTime = realNow - lastFrameTime;
             if (deltaTime > 0) {
                 const xpGainMultiplier = 1 + (playerData.upgrades.xpGain || 0) * PERMANENT_UPGRADES.xpGain.effect;
                 if(doppelgangerActive && runStats.lastDoppelgangerStartTime > 0){
                     runStats.doppelgangerActiveTimeThisRun += deltaTime;
                 }
             }
-            lastFrameTime = now;
+            lastFrameTime = realNow;
             // Throttle achievement checks to once per second — no need every frame
             if (!update._lastAchievementCheck || now - update._lastAchievementCheck > 1000) {
                 checkAchievements();
@@ -136,8 +146,8 @@
                 }
             }
 
-            // Check for mega boss spawn at 15 minutes
-            if (!megaBossSpawned && !megaBossSpawnInitiated && gameActive && (now - gameStartTime >= MEGA_BOSS_SPAWN_TIME)) {
+            // Check for mega boss spawn at 15 minutes (synced with UI timer)
+            if (!megaBossSpawned && !megaBossSpawnInitiated && gameActive && (now - gameStartTime - gameTimeOffset >= MEGA_BOSS_SPAWN_TIME)) {
                 createMegaBoss();
             }
 
@@ -163,6 +173,7 @@ for (let i = merchants.length - 1; i >= 0; i--) {
             
             // Fire rate multiplier: scales with level-up fire rate upgrades (base 400ms interval)
             // At base: 1.0x. With upgrades: higher (e.g. 200ms interval = 2.0x)
+            // Also scales with game speed setting
             const fireRateMult = 400 / weaponFireInterval;
             // Bullet size multiplier for powerup projectiles/AoE (excludes companions)
             const pSizeMult = player.bulletSizeMultiplier || 1;
@@ -298,8 +309,8 @@ for (let i = merchants.length - 1; i >= 0; i--) {
             }
 
             if (isMoving) {
-                let nextX = player.x + moveX * currentPlayerSpeed;
-                let nextY = player.y + moveY * currentPlayerSpeed;
+                let nextX = player.x + moveX * currentPlayerSpeed * gameTimeScale;
+                let nextY = player.y + moveY * currentPlayerSpeed * gameTimeScale;
                 let collision = false;
                 for (const obs of destructibles) {
                     const dx = nextX - obs.x;
@@ -399,9 +410,9 @@ for (let i = merchants.length - 1; i >= 0; i--) {
                     if(now > player2.dashEndTime) player2.isDashing = false;
                 }
                 
-                // Apply movement
-                player2.x += p2VelX; 
-                player2.y += p2VelY;
+                // Apply movement scaled by game speed
+                player2.x += p2VelX * gameTimeScale; 
+                player2.y += p2VelY * gameTimeScale;
                 
                 // Update facing direction
                 if (p2VelX > 0) player2.facing = 'right'; 
@@ -468,7 +479,7 @@ for (let i = merchants.length - 1; i >= 0; i--) {
             if (peaShooterActive && !isTimeStopped && !isProjectileSaturated) {
             let currentPeaInterval = PEA_SHOOT_INTERVAL / fireRateMult;
             if (fireRateBoostActive) currentPeaInterval /= 2;
-            let currentPeaSpinSpeed = PEA_SPIN_SPEED * fireRateMult;
+            let currentPeaSpinSpeed = PEA_SPIN_SPEED * fireRateMult * gameTimeScale;
             if (fireRateBoostActive) currentPeaSpinSpeed *= 2;
             if (now - lastPeaShootTime > currentPeaInterval) {
                 // Update the spin angle (wheel rotation)
@@ -501,8 +512,8 @@ for (let i = merchants.length - 1; i >= 0; i--) {
                 }
 
                 // Move pea outward in straight line
-                pea.x += pea.dx;
-                pea.y += pea.dy;
+                pea.x += pea.dx * gameTimeScale;
+                pea.y += pea.dy * gameTimeScale;
 
                 // Check collision with enemies
                 for (let j = enemies.length - 1; j >= 0; j--) {
@@ -547,7 +558,7 @@ for (let i = merchants.length - 1; i >= 0; i--) {
             if (nightOwlActive && !isTimeStopped) {
                 if (!owl) { owl = { x: player.x, y: player.y - OWL_FOLLOW_DISTANCE, lastFireTime: 0 }; }
                 const targetX = player.x; const targetY = player.y - OWL_FOLLOW_DISTANCE;
-                owl.x += (targetX - owl.x) * 0.05; owl.y += (targetY - owl.y) * 0.05;
+                owl.x += (targetX - owl.x) * 0.05 * gameTimeScale; owl.y += (targetY - owl.y) * 0.05 * gameTimeScale;
                 let currentOwlInterval = OWL_FIRE_INTERVAL / fireRateMult;
                 if (fireRateBoostActive) currentOwlInterval /= 2;
                 if (now - owl.lastFireTime > currentOwlInterval && enemies.length > 0) {
@@ -719,8 +730,8 @@ for (let i = merchants.length - 1; i >= 0; i--) {
                 
                 // Move until stop time
                 if (!dyn.stopped && now < dyn.stopTime) {
-                    dyn.x += dyn.dx;
-                    dyn.y += dyn.dy;
+                    dyn.x += dyn.dx * gameTimeScale;
+                    dyn.y += dyn.dy * gameTimeScale;
                 } else if (!dyn.stopped) {
                     dyn.stopped = true;
                 }
@@ -782,8 +793,8 @@ for (let i = merchants.length - 1; i >= 0; i--) {
                                     x: pos.x,
                                     y: pos.y,
                                     radius: chainRadius,
-                                    startTime: Date.now(),
-                                    endTime: Date.now() + 2000
+                                    startTime: now,
+                                    endTime: now + 2000
                                 });
                                 
                                 // Chain damage to nearby enemies
@@ -795,7 +806,7 @@ for (let i = merchants.length - 1; i >= 0; i--) {
                                             const chainDamage = 1 * player.damageMultiplier;
                                             enemy.health -= chainDamage; // Chain damage scaled with Weapon Power
                                             enemy.isIgnited = true;
-                                            enemy.ignitionEndTime = Date.now() + 2000;
+                                            enemy.ignitionEndTime = now + 2000;
 
                                             // Damage number for chain explosion
                                             if (floatingTexts.length < 30) {
@@ -803,7 +814,7 @@ for (let i = merchants.length - 1; i >= 0; i--) {
                                                     text: String(Math.round(chainDamage * 10) / 10),
                                                     x: enemy.x + (Math.random() - 0.5) * enemy.size,
                                                     y: enemy.y - enemy.size * 0.5,
-                                                    startTime: Date.now(), duration: 600,
+                                                    startTime: now, duration: 600,
                                                     color: '#ff8800', fontSize: 12
                                                 });
                                             }
@@ -818,7 +829,7 @@ for (let i = merchants.length - 1; i >= 0; i--) {
                                     x: pos.x,
                                     y: pos.y,
                                     radius: chainRadius,
-                                    startTime: Date.now(),
+                                    startTime: now,
                                     duration: 300
                                 });
                             }, chainDelay * (idx + 1));
@@ -985,7 +996,7 @@ for (let i = merchants.length - 1; i >= 0; i--) {
                             // Damage number for burning - show for each enemy individually throttled
                             if (floatingTexts.length < 30 && (!enemy._lastBurnDamageNumberTime || now - enemy._lastBurnDamageNumberTime > 600)) {
                                 floatingTexts.push({
-                                    text: String(damage),
+                                    text: String(Math.round(damage * 10) / 10),
                                     x: enemy.x + (Math.random() - 0.5) * enemy.size,
                                     y: enemy.y - enemy.size * 0.5,
                                     startTime: now, duration: 600,
@@ -1015,7 +1026,7 @@ for (let i = merchants.length - 1; i >= 0; i--) {
                 
                 let angleToTarget = Math.atan2(target.y - enemy.y, target.x - enemy.x);
 
-                let effectiveEnemySpeed = enemy.speed;
+                let effectiveEnemySpeed = enemy.speed * gameTimeScale;
                 if(cheats.fastEnemies) effectiveEnemySpeed *= 1.5;
                 if(cheats.slowEnemies) effectiveEnemySpeed *= 0.5;
                 if(cheats.time_warp) effectiveEnemySpeed *= timeScale; // Apply time warp slow-down
@@ -1447,6 +1458,7 @@ for (let i = merchants.length - 1; i >= 0; i--) {
                         if (!enemy.hasDamagedThisPulse && !player.isInvincible && !cheats.god_mode && (touchingEye || touchingRing)) {
                             // Player loses a heart
                             player.lives--;
+                            player.appleCount = 0; // Reset apple progress on damage
                             runStats.lastDamageTime = now;
                             if (typeof runStats.damageTakenThisRun !== 'number' || !Number.isFinite(runStats.damageTakenThisRun)) runStats.damageTakenThisRun = 0;
                             runStats.damageTakenThisRun++;
@@ -1500,7 +1512,7 @@ for (let i = merchants.length - 1; i >= 0; i--) {
                         // Scorpion: moves toward player while strafing side to side
                         
                         // Update strafe phase
-                        enemy.strafePhase += 0.08; // Speed of side-to-side wobble
+                        enemy.strafePhase += 0.08 * gameTimeScale; // Speed of side-to-side wobble
                         
                         // Base movement toward player
                         const moveTowardX = Math.cos(angleToTarget) * effectiveEnemySpeed;
@@ -1639,10 +1651,9 @@ for (let i = merchants.length - 1; i >= 0; i--) {
                 if (canGhostDamage && !player.isInvincible && !cheats.god_mode && (dx_player*dx_player + dy_player*dy_player) < combinedRadius*combinedRadius) {
                     // Shield aura: block one hit every 10s
                     if (cheats.shield_aura) {
-                        const now2 = Date.now();
-                        if (!player._shieldLastHitTime || now2 - player._shieldLastHitTime > 10000) {
-                            player._shieldLastHitTime = now2;
-                            if (floatingTexts.length < 30) floatingTexts.push({ text: "Shield!", x: player.x, y: player.y - player.size, startTime: now2, duration: 1000, color: '#00FFFF' });
+                        if (!player._shieldLastHitTime || now - player._shieldLastHitTime > 10000) {
+                            player._shieldLastHitTime = now;
+                            if (floatingTexts.length < 30) floatingTexts.push({ text: "Shield!", x: player.x, y: player.y - player.size, startTime: now, duration: 1000, color: '#00FFFF' });
                             handleEnemyDeath(enemy);
                             return;
                         }
@@ -1655,6 +1666,7 @@ for (let i = merchants.length - 1; i >= 0; i--) {
                         return;
                     }
                     player.lives--;
+                    player.appleCount = 0; // Reset apple progress on damage
                     runStats.lastDamageTime = now;
                     if (typeof runStats.damageTakenThisRun !== 'number' || !Number.isFinite(runStats.damageTakenThisRun)) runStats.damageTakenThisRun = 0;
                     runStats.damageTakenThisRun++;
@@ -1809,9 +1821,9 @@ for (let i = merchants.length - 1; i >= 0; i--) {
                         }
                     }
                     // Slowly orbit player
-                    const angle = (ci / window.cloneArmy.length) * Math.PI * 2 + now * 0.0005;
-                    clone.x += (player.x + Math.cos(angle) * 80 - clone.x) * 0.05;
-                    clone.y += (player.y + Math.sin(angle) * 80 - clone.y) * 0.05;
+                    const angle = (ci / window.cloneArmy.length) * Math.PI * 2 + now * 0.0005 * gameTimeScale;
+                    clone.x += (player.x + Math.cos(angle) * 80 - clone.x) * 0.05 * gameTimeScale;
+                    clone.y += (player.y + Math.sin(angle) * 80 - clone.y) * 0.05 * gameTimeScale;
                 }
             }
 
@@ -1889,9 +1901,9 @@ for (let i = merchants.length - 1; i >= 0; i--) {
                     moveY += Math.sin(orbitAngle) * DOPP_SPEED * 0.3;
                 }
 
-                // Apply movement
-                doppelganger.x += moveX;
-                doppelganger.y += moveY;
+                // Apply movement scaled by game speed
+                doppelganger.x += moveX * gameTimeScale;
+                doppelganger.y += moveY * gameTimeScale;
 
                 // Keep within world bounds
                 doppelganger.x = Math.max(doppelganger.size/2, Math.min(WORLD_WIDTH - doppelganger.size/2, doppelganger.x));
@@ -1906,16 +1918,16 @@ for (let i = merchants.length - 1; i >= 0; i--) {
             }
 
             if (dogCompanionActive && !isTimeStopped) {
-                // Dog moves at 2x player speed
-                const DOG_SPEED = player.speed * 2;
+                // Dog moves at 2x player speed, scaled by game speed
+                const DOG_SPEED = player.speed * 2 * gameTimeScale;
                 if (dog.state === 'returning') {
                     const dx = player.x - dog.x;
                     const dy = player.y - dog.y;
                     if (dx*dx + dy*dy < (player.size/2)**2) { dog.state = 'seeking'; dog.target = null; } 
                     else {
                         const angleToPlayer = Math.atan2(player.y - dog.y, player.x - dog.x);
-                        dog.x += Math.cos(angleToPlayer) * DOG_SPEED;
-                        dog.y += Math.sin(angleToPlayer) * DOG_SPEED;
+                        dog.x += Math.cos(angleToPlayer) * DOG_SPEED * gameTimeScale;
+                        dog.y += Math.sin(angleToPlayer) * DOG_SPEED * gameTimeScale;
                     }
                 } else if (dog.state === 'seeking') {
                     if (dog.target && dog.target.isHit) { dog.target = null; }
@@ -1944,8 +1956,8 @@ for (let i = merchants.length - 1; i >= 0; i--) {
                             dog.state = 'returning';
                         } else {
                             const angleToTarget = Math.atan2(dy, dx);
-                            dog.x += Math.cos(angleToTarget) * DOG_SPEED;
-                            dog.y += Math.sin(angleToTarget) * DOG_SPEED;
+                            dog.x += Math.cos(angleToTarget) * DOG_SPEED * gameTimeScale;
+                            dog.y += Math.sin(angleToTarget) * DOG_SPEED * gameTimeScale;
                         }
                     } else { dog.state = 'returning'; }
                 }
@@ -1962,7 +1974,7 @@ for (let i = merchants.length - 1; i >= 0; i--) {
 
             // Cat Ally - fetches pickups and XP items for the player (does not attack enemies)
             if (catAllyActive && !isTimeStopped) {
-                const CAT_SPEED = player.speed * CAT_ALLY_SPEED;
+                const CAT_SPEED = player.speed * CAT_ALLY_SPEED * gameTimeScale;
                 
                 if (catAlly.state === 'returning') {
                     // Move towards player
@@ -2129,8 +2141,8 @@ for (let i = merchants.length - 1; i >= 0; i--) {
 
             // Robot Drone update - autonomous movement and shooting
             if (robotDroneActive && !isTimeStopped) {
-                // Move autonomously, scale speed with player movement speed upgrades
-                const droneSpeedScale = speedMult;
+                // Move autonomously, scale speed with player movement speed upgrades and game speed
+                const droneSpeedScale = speedMult * gameTimeScale;
                 robotDrone.x += robotDrone.dx * droneSpeedScale;
                 robotDrone.y += robotDrone.dy * droneSpeedScale;
                 
@@ -2256,8 +2268,8 @@ for (let i = merchants.length - 1; i >= 0; i--) {
             // Moves diagonally and bounces off map edges like a screensaver
             // Skip firing when projectile pool is saturated (flying turret is medium priority)
             if (flyingTurretActive && !isTimeStopped) {
-                // Move the flying turret (scale movement speed with player speed)
-                const flyingTurretSpeedScale = speedMult;
+                // Move the flying turret (scale movement speed with player speed and game speed)
+                const flyingTurretSpeedScale = speedMult * gameTimeScale;
                 flyingTurret.x += flyingTurret.dx * flyingTurretSpeedScale;
                 flyingTurret.y += flyingTurret.dy * flyingTurretSpeedScale;
                 
@@ -2540,8 +2552,8 @@ if (pendingRevolverShot && now >= pendingRevolverShot.fireAt) {
                     }
                 }
                 
-                weapon.x += weapon.dx;
-                weapon.y += weapon.dy;
+                weapon.x += weapon.dx * gameTimeScale;
+                weapon.y += weapon.dy * gameTimeScale;
                 // Deactivate if off world bounds — no point tracking them
                 if (now > weapon.lifetime ||
                     weapon.x < -50 || weapon.x > WORLD_WIDTH + 50 ||
@@ -2672,7 +2684,7 @@ if (pendingRevolverShot && now >= pendingRevolverShot.fireAt) {
                     const explosiveRadius = enemy.size * 2 * pSizeMult;
                     explosions.push({
                         x: weapon.x, y: weapon.y, radius: explosiveRadius,
-                        startTime: Date.now(), duration: 300
+                        startTime: now, duration: 300
                     });
                     vibrateExplosion();
                     // Use quadtree to only check enemies within explosion radius
@@ -2714,18 +2726,18 @@ if (pendingRevolverShot && now >= pendingRevolverShot.fireAt) {
                 }
                 if (iceProjectileActive) { 
                     enemy.isFrozen = true;
-                    enemy.freezeEndTime = Date.now() + 250;
+                    enemy.freezeEndTime = now + 250;
                     playerStats.totalEnemiesFrozen++;
                 }
                 if (weapon._isIceCannon) {
                     enemy.isFrozen = true;
-                    enemy.freezeEndTime = Date.now() + ICE_CANNON_FREEZE_DURATION;
+                    enemy.freezeEndTime = now + ICE_CANNON_FREEZE_DURATION;
                     playerStats.totalEnemiesFrozen++;
                 }
                 if (flamingBulletsActive) {
                     enemy.isIgnited = true;
-                    enemy.ignitionEndTime = Date.now() + 6000;
-                    enemy.lastIgnitionDamageTime = Date.now();
+                    enemy.ignitionEndTime = now + 6000;
+                    enemy.lastIgnitionDamageTime = now;
                 }
             if (enemy.health <= 0) { handleEnemyDeath(enemy); }
                 // Bone shots pierce through enemies - don't decrement hitsLeft or deactivate
@@ -2745,7 +2757,7 @@ if (pendingRevolverShot && now >= pendingRevolverShot.fireAt) {
                             }
                         }
                         if (newTarget) {
-                            if (explosiveBulletsActive) { explosions.push({ x: weapon.x, y: weapon.y, radius: enemy.size * 2 * pSizeMult, startTime: Date.now(), duration: 300 }); }
+                            if (explosiveBulletsActive) { explosions.push({ x: weapon.x, y: weapon.y, radius: enemy.size * 2 * pSizeMult, startTime: now, duration: 300 }); }
                             const angle = Math.atan2(newTarget.y - weapon.y, newTarget.x - weapon.x);
                             weapon.angle = angle;
                             weapon.dx = Math.cos(angle) * weapon.speed;
@@ -2762,7 +2774,7 @@ if (pendingRevolverShot && now >= pendingRevolverShot.fireAt) {
         }
     }
 }
-            // Scale bomb emitter interval with fire rate
+            // Scale bomb emitter interval with fire rate and game speed
             let currentBombInterval = BOMB_INTERVAL_MS / fireRateMult;
             if (fireRateBoostActive) currentBombInterval /= 2;
             if (cheats.fastShooting) currentBombInterval /= 5;
@@ -2794,8 +2806,8 @@ if (pendingRevolverShot && now >= pendingRevolverShot.fireAt) {
                 }
             }
             if (orbitingPowerUpActive) {
-                // Scale orbiter speed with fire rate (spin faster)
-                let currentOrbitSpeed = ORBIT_SPEED * fireRateMult;
+                // Scale orbiter speed with fire rate and game speed (spin faster)
+                let currentOrbitSpeed = ORBIT_SPEED * fireRateMult * gameTimeScale;
                 if (fireRateBoostActive) currentOrbitSpeed *= 2;
                 if (cheats.fastShooting) currentOrbitSpeed *= 5;
                 if (cheats.double_game_speed) currentOrbitSpeed *= 2;
@@ -2842,8 +2854,8 @@ if (pendingRevolverShot && now >= pendingRevolverShot.fireAt) {
             // Levitating Books - like Vampire Survivors books
             // Two books orbit opposite each other, fade in/out, only damage when visible
             if (levitatingBooksActive) {
-                // Scale books rotation speed with fire rate (spin faster)
-                let currentBooksSpeed = LEVITATING_BOOKS_SPEED * fireRateMult;
+                // Scale books rotation speed with fire rate and game speed (spin faster)
+                let currentBooksSpeed = LEVITATING_BOOKS_SPEED * fireRateMult * gameTimeScale;
                 if (fireRateBoostActive) currentBooksSpeed *= 2;
                 if (cheats.fastShooting) currentBooksSpeed *= 5;
                 if (cheats.double_game_speed) currentBooksSpeed *= 2;
@@ -2940,7 +2952,7 @@ if (pendingRevolverShot && now >= pendingRevolverShot.fireAt) {
             }
 
              if (whirlwindAxeActive) {
-                let currentAxeSpeed = WHIRLWIND_AXE_SPEED * fireRateMult;
+                let currentAxeSpeed = WHIRLWIND_AXE_SPEED * fireRateMult * gameTimeScale;
                 if (fireRateBoostActive) currentAxeSpeed *= 2;
                 whirlwindAxeAngle -= currentAxeSpeed;
                 const axeX = player.x + WHIRLWIND_AXE_RADIUS * Math.cos(whirlwindAxeAngle);
@@ -3075,12 +3087,12 @@ if (pendingRevolverShot && now >= pendingRevolverShot.fireAt) {
                     lastFlameEmitTime = now;
                 }
             }
-            
+
             // Update flame projectiles
             for (let i = flameProjectiles.length - 1; i >= 0; i--) {
                 const flame = flameProjectiles[i];
-                flame.x += flame.dx;
-                flame.y += flame.dy;
+                flame.x += flame.dx * gameTimeScale;
+                flame.y += flame.dy * gameTimeScale;
                 
                 // Remove expired flames
                 if (now > flame.lifetime) {
@@ -3230,9 +3242,9 @@ if (pendingRevolverShot && now >= pendingRevolverShot.fireAt) {
             // Laser Cross - spinning blue cross that continuously damages enemies
             if (laserCrossActive) {
                 // Update rotation angle (one revolution every 2 seconds)
-                let currentLaserCrossRotSpeed = LASER_CROSS_ROTATION_SPEED * fireRateMult;
+                let currentLaserCrossRotSpeed = LASER_CROSS_ROTATION_SPEED * fireRateMult * gameTimeScale;
                 if (fireRateBoostActive) currentLaserCrossRotSpeed *= 2;
-                const deltaTime = isTimeStopped ? 0 : 16; // Approximate frame time, 0 when time stopped
+                const deltaTime = isTimeStopped ? 0 : 16 * gameTimeScale; // Approximate frame time scaled by game speed, 0 when time stopped
                 laserCrossAngle += currentLaserCrossRotSpeed * (deltaTime / 1000);
                 if (laserCrossAngle > Math.PI * 2) laserCrossAngle -= Math.PI * 2;
 
@@ -3327,7 +3339,7 @@ if (pendingRevolverShot && now >= pendingRevolverShot.fireAt) {
             // ═══════════════════════════════════════════════════════════════════════════
             // Spawn new boomerang based on fire rate scaled interval
             if (boomerangActive) {
-                // Calculate interval scaled by fire rate (lower interval = faster shooting)
+                // Calculate interval scaled by fire rate and game speed (lower interval = faster shooting)
                 let currentInterval = BOOMERANG_BASE_INTERVAL / fireRateMult;
                 if (fireRateBoostActive) currentInterval /= 2;
                 if (cheats.fastShooting) currentInterval /= 5;
@@ -3381,7 +3393,7 @@ if (pendingRevolverShot && now >= pendingRevolverShot.fireAt) {
             // Update active boomerangs
             for (let i = boomerangProjectiles.length - 1; i >= 0; i--) {
                 const b = boomerangProjectiles[i];
-                const deltaTime = isTimeStopped ? 0 : (1000 / 60); // Approximate frame time
+                const deltaTime = isTimeStopped ? 0 : (1000 / 60) * gameTimeScale; // Approximate frame time scaled by game speed
                 
                 // Always spin the boomerang
                 b.spinAngle += 0.3; // Spin speed
@@ -3651,7 +3663,7 @@ if (pendingRevolverShot && now >= pendingRevolverShot.fireAt) {
 
 for (let i = lightningBolts.length - 1; i >= 0; i--) {
                 const bolt = lightningBolts[i];
-                bolt.x += bolt.dx; bolt.y += bolt.dy;
+                bolt.x += bolt.dx * gameTimeScale; bolt.y += bolt.dy * gameTimeScale;
                 if (now > bolt.lifetime) bolt.isHit = true;
                 for (let j = enemies.length - 1; j >= 0; j--) {
                     const enemy = enemies[j];
@@ -3897,7 +3909,7 @@ for (let i = lightningBolts.length - 1; i >= 0; i--) {
 
             for (let i = eyeProjectiles.length - 1; i >= 0; i--) {
                 const eyeProj = eyeProjectiles[i];
-                eyeProj.x += eyeProj.dx; eyeProj.y += eyeProj.dy;
+                eyeProj.x += eyeProj.dx * gameTimeScale; eyeProj.y += eyeProj.dy * gameTimeScale;
                 if (now > eyeProj.lifetime) eyeProj.isHit = true;
                 const dx = player.x - eyeProj.x;
                 const dy = player.y - eyeProj.y;
@@ -4033,7 +4045,7 @@ for (let i = lightningBolts.length - 1; i >= 0; i--) {
             for (let i = bloodSplatters.length - 1; i >= 0; i--) {
                 const p = bloodSplatters[i];
                 if (now - p.spawnTime > p.lifetime) { bloodSplatters.splice(i, 1); continue; }
-                p.x += p.dx; p.y += p.dy; p.dx *= 0.96; p.dy *= 0.96; 
+                p.x += p.dx * gameTimeScale; p.y += p.dy * gameTimeScale; p.dx *= 0.96; p.dy *= 0.96; 
             }
             // Cap blood arrays — tighter limits for better performance
             if (bloodSplatters.length > 80) bloodSplatters.splice(0, bloodSplatters.length - 80);
@@ -4062,7 +4074,7 @@ for (let i = lightningBolts.length - 1; i >= 0; i--) {
                         shot.dy = Math.sin(shot.angle) * shot.speed;
                     }
                 }
-                shot.x += shot.dx; shot.y += shot.dy;
+                shot.x += shot.dx * gameTimeScale; shot.y += shot.dy * gameTimeScale;
                 if (now > shot.lifetime) shot.isHit = true;
             }
 
@@ -4159,7 +4171,7 @@ for (let i = lightningBolts.length - 1; i >= 0; i--) {
             }
             for (let i = owlProjectiles.length - 1; i >= 0; i--) {
                 const proj = owlProjectiles[i];
-                proj.x += proj.dx; proj.y += proj.dy;
+                proj.x += proj.dx * gameTimeScale; proj.y += proj.dy * gameTimeScale;
                 if (now > proj.lifetime) proj.isHit = true;
                 if (proj.isHit) continue;
                 const owlRadius = proj.size;
@@ -4194,9 +4206,9 @@ for (let i = lightningBolts.length - 1; i >= 0; i--) {
             }
              for (let i = smokeParticles.length - 1; i >= 0; i--) {
                 const p = smokeParticles[i];
-                p.x += p.dx;
-                p.y += p.dy;
-                p.alpha -= 0.03; // fade faster
+                p.x += p.dx * gameTimeScale;
+                p.y += p.dy * gameTimeScale;
+                p.alpha -= 0.03 * gameTimeScale; // fade faster
                 if (p.alpha <= 0) {
                     smokeParticles.splice(i, 1);
                 }

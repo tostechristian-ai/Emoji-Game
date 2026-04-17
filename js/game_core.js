@@ -770,7 +770,7 @@ let doppelganger = null;
             { name: "Magnet Field",      desc: "Increase pickup radius by 8%",          type: "magnetRadius",   value: 0.08,  icon: '🧲' },
             { name: "Increased Damage",  desc: "Increase projectile damage by 15%",     type: "damage",         value: 0.15,  icon: '💥' },
             { name: "Swift Shots",       desc: "Increase projectile speed by 8%",       type: "projectileSpeed",value: 0.08,  icon: '💨' },
-            { name: "Power Shot",        desc: "Projectiles knock enemies back by 8%",  type: "knockback",      value: 0.08,  icon: '💪' },
+            { name: "Power Shot",        desc: "Projectiles knock enemies back by 4%",  type: "knockback",      value: 0.04,  icon: '💪' },
             { name: "Lucky Charm",       desc: "Increase pickup drop rate by 0.5%",     type: "luck",           value: 0.005, icon: '🍀' },
             { name: "Giant's Might",     desc: "Increase bullet & AOE size by 10%",     type: "bulletSize",     value: 0.10,  icon: '🎯', color: '#FF6B35' },
             { name: "Swift Dodge",       desc: "Reduce dash cooldown by 8%",            type: "dashCooldown",   value: 0.08,  icon: '⚡', color: '#4ECDC4' },
@@ -961,7 +961,7 @@ let lastGamepadUpdate = 0;
 const GAMEPAD_INPUT_DELAY = 200;
 
 // Persistent gamepad navigation state (lives outside the snapshot object)
-const _gpNav = { menuIndex: 0, lastScreen: '' };
+const _gpNav = { menuIndex: 0, lastScreen: '', savedDifficultyIndex: 0 };
 
 function handleGamepadInput() {
     if (gamepadIndex == null) return;
@@ -1079,12 +1079,12 @@ function handleGamepadInput() {
             const leaveBtn = document.getElementById('leaveMerchantButton');
             const allItems = [...merchantCards];
             if (leaveBtn) allItems.push(leaveBtn);
-            
+
             if (allItems.length > 0) {
-                if (_gpNav.lastScreen !== 'merchant') {
-                    _gpNav.lastScreen = 'merchant';
-                    _gpNav.menuIndex = 0;
-                    allItems.forEach((el, i) => el.classList.toggle('gamepad-focus', i === 0));
+                // Apply focus if not already applied (handles both initial load and subsequent frames)
+                const hasFocus = allItems.some(el => el.classList.contains('gamepad-focus'));
+                if (!hasFocus) {
+                    applyFocus(allItems, _gpNav.menuIndex);
                 }
                 if (btnDown || btnRight) { moveFocus(allItems, 1); return; }
                 if (btnUp   || btnLeft)  { moveFocus(allItems, -1); return; }
@@ -1095,12 +1095,12 @@ function handleGamepadInput() {
                     return;
                 }
             }
-            if (btnB) { 
-                clearFocus(allItems); 
-                _gpNav.menuIndex = 0; 
-                lastGamepadUpdate = now; 
-                leaveMerchantButton?.click(); 
-                return; 
+            if (btnB) {
+                clearFocus(allItems);
+                _gpNav.menuIndex = 0;
+                lastGamepadUpdate = now;
+                leaveMerchantButton?.click();
+                return;
             }
         }
 
@@ -1121,6 +1121,8 @@ function handleGamepadInput() {
             if (pressed(2)) {
                 const musicBtn = document.getElementById('musicPlayerButton');
                 if (musicBtn && musicBtn.classList.contains('unlocked')) {
+                    // Save difficulty position before switching to music player
+                    _gpNav.savedDifficultyIndex = _gpNav.menuIndex;
                     clearFocus(btns);
                     _gpNav.menuIndex = 0;
                     lastGamepadUpdate = now;
@@ -1226,16 +1228,17 @@ function handleGamepadInput() {
                 if (btnDown || btnRight) { moveFocus(musicTiles, 1); return; }
                 if (btnUp   || btnLeft)  { moveFocus(musicTiles, -1); return; }
                 if (btnA) {
+                    const selectedIndex = _gpNav.menuIndex; // Save current focus BEFORE clearing
                     clearFocus(musicTiles);
-                    _gpNav.menuIndex = 0;
                     lastGamepadUpdate = now;
-                    musicTiles[_gpNav.menuIndex]?.click();
+                    musicTiles[selectedIndex]?.click(); // Click the focused tile, not index 0
                     return;
                 }
             }
             if (btnB) {
                 clearFocus(musicTiles);
-                _gpNav.menuIndex = 0;
+                // Restore the saved difficulty position when returning
+                _gpNav.menuIndex = _gpNav.savedDifficultyIndex;
                 _gpNav.lastScreen = 'difficulty';
                 lastGamepadUpdate = now;
                 if (backBtn) backBtn.click();
@@ -2165,8 +2168,18 @@ document.body.addEventListener('touchstart', (e) => {
                 playerStats.totalCoins++;
             }
             // Apply saturation penalty: fewer drops when player has many powerups
-            const saturationPenalty = Math.min(0.7, player.boxPickupsCollectedCount * 0.015);
-            const effectiveDropChance = Math.min(MAX_BOX_DROP_CHANCE, boxDropChance * (1 - saturationPenalty));
+            // STRONGER PENALTY: 0.025 per box (was 0.015), caps at 90% (was 70%)
+            const saturationPenalty = Math.min(0.9, player.boxPickupsCollectedCount * 0.025);
+            
+            // TIME-BASED SCALING: Reduce drops after 10 minutes (600s) to prevent snowballing
+            const elapsedMs = Date.now() - gameStartTime - gameTimeOffset;
+            const elapsedSeconds = elapsedMs / 1000;
+            // After 10 min, gradually reduce drop chance up to 60% reduction at 20 min+
+            const lateGameReduction = elapsedSeconds > 600 
+                ? Math.min(0.6, (elapsedSeconds - 600) / 1000) 
+                : 0;
+            
+            const effectiveDropChance = Math.min(MAX_BOX_DROP_CHANCE, boxDropChance * (1 - saturationPenalty) * (1 - lateGameReduction));
             if (Math.random() < effectiveDropChance) {
                 createPickup(enemy.x, enemy.y, 'box', BOX_SIZE, 0);
             }
@@ -2211,7 +2224,7 @@ document.body.addEventListener('touchstart', (e) => {
                 createPickup(enemy.x, enemy.y, DIAMOND_EMOJI, DIAMOND_SIZE, DIAMOND_XP_VALUE);
             } else if (enemy.emoji === MOSQUITO_EMOJI) {
                 createPickup(enemy.x, enemy.y, DIAMOND_EMOJI, DIAMOND_SIZE, DIAMOND_XP_VALUE);
-            } else if (Math.random() < appleDropChance) {
+            } else if (Math.random() < appleDropChance * (1 - lateGameReduction)) {
                 createAppleItem(enemy.x, enemy.y);
             } else {
                 if (enemy.emoji === '🧟') createPickup(enemy.x, enemy.y, COIN_EMOJI, COIN_SIZE, COIN_XP_VALUE);
@@ -2351,7 +2364,18 @@ function createBoss() {
 
                 // Mega boss stats
                 const megaBossSize = config.size * MEGA_BOSS_SIZE_MULTIPLIER;
-                const megaBossHealth = Math.floor((BOSS_HEALTH + player.level * 1.5) * MEGA_BOSS_HEALTH_MULTIPLIER);
+                
+                // Base mega boss health
+                let megaBossHealth = Math.floor((BOSS_HEALTH + player.level * 1.5) * MEGA_BOSS_HEALTH_MULTIPLIER);
+                
+                // Power-up scaling: 10+ power-ups = +50% HP, 15+ power-ups = +75% HP
+                const powerUpCount = player.boxPickupsCollectedCount || 0;
+                if (powerUpCount >= 15) {
+                    megaBossHealth = Math.floor(megaBossHealth * 1.75);
+                } else if (powerUpCount >= 10) {
+                    megaBossHealth = Math.floor(megaBossHealth * 1.5);
+                }
+                
                 const megaBossSpeed = config.speedMultiplier * baseEnemySpeed * MEGA_BOSS_SPEED_MULTIPLIER;
 
                 const megaBoss = {
@@ -2399,8 +2423,16 @@ function createBoss() {
                 lastMegaBossMinionSpawnTime = now;
                 const config = ENEMY_CONFIGS[megaBoss.mimics];
                 
-                // Spawn 4 minions around the mega boss
-                for (let i = 0; i < 4; i++) {
+                // Determine minion count based on difficulty
+                let minionCount = 4; // Base for easy
+                if (currentDifficulty === 'medium') {
+                    minionCount = 7; // +3 more than easy
+                } else if (currentDifficulty === 'hard') {
+                    minionCount = 10; // +6 more than easy
+                }
+                
+                // Spawn minions around the mega boss
+                for (let i = 0; i < minionCount; i++) {
                     const angle = (i / 4) * Math.PI * 2;
                     const dist = megaBoss.size * 1.5;
                     const mx = megaBoss.x + Math.cos(angle) * dist;
@@ -2503,13 +2535,24 @@ function createBoss() {
                 
                 // Add click handler for restart button
                 document.getElementById('winRestartButton').addEventListener('click', () => {
+                    // Save coins earned this run
+                    const coins = enemiesDefeatedCount;
+                    playerData.currency += coins;
+                    savePlayerData();
+                    savePlayerStats();
+                    
                     // Reset mega boss state
                     megaBossSpawned = false;
                     megaBossDefeated = false;
                     megaBossMusicPlaying = false;
                     normalEnemySpawningPaused = false;
-                    // Restore original game overlay content
-                    location.reload(); // Simple reload to reset everything
+                    
+                    // Return to main menu
+                    if (gameOverlay) gameOverlay.style.display = 'none';
+                    if (difficultyContainer) difficultyContainer.style.display = 'block';
+                    startMainMenuBGM();
+                    displayHighScores();
+                    if (typeof updateMusicPlayerButton === 'function') updateMusicPlayerButton();
                 });
             }
             
@@ -3631,6 +3674,14 @@ async function startGame() {
             gameStartTime = Date.now();
             gameTimeOffset = 0; // Reset paused time tracking
             gameTimePausedAt = 0;
+            // Initialize virtual time system for game speed scaling
+            if (typeof update !== 'undefined') {
+                update._virtualTime = gameStartTime;
+                update._lastRealTime = gameStartTime;
+            }
+            // Reset game speed to 1x at start of each run
+            gameTimeScale = GAME_SPEED_LEVELS[1];
+            gameSpeedLevel = 1;
             runStats.startTime = gameStartTime; // ACHIEVEMENT FIX
             lastFrameTime = gameStartTime;
             runStats.lastDamageTime = gameStartTime;
@@ -3715,11 +3766,15 @@ async function startGame() {
                 if (gameTimePausedAt > 0) {
                     const pauseDuration = Date.now() - gameTimePausedAt;
                     gameTimeOffset += pauseDuration;
-                    // Extend fire rate boost end time by pause duration
+                    // Extend fire rate boost end time by pause duration (real time)
                     if (fireRateBoostActive && fireRateBoostEndTime > 0) {
                         fireRateBoostEndTime += pauseDuration;
                     }
                     gameTimePausedAt = 0;
+                }
+                // Reset virtual time tracking so it doesn't jump after unpause
+                if (typeof update !== 'undefined') {
+                    update._lastRealTime = Date.now();
                 }
                 // Accumulate paused time for apple lifetime tracking
                 if (applePauseStartTime > 0) {
@@ -3739,10 +3794,6 @@ async function startGame() {
             if (!gameSpeedUnlocked) return; // Can't toggle if not unlocked
             gameSpeedLevel = (gameSpeedLevel + 1) % GAME_SPEED_LEVELS.length;
             gameTimeScale = GAME_SPEED_LEVELS[gameSpeedLevel];
-            // Reset the speed accumulator to prevent timing issues when switching to/from 0.5x
-            if (typeof _gameSpeedAccumulator !== 'undefined') {
-                _gameSpeedAccumulator = 0;
-            }
             if (gameSpeedButton) {
                 const speedLabel = gameTimeScale === 0.5 ? '0.5x' : `${gameTimeScale}x`;
                 gameSpeedButton.textContent = `Speed: ${speedLabel}`;

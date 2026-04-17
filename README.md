@@ -30,7 +30,7 @@ A roguelike survival game where you play as the Cowboy Hero defending Emoji Land
 - 🧲 **Magnet Field** — +8% pickup radius
 - 💥 **Increased Damage** — +15% bullet damage
 - 💨 **Swift Shots** — +8% projectile speed
-- 💪 **Power Shot** — +8% knockback
+- 💪 **Power Shot** — +4% knockback
 - 🍀 **Lucky Charm** — +0.5% drop rate
 - 🎯 **Giant's Might** — +10% bullet & AOE size
 - ⚡ **Swift Dodge** — -8% dash cooldown

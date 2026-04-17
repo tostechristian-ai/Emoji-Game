@@ -14,29 +14,13 @@
 
 // Main game loop — runs every frame (~60fps) while the game is active
 // Order matters: update logic first, then draw, then refresh UI text
-let _gameSpeedAccumulator = 0; // For fractional speed tracking
+// Game speed is handled via virtual time inside update() — no multi-update needed
 
 function gameLoop() {
-  // Game speed handling: support 0.5x (slow-mo), 1x, 2x, 3x
-  const scale = gameTimeScale || 1;
-  
-  if (scale < 1) {
-    // Slow motion: accumulate and update every other frame
-    _gameSpeedAccumulator += scale;
-    if (_gameSpeedAccumulator >= 1) {
-      _gameSpeedAccumulator -= 1;
-      update();
-    }
-  } else {
-    // Normal or fast speed: run multiple updates per frame
-    for (let i = 0; i < scale; i++) {
-      update();
-    }
-  }
-  
-  handleGamepadInput(); // Poll gamepad buttons/sticks
-  draw();              // Render everything to the canvas
-  updateUIStats();     // Refresh HUD text (level, score, XP bar, etc.)
+  update();              // Run one simulation step (virtual time scales with game speed)
+  handleGamepadInput();  // Poll gamepad buttons/sticks
+  draw();                // Render everything to the canvas
+  updateUIStats();       // Refresh HUD text (level, score, XP bar, etc.)
   if (!gameOver && gameActive) animationFrameId = requestAnimationFrame(gameLoop);
 }
 
