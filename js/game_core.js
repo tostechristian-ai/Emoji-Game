@@ -630,6 +630,12 @@ let doppelganger = null;
         const MOSQUITO_PUDDLE_LIFETIME = 2000;
         const MOSQUITO_PUDDLE_SLOW_FACTOR = 0.5;
 
+        // Snail puddle constants
+        const SNAIL_PUDDLE_SIZE = player.size * 0.8;
+        const SNAIL_PUDDLE_SPAWN_INTERVAL = 600; // 0.6 seconds
+        const SNAIL_PUDDLE_LIFETIME = 4000;
+        const SNAIL_PUDDLE_SLOW_FACTOR = 0.6;
+
         // Spider web constants
         const SPIDER_WEB_SIZE = player.size * 1.2;
         const SPIDER_WEB_LIFETIME = 1000; // 1 second
@@ -1353,13 +1359,15 @@ function handleGamepadInput() {
             const pauseBtns     = Array.from(pauseOverlayEl.querySelectorAll('button'));
 
             // Build a flat list: [musicSlider, effectsSlider, zoomToggle, ...buttons]
-            const pauseItems = [musicSlider, effectsSlider, zoomToggleEl, ...pauseBtns].filter(Boolean);
+            // Filter out hidden buttons (e.g. gameSpeedButton when not unlocked)
+            // so navigating to them doesn't make focus disappear invisibly
+            const visiblePauseBtns = pauseBtns.filter(btn => btn.style.display !== 'none');
+            const pauseItems = [musicSlider, effectsSlider, zoomToggleEl, ...visiblePauseBtns].filter(Boolean);
 
-            // Stateless focus initialization: if no item currently has gamepad-focus, apply it.
-            // This self-heals every frame and doesn't depend on _gpNav.lastScreen (which could
-            // be stale when transitioning from gameplay → pause, causing the first-open bug).
-            const hasAnyFocus = pauseItems.some(el => el.classList.contains('gamepad-focus'));
-            if (!hasAnyFocus && pauseItems.length > 0) {
+            // Initialize on first entry to pause menu only (not every frame)
+            // Use _gpNav.lastScreen check to detect first entry, not DOM state
+            if (_gpNav.lastScreen !== 'pause' && pauseItems.length > 0) {
+                _gpNav.lastScreen = 'pause';
                 _gpNav.menuIndex = 0;
                 _gpNav._sliderActive = false;
                 pauseItems.forEach((el, i) => el.classList.toggle('gamepad-focus', i === 0));
@@ -1367,8 +1375,6 @@ function handleGamepadInput() {
                 _gpLatch.A = btnA;
                 _gpLatch.B = btnB;
                 _gpLatch.Start = btnStart;
-                // Mark screen so main-menu nav doesn't interfere
-                _gpNav.lastScreen = 'pause';
             }
 
             const focused = pauseItems[_gpNav.menuIndex];
@@ -1386,17 +1392,19 @@ function handleGamepadInput() {
                 return;
             }
 
-            // Navigate up/down through items
+            // Navigate up/down through items - use the helper functions for consistency
             if (btnDown) {
-                focused?.classList.remove('gamepad-focus');
-                _gpNav.menuIndex = (_gpNav.menuIndex + 1) % pauseItems.length;
-                pauseItems[_gpNav.menuIndex]?.classList.add('gamepad-focus');
+                if (!pauseItems || pauseItems.length === 0) return;
+                const next = (_gpNav.menuIndex + 1) % pauseItems.length;
+                _gpNav.menuIndex = next;
+                pauseItems.forEach((el, i) => el.classList.toggle('gamepad-focus', i === _gpNav.menuIndex));
                 playUISound('uiClick'); vibrateUI(); lastGamepadUpdate = now; return;
             }
             if (btnUp) {
-                focused?.classList.remove('gamepad-focus');
-                _gpNav.menuIndex = (_gpNav.menuIndex - 1 + pauseItems.length) % pauseItems.length;
-                pauseItems[_gpNav.menuIndex]?.classList.add('gamepad-focus');
+                if (!pauseItems || pauseItems.length === 0) return;
+                const next = (_gpNav.menuIndex - 1 + pauseItems.length) % pauseItems.length;
+                _gpNav.menuIndex = next;
+                pauseItems.forEach((el, i) => el.classList.toggle('gamepad-focus', i === _gpNav.menuIndex));
                 playUISound('uiClick'); vibrateUI(); lastGamepadUpdate = now; return;
             }
 
@@ -1484,7 +1492,10 @@ function handleGamepadInput() {
                 togglePause();
                 // Reset latches after toggling so user must release and press again
                 _gpLatch.A = true; _gpLatch.B = true; _gpLatch.Start = true;
-                lastGamepadUpdate = now;
+                // Only set debounce when UNPAUSING (to prevent immediate re-pause).
+                // When PAUSING, togglePause() already reset lastGamepadUpdate to 0
+                // so navigation in the pause menu works immediately on first open.
+                if (!window.gamePaused) lastGamepadUpdate = now;
             }
         }
     }
@@ -3897,6 +3908,39 @@ async function startGame() {
                 // Update game speed button visibility when opening pause menu
                 if (typeof window.updateGameSpeedButtonVisibility === 'function') {
                     window.updateGameSpeedButtonVisibility();
+                }
+                // ── Initialize gamepad focus immediately on pause open ──
+                // This ensures the first item is highlighted right away,
+                // rather than waiting for the next handleGamepadInput() call.
+                if (typeof _gpNav !== 'undefined' && pauseOverlay) {
+                    _gpNav.menuIndex = 0;
+                    _gpNav._sliderActive = false;
+                    _gpNav.lastScreen = 'pause';
+                    // Clear any stale focus, then apply to first item
+                    pauseOverlay.querySelectorAll('.gamepad-focus').forEach(el => el.classList.remove('gamepad-focus'));
+                    const musicSlider   = document.getElementById('musicVolume');
+                    const effectsSlider = document.getElementById('effectsVolume');
+                    const zoomToggleEl  = document.getElementById('zoomToggle');
+                    const pauseBtns     = Array.from(pauseOverlay.querySelectorAll('button'));
+                    const visiblePauseBtns = pauseBtns.filter(btn => btn.style.display !== 'none');
+                    const pauseItems = [musicSlider, effectsSlider, zoomToggleEl, ...visiblePauseBtns].filter(Boolean);
+                    if (pauseItems.length > 0) {
+                        pauseItems[0].classList.add('gamepad-focus');
+                    }
+                    // Reset latches so the Start/A/B that opened the menu don't trigger actions
+                    if (typeof _gpLatch !== 'undefined') {
+                        const gp = navigator.getGamepads?.()?.[gamepadIndex];
+                        if (gp) {
+                            _gpLatch.A = !!gp.buttons?.[0]?.pressed;
+                            _gpLatch.B = !!gp.buttons?.[1]?.pressed;
+                            _gpLatch.Start = !!gp.buttons?.[9]?.pressed;
+                        }
+                    }
+                    // Reset debounce so navigation works immediately on next frame.
+                    // Set to (now - delay) so the next check (now - last >= delay) passes.
+                    if (typeof lastGamepadUpdate !== 'undefined' && typeof GAMEPAD_INPUT_DELAY !== 'undefined') {
+                        lastGamepadUpdate = Date.now() - GAMEPAD_INPUT_DELAY;
+                    }
                 }
             }
             else {

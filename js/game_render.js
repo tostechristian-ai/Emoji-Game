@@ -1196,6 +1196,7 @@
             
             merchants.forEach(m => {
     ctx.save();
+    ctx.globalAlpha = 1.0; // Ensure wizard is fully opaque
     // Draw shadow under merchant wizard
     const isMobile = document.body.classList.contains('is-mobile');
     const mShadowY = m.y + m.size * 0.4;
