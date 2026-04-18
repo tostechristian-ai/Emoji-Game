@@ -227,6 +227,20 @@ window.onload = function() {
   // ─── START BUTTON ─────────────────────────────────────────────────────────
   // Must be triggered by user interaction to unlock the Web Audio API
   startButton.addEventListener('click', () => {
+    // Strong vibration for game start - multiple pulses to ensure it's felt
+    console.log('[Start Button] Clicked - attempting vibration...');
+    if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 200]);
+    
+    // Try multiple rumble approaches for better compatibility
+    if (window.rumbleGamepad) {
+      // First pulse
+      window.rumbleGamepad(300, 1.0, 1.0);
+      // Second pulse after short delay
+      setTimeout(() => window.rumbleGamepad && window.rumbleGamepad(300, 1.0, 1.0), 350);
+      // Third pulse
+      setTimeout(() => window.rumbleGamepad && window.rumbleGamepad(300, 1.0, 1.0), 700);
+    }
+    
     Tone.start().then(() => {
       console.log("AudioContext started by user.");
       showInitialScreen(); // Show splash → intro video → main menu

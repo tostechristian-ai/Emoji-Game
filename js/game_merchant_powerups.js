@@ -193,6 +193,42 @@ function showMerchantShop() {
         });
     });
 
+    // ─── LEVEL-UP STAT UPGRADES ────────────────────────────────────────────
+    // Merchant offers permanent stat upgrades (same as level-up upgrades)
+    const upgradeOptions = [
+        { name: 'Fast Runner',       desc: 'Increase movement speed by 8%',         type: 'speed',           value: 0.08,  icon: '🏃' },
+        { name: 'Rapid Fire',        desc: 'Increase fire rate by 8%',             type: 'fireRate',        value: 0.08,  icon: '🔫' },
+        { name: 'Magnet Field',      desc: 'Increase pickup radius by 8%',         type: 'magnetRadius',    value: 0.08,  icon: '🧲' },
+        { name: 'Increased Damage',  desc: 'Increase projectile damage by 15%',    type: 'damage',          value: 0.15,  icon: '💥' },
+        { name: 'Swift Shots',       desc: 'Increase projectile speed by 8%',      type: 'projectileSpeed', value: 0.08,  icon: '💨' },
+        { name: 'Power Shot',        desc: 'Projectiles knock enemies back by 4%', type: 'knockback',       value: 0.04,  icon: '💪' },
+        { name: 'Lucky Charm',       desc: 'Increase pickup drop rate by 0.5%',    type: 'luck',            value: 0.005, icon: '🍀' },
+        { name: "Giant's Might",     desc: 'Increase bullet & AOE size by 10%',   type: 'bulletSize',      value: 0.10,  icon: '🎯' },
+        { name: 'Swift Dodge',       desc: 'Reduce dash cooldown by 8%',         type: 'dashCooldown',    value: 0.08,  icon: '⚡' },
+    ];
+
+    // Cost scales with how many times player has bought this upgrade
+    const upgradeBaseCost = Math.floor(coinCost * 1.5);
+
+    upgradeOptions.forEach(upgrade => {
+        const currentLevel = player.upgradeLevels?.[upgrade.type] || 0;
+        const maxLevel = 10; // Cap upgrades at level 10 from merchant
+        if (currentLevel < maxLevel) {
+            const cost = upgradeBaseCost + (currentLevel * 25); // Gets more expensive each level
+            allOptions.push({
+                type: 'stat_upgrade',
+                name: upgrade.name,
+                desc: `${upgrade.desc} (Level ${currentLevel + 1})`,
+                icon: upgrade.icon,
+                cost,
+                currency: 'coins',
+                upgradeType: upgrade.type,
+                upgradeValue: upgrade.value,
+                enabled: player.coins >= cost
+            });
+        }
+    });
+
     // ─── SHUFFLE AND SELECT 3 OPTIONS ───────────────────────────────────────
     // Shuffle all available options
     for (let i = allOptions.length - 1; i > 0; i--) {
@@ -347,6 +383,52 @@ function purchaseFromMerchant(option) {
             y: player.y - player.size,
             startTime: Date.now(),
             duration: 1500
+        });
+    }
+
+    // ─── STAT UPGRADE PURCHASES ─────────────────────────────────────────────
+    // Permanent upgrades same as level-up upgrades
+    else if (option.type === 'stat_upgrade') {
+        player.coins -= option.cost;
+
+        // Apply the upgrade effect (same as applyUpgrade in level up)
+        const upgrade = { type: option.upgradeType, value: option.upgradeValue };
+
+        if (upgrade.type === 'speed') {
+            player.speed *= (1 + upgrade.value);
+            player.originalPlayerSpeed = player.speed;
+        } else if (upgrade.type === 'fireRate') {
+            weaponFireInterval = Math.max(50, weaponFireInterval * (1 - upgrade.value));
+        } else if (upgrade.type === 'magnetRadius') {
+            player.magnetRadius *= (1 + upgrade.value);
+        } else if (upgrade.type === 'damage') {
+            player.damageMultiplier *= (1 + upgrade.value);
+        } else if (upgrade.type === 'projectileSpeed') {
+            player.projectileSpeedMultiplier *= (1 + upgrade.value);
+        } else if (upgrade.type === 'knockback') {
+            player.knockbackStrength += upgrade.value;
+        } else if (upgrade.type === 'luck') {
+            boxDropChance += upgrade.value;
+            appleDropChance += upgrade.value;
+        } else if (upgrade.type === 'bulletSize') {
+            player.bulletSizeMultiplier = Math.min(2.0, (player.bulletSizeMultiplier || 1.0) * (1 + upgrade.value));
+        } else if (upgrade.type === 'dashCooldown') {
+            player.dashCooldown = Math.max(500, player.dashCooldown * (1 - upgrade.value));
+        }
+
+        // Track upgrade level
+        if (player.upgradeLevels.hasOwnProperty(upgrade.type)) {
+            player.upgradeLevels[upgrade.type]++;
+        }
+        updateUpgradeStatsUI();
+
+        floatingTexts.push({
+            text: `${option.name} +1!`,
+            x: player.x,
+            y: player.y - player.size,
+            startTime: Date.now(),
+            duration: 1500,
+            color: '#66bb6a'
         });
     }
 

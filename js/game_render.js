@@ -3,7 +3,9 @@
 
         function draw() {
             if (!gameActive) return;
-            const now = Date.now();
+            const realNow = Date.now();
+            // Use virtual time for game-state-based animations (like spin), real time for UI effects
+            const now = (typeof update !== 'undefined' && update._virtualTime) ? update._virtualTime : realNow;
             
             // Reset ignited enemy counter for this frame
             draw._ignitedCount = 0;
@@ -19,7 +21,7 @@
                 y + r > viewTop  && y - r < viewBottom;
             let currentHitShakeX = 0, currentHitShakeY = 0;
             if (isPlayerHitShaking) {
-                const elapsedTime = now - playerHitShakeStartTime;
+                const elapsedTime = realNow - playerHitShakeStartTime;
                 if (elapsedTime < PLAYER_HIT_SHAKE_DURATION) {
                     const shakeIntensity = MAX_PLAYER_HIT_SHAKE_OFFSET * (1 - (elapsedTime / PLAYER_HIT_SHAKE_DURATION));
                     currentHitShakeX = (Math.random() - 0.5) * 2 * shakeIntensity;
@@ -245,7 +247,7 @@
                 const opacity = 1 - (age / puddle.lifetime);
                 if (opacity > 0) {
                     ctx.save();
-                    ctx.globalAlpha = opacity * 0.7;
+                    ctx.globalAlpha = opacity * 0.525; // 75% of previous 0.7 max opacity
                     ctx.drawImage(sprites.slime, puddle.x - puddle.size / 2, puddle.y - puddle.size / 2, puddle.size, puddle.size);
                     ctx.restore();
                 }
@@ -260,6 +262,31 @@
                     ctx.fillStyle = 'rgba(255, 0, 0, 1)';
                     ctx.beginPath();
                     ctx.arc(puddle.x, puddle.y, puddle.size / 2, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.restore();
+                }
+            }
+
+            // Render snail slime trails (greenish puddles that slow the player)
+            for (const puddle of snailPuddles) {
+                const age = now - puddle.spawnTime;
+                const opacity = 1 - (age / puddle.lifetime);
+                if (opacity > 0) {
+                    ctx.save();
+                    ctx.globalAlpha = opacity * 0.85;
+                    // Dark green border for visibility
+                    ctx.strokeStyle = 'rgba(50, 120, 50, 1)';
+                    ctx.lineWidth = 3;
+                    // Bright green fill
+                    ctx.fillStyle = 'rgba(120, 220, 120, 1)';
+                    ctx.beginPath();
+                    ctx.arc(puddle.x, puddle.y, puddle.size / 2, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.stroke();
+                    // Inner highlight
+                    ctx.fillStyle = 'rgba(180, 255, 180, 0.7)';
+                    ctx.beginPath();
+                    ctx.arc(puddle.x - 4, puddle.y - 4, puddle.size / 4, 0, Math.PI * 2);
                     ctx.fill();
                     ctx.restore();
                 }
@@ -449,7 +476,13 @@
             smokeParticles.forEach(p => {
                 if (!inView(p.x, p.y, p.size)) return;
                 ctx.save();
-                ctx.globalAlpha = p.alpha;
+                // Calculate fade based on lifetime if available, otherwise use static alpha
+                let renderAlpha = p.alpha;
+                if (p.spawnTime && p.lifetime) {
+                    const age = now - p.spawnTime;
+                    renderAlpha = p.alpha * (1 - age / p.lifetime);
+                }
+                ctx.globalAlpha = Math.max(0, renderAlpha);
                 ctx.font = `${p.size}px sans-serif`;
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
@@ -567,7 +600,6 @@
                 }
 
                 // White flash when hit
-                const now = Date.now();
                 if (enemy.hitFlashTime && now - enemy.hitFlashTime < 100) {
                     ctx.globalCompositeOperation = 'lighter';
                     ctx.globalAlpha = 0.8;
@@ -1204,6 +1236,27 @@
                 case 'left': playerSprite = sprites.playerLeft; break;
                 case 'right': playerSprite = sprites.playerRight; break;
                 default: playerSprite = sprites.playerDown;
+            }
+
+            // Draw dash smoke trail under player (like kicked-up dust)
+            for (const smoke of dashSmokeParticles) {
+                const age = now - smoke.spawnTime;
+                const lifeRatio = age / smoke.lifetime;
+                const opacity = (1 - lifeRatio) * DASH_SMOKE_OPACITY;
+                if (opacity > 0) {
+                    ctx.save();
+                    ctx.globalAlpha = opacity;
+                    // Draw shadow first for visibility
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+                    ctx.font = `${smoke.size}px sans-serif`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText('💨', smoke.x + 2, smoke.y + 2);
+                    // Draw main emoji
+                    ctx.fillStyle = 'white';
+                    ctx.fillText('💨', smoke.x, smoke.y);
+                    ctx.restore();
+                }
             }
 
             // Draw light shadow under player

@@ -104,9 +104,7 @@
       if (player._skull_damage_backup === undefined) player._skull_damage_backup = player.damageMultiplier;
       player.damageMultiplier = player._skull_damage_backup * 0.5; // 0.5x damage
       // Activate bone shot powerup for piercing spinning bones
-      if (typeof window.boneShotActive !== 'undefined') {
-        window.boneShotActive = true;
-      }
+      window.boneShotActive = true;
       log('Skull stats applied: 0.5x damage, bone shot enabled.');
     }
 
@@ -120,9 +118,7 @@
         delete player._skull_damage_backup;
       }
       // Deactivate bone shot when switching away from skull
-      if (typeof window.boneShotActive !== 'undefined') {
-        window.boneShotActive = false;
-      }
+      window.boneShotActive = false;
       log('Skull stats removed.');
     }
 
@@ -208,8 +204,10 @@
               weapon.dx = Math.cos(angle) * weapon.speed;
               weapon.dy = Math.sin(angle) * weapon.speed;
               weapon.lifetime = Date.now() + NOVA_LIFE;
-              weapon.hitsLeft = 1;
-              weapon.hitEnemies = [];
+              weapon.hitsLeft = 999; // Piercing - can hit multiple enemies
+              weapon._isBoneShot = true; // Mark as bone shot for piercing behavior
+              weapon._boneDamage = 1; // Fixed 1 damage per hit
+              weapon.hitEnemies = new Set(); // Use Set for proper hit tracking
               weapon.active = true;
               weapon.spinAngle = angle;
               bonesCreated++;

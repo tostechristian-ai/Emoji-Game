@@ -390,18 +390,19 @@ function spawnRandomBrick() {
 }
 
 // Handle barrel destruction (creates explosion that damages enemies)
-function handleBarrelDestruction(barrel) {
+// 'now' should be virtual time (update._virtualTime) for proper game speed scaling
+function handleBarrelDestruction(barrel, now) {
     playSound('enemyDeath');
     
     const explosionRadius = 54;
     
-    // Create visual flame area
+    // Create visual flame area using virtual time for proper scaling with game speed
     flameAreas.push({
         x: barrel.x,
         y: barrel.y,
         radius: explosionRadius,
-        startTime: Date.now(),
-        endTime: Date.now() + 3000 // Lasts 3 seconds
+        startTime: now,
+        endTime: now + 3000 // Lasts 3 seconds (virtual time)
     });
     
     // Damage all enemies in explosion radius
@@ -536,7 +537,7 @@ function showMapSelectScreen() {
         if (!isLocked) {
             tile.addEventListener('click', () => {
                 playUISound('uiClick');
-                vibrate(10);
+                vibrateUI('select');
                 selectedMapIndex = index;
                 startGame();
             });

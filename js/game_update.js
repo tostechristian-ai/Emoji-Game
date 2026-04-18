@@ -264,16 +264,17 @@ for (let i = merchants.length - 1; i >= 0; i--) {
                     }
                 } else {
                     if (hasDashInvincibility) player.isInvincible = true;
-                    // Spawn dash smoke emoji — throttled to every 80ms, hard cap 15
-                    if (smokeParticles.length < 15 && (!player._lastDashSmoke || now - player._lastDashSmoke > 80)) {
-                        smokeParticles.push({
-                            x: player.x + (Math.random() - 0.5) * player.size * 0.5,
-                            y: player.y + (Math.random() - 0.5) * player.size * 0.5,
-                            dx: (Math.random() - 0.5) * 0.4,
-                            dy: (Math.random() - 0.5) * 0.4,
-                            size: 12 + Math.random() * 6, alpha: 0.7,
+                    // Dash smoke trail: emit 💨 frequently, high opacity, longer lifetime
+                    if (!player._lastDashSmokeTime || now - player._lastDashSmokeTime >= DASH_SMOKE_SPAWN_INTERVAL) {
+                        dashSmokeParticles.push({
+                            x: player.x + (Math.random() - 0.5) * player.size * 0.6,
+                            y: player.y + (Math.random() - 0.5) * player.size * 0.6,
+                            spawnTime: now,
+                            lifetime: DASH_SMOKE_LIFETIME,
+                            size: 24 + Math.random() * 12, // Much larger particles
                         });
-                        player._lastDashSmoke = now;
+                        player._lastDashSmokeTime = now;
+                        console.log('[Dash Debug] Smoke spawned at', player.x, player.y, 'total particles:', dashSmokeParticles.length);
                     }
                 }
             }
@@ -294,7 +295,7 @@ for (let i = merchants.length - 1; i >= 0; i--) {
                 const dx = player.x - puddle.x;
                 const dy = player.y - puddle.y;
                 if (dx*dx + dy*dy < ((player.size / 2) + (puddle.size / 2))**2) {
-                    currentPlayerSpeed *= PLAYER_PUDDLE_SLOW_FACTOR; 
+                    currentPlayerSpeed *= SNAIL_PUDDLE_SLOW_FACTOR;
                     break;
                 }
             }
@@ -1288,7 +1289,20 @@ for (let i = merchants.length - 1; i >= 0; i--) {
                         }
                         moveX += Math.cos(enemy.directionAngle) * effectiveEnemySpeed;
                         moveY += Math.sin(enemy.directionAngle) * effectiveEnemySpeed;
-                        // Snail puddle trail removed
+                        // Snail puddle trail: spawn every 0.6s, slows player when stepped on
+                        if (!enemy.lastPuddleSpawnTime) enemy.lastPuddleSpawnTime = now;
+                        const timeSinceLastPuddle = now - enemy.lastPuddleSpawnTime;
+                        if (timeSinceLastPuddle >= SNAIL_PUDDLE_SPAWN_INTERVAL) {
+                            snailPuddles.push({
+                                x: enemy.x,
+                                y: enemy.y,
+                                size: SNAIL_PUDDLE_SIZE,
+                                spawnTime: now,
+                                lifetime: SNAIL_PUDDLE_LIFETIME
+                            });
+                            enemy.lastPuddleSpawnTime = now;
+                            console.log('[Snail Debug] Puddle spawned at', enemy.x, enemy.y, 'total puddles:', snailPuddles.length, 'time since last:', timeSinceLastPuddle);
+                        }
                         break;
                     }
                     case 'invader': {
@@ -1522,7 +1536,7 @@ for (let i = merchants.length - 1; i >= 0; i--) {
                         
                         // Calculate perpendicular direction for strafing
                         const strafeAngle = angleToTarget + Math.PI / 2;
-                        const strafeAmount = Math.sin(enemy.strafePhase) * effectiveEnemySpeed * 0.6;
+                        const strafeAmount = Math.sin(enemy.strafePhase) * effectiveEnemySpeed * 1.8; // 3x more side-to-side movement
                         
                         // Combine forward movement with side-to-side strafing
                         moveX += moveTowardX + Math.cos(strafeAngle) * strafeAmount;
@@ -2592,7 +2606,7 @@ if (pendingRevolverShot && now >= pendingRevolverShot.fireAt) {
 
                         if (obs.health <= 0) {
                             if (obs.emoji === '🛢️') {
-                                handleBarrelDestruction(obs);
+                                handleBarrelDestruction(obs, now);
                             } else if (obs.emoji === '🧱') {
                                 handleBrickDestruction(obs);
                             }
@@ -2608,15 +2622,22 @@ if (pendingRevolverShot && now >= pendingRevolverShot.fireAt) {
     if (!weapon.active) continue;
 
     // Define the weapon's bounding box to search the quadtree
+    // Expand bounds to include weapon's path for better piercing detection
+    const pathPadding = weapon.speed || 5;
     const weaponBounds = {
-        x: weapon.x - weapon.size / 2,
-        y: weapon.y - weapon.size / 2,
-        width: weapon.size,
-        height: weapon.size
+        x: weapon.x - weapon.size / 2 - pathPadding,
+        y: weapon.y - weapon.size / 2 - pathPadding,
+        width: weapon.size + pathPadding * 2,
+        height: weapon.size + pathPadding * 2
     };
     
     // Ask the quadtree for a small list of only the objects near the weapon
     const nearbyObjects = quadtree.retrieve(weaponBounds);
+    
+    // DEBUG: Log bone shot detection
+    if (weapon._isBoneShot && nearbyObjects.length > 0) {
+        console.log('[Bone Debug] nearbyObjects:', nearbyObjects.length, 'hitEnemies size:', weapon.hitEnemies.size);
+    }
 
     // Now, only loop through this much smaller list of potential targets
     for (const targetObject of nearbyObjects) {
@@ -2636,6 +2657,10 @@ if (pendingRevolverShot && now >= pendingRevolverShot.fireAt) {
 
             // This is the same distance check as before
             if (dx * dx + dy * dy < combinedRadius * combinedRadius) {
+                // DEBUG: Log bone hit
+                if (weapon._isBoneShot) {
+                    console.log('[Bone Debug] HIT enemy! hitEnemies before:', weapon.hitEnemies.size, 'enemy:', enemy.emoji);
+                }
                 
                 // --- ALL YOUR ORIGINAL COLLISION LOGIC IS COPIED HERE ---
                 let damageToDeal = player.damageMultiplier;
@@ -2655,6 +2680,11 @@ if (pendingRevolverShot && now >= pendingRevolverShot.fireAt) {
                 enemy.hitFlashTime = now; // Add white flash effect
                 createBloodSplatter(enemy.x, enemy.y);
                 weapon.hitEnemies.add(enemy);
+                
+                // DEBUG: Log after adding to hitEnemies
+                if (weapon._isBoneShot) {
+                    console.log('[Bone Debug] Added to hitEnemies, new size:', weapon.hitEnemies.size, '_isBoneShot:', weapon._isBoneShot);
+                }
 
                 // Floating damage number — throttled per enemy, colour/size scales with damage
                 if (!enemy._lastDmgNum || now - enemy._lastDmgNum > 180) {
@@ -2748,6 +2778,7 @@ if (pendingRevolverShot && now >= pendingRevolverShot.fireAt) {
                 // Bone shots pierce through enemies - don't decrement hitsLeft or deactivate
                 if (weapon._isBoneShot) {
                     // Piercing - continue through enemy without deactivating
+                    // Don't break - keep checking other enemies in this frame
                 } else {
                     weapon.hitsLeft--;
                     if (weapon.hitsLeft > 0 && ricochetActive && !rocketLauncherActive) {
@@ -2769,11 +2800,11 @@ if (pendingRevolverShot && now >= pendingRevolverShot.fireAt) {
                             weapon.dy = Math.sin(angle) * weapon.speed;
                         } else { weapon.active = false; }
                     } else { weapon.active = false; }
-                }
 
-                // Break from the inner loop if the weapon is gone
-                if (!weapon.active) {
-                    break;
+                    // Break from the inner loop if the weapon is gone (non-piercing only)
+                    if (!weapon.active) {
+                        break;
+                    }
                 }
             }
         }
@@ -3863,7 +3894,8 @@ for (let i = lightningBolts.length - 1; i >= 0; i--) {
                 });
 
                 // Damage destructibles (walls, oil cans) contacting the spear
-                destructibles.forEach(dest => {
+                for (let di = destructibles.length - 1; di >= 0; di--) {
+                    const dest = destructibles[di];
                     const startX = player.x + Math.cos(spearAngle) * (player.size / 2);
                     const startY = player.y + Math.sin(spearAngle) * (player.size / 2);
                     const segDx = tipX - startX;
@@ -3905,11 +3937,16 @@ for (let i = lightningBolts.length - 1; i >= 0; i--) {
                             }
 
                             if (dest.health <= 0) {
-                                handleDestructibleDeath(dest);
+                                if (dest.emoji === '🛢️') {
+                                    handleBarrelDestruction(dest, now);
+                                } else if (dest.emoji === '🧱') {
+                                    handleBrickDestruction(dest);
+                                }
+                                destructibles.splice(di, 1);
                             }
                         }
                     }
-                });
+                }
             }
 
             for (let i = eyeProjectiles.length - 1; i >= 0; i--) {
@@ -4056,6 +4093,9 @@ for (let i = lightningBolts.length - 1; i >= 0; i--) {
             if (bloodSplatters.length > 80) bloodSplatters.splice(0, bloodSplatters.length - 80);
             for (let i = bloodPuddles.length - 1; i >= 0; i--) { if (now - bloodPuddles[i].spawnTime > bloodPuddles[i].lifetime) { bloodPuddles.splice(i, 1); } }
             if (bloodPuddles.length > 40) bloodPuddles.splice(0, bloodPuddles.length - 40);
+
+            // Clean up expired dash smoke particles
+            for (let i = dashSmokeParticles.length - 1; i >= 0; i--) { if (now - dashSmokeParticles[i].spawnTime > dashSmokeParticles[i].lifetime) dashSmokeParticles.splice(i, 1); }
 
             for (let si = 0; si < dogHomingShots.length; si++) {
                 const shot = dogHomingShots[si];
@@ -4213,9 +4253,12 @@ for (let i = lightningBolts.length - 1; i >= 0; i--) {
                 const p = smokeParticles[i];
                 p.x += p.dx * gameTimeScale;
                 p.y += p.dy * gameTimeScale;
-                p.alpha -= 0.03 * gameTimeScale; // fade faster
-                if (p.alpha <= 0) {
+                // Remove if lifetime expired (dash smoke) or alpha faded out (enemy smoke)
+                if (p.lifetime && now - p.spawnTime >= p.lifetime) {
                     smokeParticles.splice(i, 1);
+                } else if (!p.lifetime) {
+                    p.alpha -= 0.03 * gameTimeScale; // fade faster (legacy enemy smoke)
+                    if (p.alpha <= 0) smokeParticles.splice(i, 1);
                 }
             }
             if (smokeParticles.length > 30) smokeParticles.splice(0, smokeParticles.length - 30);

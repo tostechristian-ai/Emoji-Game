@@ -33,7 +33,7 @@
 
 // BOX cheat: Spawn all available power-up boxes around the player (debug/testing)
 function spawnAllPowerupBoxes() {
-    if (!gameActive || !player) return;
+    if (!window.gameActive || !player) return;
 
     const boxSize = 30;
     const radius = 150; // Spawn in a circle around player
@@ -146,7 +146,7 @@ function activateGodMode() {
 
     // Show feedback (use floating text if in game, alert otherwise)
     const message = "GOD MODE ACTIVATED! All upgrades maxed and all items unlocked!";
-    if (gameActive && player) {
+    if (window.gameActive && player) {
         floatingTexts.push({
             text: "GOD MODE ACTIVATED!",
             x: player.x,
@@ -374,8 +374,13 @@ function activateGodMode() {
         const merchantShop = document.getElementById('merchantShop');
         const merchantOptionsContainer = document.getElementById('merchantOptionsContainer');
         const leaveMerchantButton = document.getElementById('leaveMerchantButton');
+        // Expose to global scope for game_merchant_powerups.js and gamepad navigation
+        window.merchantShop = merchantShop;
+        window.merchantOptionsContainer = merchantOptionsContainer;
+        window.leaveMerchantButton = leaveMerchantButton;
 
         const gameOverlay = document.getElementById('gameOverlay');
+        window.gameOverlay = gameOverlay;
         const finalScoreSpan = document.getElementById('finalScore');
         const coinsEarnedSpan = document.getElementById('coinsEarned');
         const finalTimeSpan = document.getElementById('finalTime');
@@ -504,6 +509,7 @@ function activateGodMode() {
             lastDashTime: 0,
             dashCooldown: 6000,
             isInvincible: false,
+            _lastDashSmokeTime: 0,
             spinStartTime: null, // For spin animation
             spinDirection: 0, // For spin animation
 
@@ -605,6 +611,11 @@ let doppelganger = null;
         const PLAYER_PUDDLE_SIZE = player.size / 1.5;
         const PLAYER_PUDDLE_SPAWN_INTERVAL = 80;
         const PLAYER_PUDDLE_LIFETIME = 3000;
+
+        // Dash smoke trail constants
+        const DASH_SMOKE_SPAWN_INTERVAL = 200; // 0.2 seconds
+        const DASH_SMOKE_LIFETIME = 400; // 0.4 seconds
+        const DASH_SMOKE_OPACITY = 0.35; // 35%
         const PLAYER_PUDDLE_SLOW_FACTOR = 0.5;
 
         const MOSQUITO_EMOJI = '🦟';
@@ -643,6 +654,7 @@ let doppelganger = null;
         let destructibles = [];
         let flameAreas = [];
         let smokeParticles = [];
+        let dashSmokeParticles = []; // Separate array for dash smoke trail
         let pickups = [];
         let merchants = []; // Changed from 'merchant = null' to an array
         let lastMerchantSpawnTime = 0;
@@ -737,16 +749,17 @@ let doppelganger = null;
 
         const MAGNET_STRENGTH = 0.5;
 
-        let gamePaused = false;
-        let gameOver = false;
-        let gameActive = false;
-        let gameStartTime = 0;
+        // Expose pause variables to global scope for game_merchant_powerups.js and merchant shop
+        window.gamePaused = false;
+        window.gameOver = false;
+        window.gameActive = false;
+        window.gameStartTime = 0;
         let gameTimeOffset = 0; // Accumulates paused time to keep timer accurate
         let gameTimePausedAt = 0; // When the timer was paused
         
         // Track paused time for apple lifetime pausing during menus
-        let applePauseStartTime = 0;
-        let appleTotalPausedDuration = 0;
+        window.applePauseStartTime = 0;
+        window.appleTotalPausedDuration = 0;
         let animationFrameId;
         let enemiesDefeatedCount = 0;
         let lastFrameTime = 0;
@@ -946,11 +959,23 @@ function applyDeadzone(v, dz = GAMEPAD_DEADZONE) {
   return Math.abs(v) < dz ? 0 : v;
 }
 
+// Check for already-connected gamepads on load
+(function checkInitialGamepads() {
+  const gpads = navigator.getGamepads ? navigator.getGamepads() : [];
+  for (let i = 0; i < gpads.length; i++) {
+    if (gpads[i] && gamepadIndex === null) {
+      gamepadIndex = i;
+      console.log("[Gamepad] Already connected on load:", gpads[i].id, "index:", i);
+    }
+  }
+})();
+
 window.addEventListener("gamepadconnected", (e) => {
-  console.log("Gamepad connected:", e.gamepad.id);
+  console.log("[Gamepad] Connected:", e.gamepad.id, "index:", e.gamepad.index, "has vibration:", !!e.gamepad.vibrationActuator);
   gamepadIndex = e.gamepad.index;
 });
 window.addEventListener("gamepaddisconnected", (e) => {
+  console.log("[Gamepad] Disconnected:", e.gamepad.index);
   if (gamepadIndex === e.gamepad.index) gamepadIndex = null;
 });
 
@@ -962,6 +987,9 @@ const GAMEPAD_INPUT_DELAY = 200;
 
 // Persistent gamepad navigation state (lives outside the snapshot object)
 const _gpNav = { menuIndex: 0, lastScreen: '', savedDifficultyIndex: 0 };
+
+// Button latch state to prevent double-presses when transitioning screens
+const _gpLatch = { A: false, B: false, Start: false };
 
 function handleGamepadInput() {
     if (gamepadIndex == null) return;
@@ -978,6 +1006,11 @@ function handleGamepadInput() {
     const btnA     = pressed(0);
     const btnB     = pressed(1);
     const btnStart = pressed(9);
+
+    // Only trigger on rising edge (button must be released before next press)
+    const btnAPressed = btnA && !_gpLatch.A; _gpLatch.A = btnA;
+    const btnBPressed = btnB && !_gpLatch.B; _gpLatch.B = btnB;
+    const btnStartPressed = btnStart && !_gpLatch.Start; _gpLatch.Start = btnStart;
 
     // Any directional input at all?
     const anyDir = btnDown || btnUp || btnRight || btnLeft;
@@ -1004,11 +1037,11 @@ function handleGamepadInput() {
     }
 
     // ── MAIN MENU navigation ──────────────────────────────────────────────
-    if (!gameActive) {
+    if (!window.gameActive) {
         // ── Game Over screen ──
-        if (gameOver) {
+        if (window.gameOver) {
             if (now - lastGamepadUpdate < GAMEPAD_INPUT_DELAY) return;
-            if (btnA || btnStart) {
+            if (btnAPressed || btnStartPressed) {
                 lastGamepadUpdate = now;
                 document.getElementById('restartButton')?.click();
             }
@@ -1018,7 +1051,7 @@ function handleGamepadInput() {
         // ── Tap to Start screen ──
         const startScreen = document.getElementById('startScreen');
         if (startScreen && startScreen.style.display !== 'none') {
-            if (btnA || btnStart) {
+            if (btnAPressed || btnStartPressed) {
                 lastGamepadUpdate = now;
                 document.getElementById('startButton')?.click();
             }
@@ -1040,6 +1073,10 @@ function handleGamepadInput() {
         if (currentScreen !== _gpNav.lastScreen) {
             const prevScreen = _gpNav.lastScreen;
             _gpNav.lastScreen = currentScreen;
+            // Reset button latches when changing screens to prevent accidental double-presses
+            _gpLatch.A = btnA;
+            _gpLatch.B = btnB;
+            _gpLatch.Start = btnStart;
             // Special case: returning from music player to difficulty - restore saved position
             if (prevScreen === 'music' && currentScreen === 'difficulty') {
                 _gpNav.menuIndex = _gpNav.savedDifficultyIndex || 0;
@@ -1086,37 +1123,6 @@ function handleGamepadInput() {
         // Only process directional/confirm input after the debounce delay
         if (now - lastGamepadUpdate < GAMEPAD_INPUT_DELAY) return;
 
-        // ── Merchant shop ──
-        if (onMerchant) {
-            const merchantCards = Array.from(merchantOptionsContainer.querySelectorAll('.merchant-card'));
-            const leaveBtn = document.getElementById('leaveMerchantButton');
-            const allItems = [...merchantCards];
-            if (leaveBtn) allItems.push(leaveBtn);
-
-            if (allItems.length > 0) {
-                // Apply focus if not already applied (handles both initial load and subsequent frames)
-                const hasFocus = allItems.some(el => el.classList.contains('gamepad-focus'));
-                if (!hasFocus) {
-                    applyFocus(allItems, _gpNav.menuIndex);
-                }
-                if (btnDown || btnRight) { moveFocus(allItems, 1); return; }
-                if (btnUp   || btnLeft)  { moveFocus(allItems, -1); return; }
-                if (btnA) {
-                    allItems[_gpNav.menuIndex]?.click();
-                    vibrateUI('select');
-                    lastGamepadUpdate = now;
-                    return;
-                }
-            }
-            if (btnB) {
-                clearFocus(allItems);
-                _gpNav.menuIndex = 0;
-                lastGamepadUpdate = now;
-                leaveMerchantButton?.click();
-                return;
-            }
-        }
-
         // ── Difficulty screen ──
         if (onDifficulty) {
             // Select main menu buttons from .difficulty-buttons (excluding mobile duplicates),
@@ -1134,7 +1140,7 @@ function handleGamepadInput() {
             }
             if (btnDown || btnRight) { moveFocus(btns, 1); return; }
             if (btnUp   || btnLeft)  { moveFocus(btns, -1); return; }
-            if (btnA) {
+            if (btnAPressed) {
                 clearFocus(btns);
                 btns[_gpNav.menuIndex]?.click();
                 vibrateUI('select');
@@ -1162,8 +1168,8 @@ function handleGamepadInput() {
             const tiles = Array.from(mapSelectContainer.querySelectorAll('.map-tile'));
             if (btnRight || btnDown) { moveFocus(tiles, 1); return; }
             if (btnLeft  || btnUp)   { moveFocus(tiles, -1); return; }
-            if (btnA) { clearFocus(tiles); tiles[_gpNav.menuIndex]?.click(); vibrateUI('select'); _gpNav.menuIndex = 0; lastGamepadUpdate = now; return; }
-            if (btnB) { clearFocus(tiles); _gpNav.menuIndex = 0; lastGamepadUpdate = now; document.getElementById('backToDifficultySelectButton')?.click(); return; }
+            if (btnAPressed) { clearFocus(tiles); tiles[_gpNav.menuIndex]?.click(); vibrateUI('select'); _gpNav.menuIndex = 0; lastGamepadUpdate = now; return; }
+            if (btnBPressed) { clearFocus(tiles); _gpNav.menuIndex = 0; lastGamepadUpdate = now; document.getElementById('backToDifficultySelectButton')?.click(); return; }
         }
 
         // ── Character select ──
@@ -1171,8 +1177,8 @@ function handleGamepadInput() {
             const tiles = Array.from(characterSelectContainer.querySelectorAll('.character-tile:not(.locked)'));
             if (btnRight || btnDown) { moveFocus(tiles, 1); return; }
             if (btnLeft  || btnUp)   { moveFocus(tiles, -1); return; }
-            if (btnA) { clearFocus(tiles); tiles[_gpNav.menuIndex]?.click(); vibrateUI('select'); _gpNav.menuIndex = 0; lastGamepadUpdate = now; return; }
-            if (btnB) { clearFocus(tiles); _gpNav.menuIndex = 0; lastGamepadUpdate = now; document.getElementById('backToMenuFromCharsButton')?.click(); return; }
+            if (btnAPressed) { clearFocus(tiles); tiles[_gpNav.menuIndex]?.click(); vibrateUI('select'); _gpNav.menuIndex = 0; lastGamepadUpdate = now; return; }
+            if (btnBPressed) { clearFocus(tiles); _gpNav.menuIndex = 0; lastGamepadUpdate = now; document.getElementById('backToMenuFromCharsButton')?.click(); return; }
         }
 
         // ── Upgrade shop ──
@@ -1186,13 +1192,13 @@ function handleGamepadInput() {
                 }
                 if (btnDown || btnRight) { moveFocus(allCards, 1); return; }
                 if (btnUp   || btnLeft)  { moveFocus(allCards, -1); return; }
-                if (btnA) {
+                if (btnAPressed) {
                     const btn = allCards[_gpNav.menuIndex]?.querySelector('button:not([disabled])');
                     if (btn) { btn.click(); vibrateUI('select'); lastGamepadUpdate = now; }
                     return;
                 }
             }
-            if (btnB) { clearFocus(allCards); _gpNav.menuIndex = 0; lastGamepadUpdate = now; document.getElementById('backToMenuButton')?.click(); return; }
+            if (btnBPressed) { clearFocus(allCards); _gpNav.menuIndex = 0; lastGamepadUpdate = now; document.getElementById('backToMenuButton')?.click(); return; }
         }
 
         // ── How to Play — scroll with D-pad, any confirm to close ──
@@ -1200,7 +1206,7 @@ function handleGamepadInput() {
             const wrapper = gameGuideModal.querySelector('.content-wrapper');
             if (btnDown) { wrapper?.scrollBy(0, 120); lastGamepadUpdate = now; return; }
             if (btnUp)   { wrapper?.scrollBy(0, -120); lastGamepadUpdate = now; return; }
-            if (btnB || btnA) { lastGamepadUpdate = now; document.getElementById('backToDifficultyButton')?.click(); return; }
+            if (btnBPressed || btnAPressed) { lastGamepadUpdate = now; document.getElementById('backToDifficultyButton')?.click(); return; }
         }
 
         // ── Achievements ──
@@ -1217,7 +1223,7 @@ function handleGamepadInput() {
                 // Y button (3) = open cheats menu
                 if (pressed(3)) { clearFocus(achCards); _gpNav.menuIndex = 0; lastGamepadUpdate = now; document.getElementById('cheatsMenuButton')?.click(); return; }
             }
-            if (btnB) { clearFocus(achCards); _gpNav.menuIndex = 0; lastGamepadUpdate = now; document.getElementById('backToMenuFromAchievements')?.click(); return; }
+            if (btnBPressed) { clearFocus(achCards); _gpNav.menuIndex = 0; lastGamepadUpdate = now; document.getElementById('backToMenuFromAchievements')?.click(); return; }
         }
 
         // ── Cheats ──
@@ -1231,13 +1237,13 @@ function handleGamepadInput() {
                 }
                 if (btnDown || btnRight) { moveFocus(cheatCards, 1); return; }
                 if (btnUp   || btnLeft)  { moveFocus(cheatCards, -1); return; }
-                if (btnA) {
+                if (btnAPressed) {
                     const checkbox = cheatCards[_gpNav.menuIndex]?.querySelector('input[type="checkbox"]');
                     if (checkbox) { checkbox.checked = !checkbox.checked; checkbox.dispatchEvent(new Event('change')); playUISound('uiClick'); vibrateUI('select'); lastGamepadUpdate = now; }
                     return;
                 }
             }
-            if (btnB) { clearFocus(cheatCards); _gpNav.menuIndex = 0; lastGamepadUpdate = now; document.getElementById('backToAchievementsButton')?.click(); return; }
+            if (btnBPressed) { clearFocus(cheatCards); _gpNav.menuIndex = 0; lastGamepadUpdate = now; document.getElementById('backToAchievementsButton')?.click(); return; }
         }
 
         // ── Music Player ──
@@ -1252,7 +1258,7 @@ function handleGamepadInput() {
                 }
                 if (btnDown || btnRight) { moveFocus(musicTiles, 1); return; }
                 if (btnUp   || btnLeft)  { moveFocus(musicTiles, -1); return; }
-                if (btnA) {
+                if (btnAPressed) {
                     const selectedIndex = _gpNav.menuIndex; // Save current focus BEFORE clearing
                     clearFocus(musicTiles);
                     lastGamepadUpdate = now;
@@ -1260,7 +1266,7 @@ function handleGamepadInput() {
                     return;
                 }
             }
-            if (btnB) {
+            if (btnBPressed) {
                 clearFocus(musicTiles);
                 // Restore the saved difficulty position when returning
                 _gpNav.menuIndex = _gpNav.savedDifficultyIndex;
@@ -1275,12 +1281,72 @@ function handleGamepadInput() {
     }
 
     // ── IN-GAME: pause menu ───────────────────────────────────────────────
-    if (gamePaused && !isGamepadUpgradeMode) {
-        if (now - lastGamepadUpdate < GAMEPAD_INPUT_DELAY) return;
+    if (window.gamePaused && !isGamepadUpgradeMode) {
+        // Check for merchant shop first (it pauses the game but isn't the pause overlay)
+        const merchantShopEl = document.getElementById('merchantShop');
+        if (merchantShopEl && merchantShopEl.style.display !== 'none') {
+            const merchantOptionsContainer = document.getElementById('merchantOptionsContainer');
+            const merchantCards = Array.from(merchantOptionsContainer.querySelectorAll('.merchant-card'));
+            const leaveBtn = document.getElementById('leaveMerchantButton');
+            const allItems = [...merchantCards];
+            if (leaveBtn) allItems.push(leaveBtn);
+
+            if (allItems.length > 0) {
+                // Initialize focus on first entry
+                if (_gpNav.lastScreen !== 'merchant') {
+                    _gpNav.lastScreen = 'merchant';
+                    _gpNav.menuIndex = 0;
+                    allItems.forEach((el, i) => el.classList.toggle('gamepad-focus', i === 0));
+                    // Reset button latches when entering merchant
+                    _gpLatch.A = btnA;
+                    _gpLatch.B = btnB;
+                    _gpLatch.Start = btnStart;
+                }
+
+                const focused = allItems[_gpNav.menuIndex];
+
+                // Navigation delay check (only for actions, not initialization)
+                if (now - lastGamepadUpdate >= GAMEPAD_INPUT_DELAY) {
+                    // Navigate up/down through items
+                    if (btnDown || btnRight) {
+                        focused?.classList.remove('gamepad-focus');
+                        _gpNav.menuIndex = (_gpNav.menuIndex + 1) % allItems.length;
+                        allItems[_gpNav.menuIndex]?.classList.add('gamepad-focus');
+                        playUISound('uiClick'); vibrateUI(); lastGamepadUpdate = now; return;
+                    }
+                    if (btnUp || btnLeft) {
+                        focused?.classList.remove('gamepad-focus');
+                        _gpNav.menuIndex = (_gpNav.menuIndex - 1 + allItems.length) % allItems.length;
+                        allItems[_gpNav.menuIndex]?.classList.add('gamepad-focus');
+                        playUISound('uiClick'); vibrateUI(); lastGamepadUpdate = now; return;
+                    }
+
+                    // A = select/click
+                    if (btnAPressed) {
+                        focused?.click();
+                        vibrateUI('select');
+                        lastGamepadUpdate = now;
+                        return;
+                    }
+                }
+            }
+
+            // B = leave shop (check with rising edge, ignore delay)
+            if (btnBPressed) {
+                allItems.forEach(el => el.classList.remove('gamepad-focus'));
+                _gpNav.lastScreen = '';
+                _gpNav.menuIndex = 0;
+                lastGamepadUpdate = now;
+                leaveBtn?.click();
+                return;
+            }
+            return; // Merchant shop is open, don't process pause menu
+        }
+
         const pauseOverlayEl = document.getElementById('pauseOverlay');
         if (pauseOverlayEl && pauseOverlayEl.style.display !== 'none') {
 
-            // All navigable items: music slider, effects slider, zoom toggle, resume, restart
+            // All navigable items: music slider, effects slider, zoom toggle, resume, restart, speed
             const musicSlider   = document.getElementById('musicVolume');
             const effectsSlider = document.getElementById('effectsVolume');
             const zoomToggleEl  = document.getElementById('zoomToggle');
@@ -1289,15 +1355,26 @@ function handleGamepadInput() {
             // Build a flat list: [musicSlider, effectsSlider, zoomToggle, ...buttons]
             const pauseItems = [musicSlider, effectsSlider, zoomToggleEl, ...pauseBtns].filter(Boolean);
 
-            // Initialise focus on pause open
-            if (_gpNav.lastScreen !== 'pause') {
-                _gpNav.lastScreen = 'pause';
+            // Stateless focus initialization: if no item currently has gamepad-focus, apply it.
+            // This self-heals every frame and doesn't depend on _gpNav.lastScreen (which could
+            // be stale when transitioning from gameplay → pause, causing the first-open bug).
+            const hasAnyFocus = pauseItems.some(el => el.classList.contains('gamepad-focus'));
+            if (!hasAnyFocus && pauseItems.length > 0) {
                 _gpNav.menuIndex = 0;
                 _gpNav._sliderActive = false;
                 pauseItems.forEach((el, i) => el.classList.toggle('gamepad-focus', i === 0));
+                // Reset button latches to prevent the opening button from triggering actions
+                _gpLatch.A = btnA;
+                _gpLatch.B = btnB;
+                _gpLatch.Start = btnStart;
+                // Mark screen so main-menu nav doesn't interfere
+                _gpNav.lastScreen = 'pause';
             }
 
             const focused = pauseItems[_gpNav.menuIndex];
+
+            // Navigation delay check (only for actions, not initialization)
+            if (now - lastGamepadUpdate < GAMEPAD_INPUT_DELAY) return;
 
             // If a slider is "active" (selected with A), left/right adjusts it
             if (_gpNav._sliderActive && focused && focused.type === 'range') {
@@ -1305,7 +1382,7 @@ function handleGamepadInput() {
                 if (btnRight) { focused.value = Math.min(parseFloat(focused.max), parseFloat(focused.value) + step * 2); focused.dispatchEvent(new Event('input')); lastGamepadUpdate = now; return; }
                 if (btnLeft)  { focused.value = Math.max(parseFloat(focused.min), parseFloat(focused.value) - step * 2); focused.dispatchEvent(new Event('input')); lastGamepadUpdate = now; return; }
                 // B = deselect slider
-                if (btnB) { _gpNav._sliderActive = false; playUISound('uiClick'); lastGamepadUpdate = now; return; }
+                if (btnBPressed) { _gpNav._sliderActive = false; playUISound('uiClick'); lastGamepadUpdate = now; return; }
                 return;
             }
 
@@ -1324,7 +1401,7 @@ function handleGamepadInput() {
             }
 
             // A = confirm / activate
-            if (btnA) {
+            if (btnAPressed) {
                 if (focused && focused.type === 'range') {
                     // Enter slider adjustment mode
                     _gpNav._sliderActive = true;
@@ -1341,11 +1418,12 @@ function handleGamepadInput() {
                 }
             }
 
-            // B / Start = resume
-            if (btnB || btnStart) {
+            // B / Start = resume (with rising-edge detection)
+            if (btnBPressed || btnStartPressed) {
                 pauseItems.forEach(el => el.classList.remove('gamepad-focus'));
                 _gpNav.lastScreen = '';
                 _gpNav._sliderActive = false;
+                _gpNav.menuIndex = 0;
                 lastGamepadUpdate = now;
                 togglePause();
                 return;
@@ -1373,7 +1451,7 @@ function handleGamepadInput() {
             if (newCard) { newCard.classList.add('selected'); playUISound('uiClick'); vibrateUI(); }
             lastGamepadUpdate = now;
         }
-        if (btnA) {
+        if (btnAPressed) {
             const selectedCard = document.querySelectorAll('.upgrade-card')[selectedUpgradeIndex];
             if (selectedCard) { selectedCard.querySelector('button')?.click(); vibrateUI('select'); isGamepadUpgradeMode = false; lastGamepadUpdate = now; }
         }
@@ -1398,10 +1476,18 @@ function handleGamepadInput() {
         if (player) triggerDash(player);
     } else if (!pressed(7)) { gp._rTriggerLatch = false; }
 
-    if ((btnStart || btnB) && !gp._pauseLatch) {
-        gp._pauseLatch = true;
-        if (gameActive && !gameOver) togglePause();
-    } else if (!btnStart && !btnB) { gp._pauseLatch = false; }
+    // Pause toggle with rising-edge detection and frame-level debounce
+    if ((btnStartPressed || btnBPressed)) {
+        if (window.gameActive && !window.gameOver) {
+            // Prevent toggling pause too quickly (minimum 300ms between toggles)
+            if (now - lastGamepadUpdate >= 300) {
+                togglePause();
+                // Reset latches after toggling so user must release and press again
+                _gpLatch.A = true; _gpLatch.B = true; _gpLatch.Start = true;
+                lastGamepadUpdate = now;
+            }
+        }
+    }
 }
 
         let joystickDirX = 0; let joystickDirY = 0;
@@ -1428,7 +1514,7 @@ function handleGamepadInput() {
         const keys = {};
         window.addEventListener('keydown', (e) => {
             if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') {
-                if(gameActive && !gameOver) { togglePause(); }
+                if(window.gameActive && !window.gameOver) { togglePause(); }
                 return;
             }
              if (e.key === 'o') {
@@ -1443,7 +1529,7 @@ function handleGamepadInput() {
 
             // BOX cheat: B+O+X keys spawn all power-up boxes around player (debug/testing)
             if ((keys['b'] || keys['B']) && (keys['o'] || keys['O']) && (keys['x'] || keys['X'])) {
-                if (gameActive && !gameOver && !gamePaused) {
+                if (window.gameActive && !window.gameOver && !window.gamePaused) {
                     spawnAllPowerupBoxes();
                 }
             }
@@ -1453,7 +1539,7 @@ function handleGamepadInput() {
                 activateGodMode();
             }
 
-            if (e.key === 'Insert' && gameActive && !gameOver && !gamePaused) {
+            if (e.key === 'Insert' && window.gameActive && !window.gameOver && !window.gamePaused) {
                 if (player.lives > 1 && (!player2 || !player2.active)) {
                     player.lives--;
                     updateUIStats();
@@ -1488,7 +1574,7 @@ function handleGamepadInput() {
         });
 
         window.addEventListener('mousemove', (e) => {
-            if (!gameActive) return;
+            if (!window.gameActive) return;
             const rect = canvas.getBoundingClientRect();
             const scaleX = canvas.width / rect.width;
             const scaleY = canvas.height / rect.height;
@@ -1516,17 +1602,17 @@ function handleGamepadInput() {
             }
 
             // Update aim direction when not paused/over (zoom-aware)
-            if (!gamePaused && !gameOver) {
+            if (!window.gamePaused && !window.gameOver) {
                 const worldMouse = screenToWorldZoom(mouseX, mouseY);
                 aimDx = worldMouse.x - player.x;
                 aimDy = worldMouse.y - player.y;
             }
         });
 
-        canvas.addEventListener('mouseenter', () => { if (gameActive && !document.body.classList.contains('is-mobile')) { isMouseInCanvas = true; } });
-        canvas.addEventListener('mouseleave', () => { if (gameActive) { isMouseInCanvas = false; } });
+        canvas.addEventListener('mouseenter', () => { if (window.gameActive && !document.body.classList.contains('is-mobile')) { isMouseInCanvas = true; } });
+        canvas.addEventListener('mouseleave', () => { if (window.gameActive) { isMouseInCanvas = false; } });
         canvas.addEventListener('mousedown', (e) => {
-            if (e.button === 0 && gameActive && !gamePaused && !gameOver) {
+            if (e.button === 0 && window.gameActive && !window.gamePaused && !window.gameOver) {
                 if (cheats.click_to_fire) {
                     // Use clamped mouseX/mouseY for consistent aim
                     const playerScreenX = player.x - cameraOffsetX;
@@ -1546,18 +1632,18 @@ function handleGamepadInput() {
 
         const VIBRATION_PATTERNS = {
             uiClick:        { duration: 8,   weak: 0.08, strong: 0.08 },
-            uiSelect:       { duration: 15,  weak: 0.15, strong: 0.15 },
+            uiSelect:       { duration: 315, weak: 0.25, strong: 0.25 },
             levelUp:        { duration: 250, weak: 1.0,  strong: 1.0  },
-            bulletFire:     { duration: 12,  weak: 0.12, strong: 0.04 },
-            bulletFireRapid:{ duration: 6,   weak: 0.05, strong: 0.02 },
+            bulletFire:     { duration: 110, weak: 0.5,  strong: 0.4  },
+            bulletFireRapid:{ duration: 60,  weak: 0.35, strong: 0.3  },
             xpCollect:      { duration: 18,  weak: 0.25, strong: 0.18 },
             pickupCollect:  { duration: 28,  weak: 0.35, strong: 0.25 },
             powerupCollect: { duration: 80,  weak: 0.5,  strong: 0.55 },
             enemyHit:       { duration: 18,  weak: 0.2,  strong: 0.12 },
             enemyKill:      { duration: 22,  weak: 0.28, strong: 0.18 },
-            playerHit:      { duration: 200, weak: 0.7,  strong: 0.85 },
+            playerHit:      { duration: 350, weak: 0.95, strong: 1.0  },
             playerDeath:    { duration: 500, weak: 0.9,  strong: 1.0  },
-            dash:           { duration: 30,  weak: 0.35, strong: 0.25 },
+            dash:           { duration: 550,  weak: 0.6,  strong: 0.7 },
             bossSpawn:      { duration: 600, weak: 0.8,  strong: 1.0  },
             merchantSpawn:  { duration: 120, weak: 0.45, strong: 0.5  },
             appleComplete:  { duration: 200, weak: 0.65, strong: 0.75 },
@@ -1569,19 +1655,32 @@ function handleGamepadInput() {
 
         // Core rumble — always does a fresh getGamepads() poll so it works outside the game loop
         function rumbleGamepad(durationMs, weak, strong) {
-            if (gamepadIndex === null) return;
             const gpads = navigator.getGamepads ? navigator.getGamepads() : [];
-            const gp = gpads[gamepadIndex];
+            // Find any connected gamepad if gamepadIndex is not set
+            let gp = null;
+            if (gamepadIndex !== null) {
+                gp = gpads[gamepadIndex];
+            } else {
+                // Try to find any connected gamepad
+                for (let i = 0; i < gpads.length; i++) {
+                    if (gpads[i]) { gp = gpads[i]; break; }
+                }
+            }
             if (!gp) return;
             if (gp.vibrationActuator) {
+                console.log('[Rumble] Playing effect:', durationMs + 'ms', 'weak:', weak, 'strong:', strong, 'on gamepad:', gp.id);
                 gp.vibrationActuator.playEffect('dual-rumble', {
                     startDelay: 0,
                     duration: durationMs,
                     weakMagnitude:   Math.min(1.0, weak),
                     strongMagnitude: Math.min(1.0, strong)
-                }).catch(() => {});
+                }).catch((e) => { console.log('[Rumble] Error:', e); });
+            } else {
+                console.log('[Rumble] No vibrationActuator on gamepad:', gp.id);
             }
         }
+        // Expose to global scope for use in other scripts (e.g., game_bootstrap_ui.js)
+        window.rumbleGamepad = rumbleGamepad;
 
         function vibrate(pattern) {
             const dur    = typeof pattern === 'number' ? pattern : pattern.duration;
@@ -1603,6 +1702,8 @@ function handleGamepadInput() {
             if (navigator.vibrate) navigator.vibrate(pattern.duration * 2);
             rumbleGamepad(pattern.duration, pattern.weak * 3, pattern.strong * 3);
         }
+        // Expose to global scope for use in other scripts
+        window.vibrateUI = vibrateUI;
 
         function vibrateBullet() {
             const now = Date.now();
@@ -1643,7 +1744,7 @@ function handleGamepadInput() {
 
         // ===== END VIBRATION SYSTEM =====
         
-        function playSound(name) { if (gameActive && !gamePaused && audioPlayers[name]) { audioPlayers[name].start(getSafeToneTime()); } }
+        function playSound(name) { if (window.gameActive && !window.gamePaused && audioPlayers[name]) { audioPlayers[name].start(getSafeToneTime()); } }
         function playUISound(name) { if (audioPlayers[name]) { audioPlayers[name].start(getSafeToneTime()); } }
         
         audioPlayers['playerScream'].volume.value = -10;
@@ -1769,7 +1870,7 @@ function handleGamepadInput() {
             // Set up onstop callback to play another track when this one ends (only for random mode)
             if (currentBGMPlayer) {
                 currentBGMPlayer.onstop = () => {
-                    if (!gameActive && (!selectedTrackForLoop || selectedTrackForLoop === 'random')) {
+                    if (!window.gameActive && (!selectedTrackForLoop || selectedTrackForLoop === 'random')) {
                         setTimeout(() => playRandomMainMenuMusic(), 100);
                     }
                 };
@@ -1791,9 +1892,9 @@ function handleGamepadInput() {
         }
 
         function stopMainMenuBGM() { if (audioPlayers['mainMenu'] && audioPlayers['mainMenu'].state === 'started') { audioPlayers['mainMenu'].stop(); } }
-        function playBombExplosionSound() { if (gameActive && !gamePaused) bombExplosionSynth.triggerAttackRelease("F3", "8n", getSafeToneTime()); } 
-        function playSwordSwingSound() { if (gameActive && !gamePaused) swordSwingSynth.triggerAttackRelease("D4", "16n", getSafeToneTime()); } 
-        function playEyeProjectileHitSound() { if (gameActive && !gamePaused) eyeProjectileHitSynth.triggerAttackRelease("G2", "16n", getSafeToneTime()); }
+        function playBombExplosionSound() { if (window.gameActive && !window.gamePaused) bombExplosionSynth.triggerAttackRelease("F3", "8n", getSafeToneTime()); } 
+        function playSwordSwingSound() { if (window.gameActive && !window.gamePaused) swordSwingSynth.triggerAttackRelease("D4", "16n", getSafeToneTime()); } 
+        function playEyeProjectileHitSound() { if (window.gameActive && !window.gamePaused) eyeProjectileHitSynth.triggerAttackRelease("G2", "16n", getSafeToneTime()); }
         
         function resizeCanvas() {
             const container = canvas?.parentElement;
@@ -1856,7 +1957,7 @@ function handleGamepadInput() {
 
 document.body.addEventListener('touchstart', (e) => {
     if (gameGuideModal.style.display === 'flex' || achievementsModal.style.display === 'flex' || cheatsModal.style.display === 'flex') return;
-    if (!gameActive || gamePaused || gameOver) return;
+    if (!window.gameActive || window.gamePaused || window.gameOver) return;
     e.preventDefault();
     for (let i = 0; i < e.changedTouches.length; i++) {
         const touch = e.changedTouches[i];
@@ -1921,7 +2022,7 @@ document.body.addEventListener('touchstart', (e) => {
 
         document.body.addEventListener('touchmove', (e) => {
             if (gameGuideModal.style.display === 'flex' || achievementsModal.style.display === 'flex' || cheatsModal.style.display === 'flex') return;
-            if (!gameActive || gamePaused || gameOver) return;
+            if (!window.gameActive || window.gamePaused || window.gameOver) return;
             e.preventDefault();
             for (let i = 0; i < e.changedTouches.length; i++) {
                 const touch = e.changedTouches[i];
@@ -1942,7 +2043,7 @@ document.body.addEventListener('touchstart', (e) => {
 
         document.body.addEventListener('touchend', (e) => {
             if (gameGuideModal.style.display === 'flex' || achievementsModal.style.display === 'flex' || cheatsModal.style.display === 'flex') return;
-            if (!gameActive || gamePaused || gameOver) return;
+            if (!window.gameActive || window.gamePaused || window.gameOver) return;
             for (let i = 0; i < e.changedTouches.length; i++) {
                 const touch = e.changedTouches[i];
                 const touchInfo = activeTouches[touch.identifier];
@@ -1956,7 +2057,7 @@ document.body.addEventListener('touchstart', (e) => {
 
         document.body.addEventListener('touchcancel', (e) => {
             if (gameGuideModal.style.display === 'flex' || achievementsModal.style.display === 'flex' || cheatsModal.style.display === 'flex') return;
-            if (!gameActive || gamePaused || gameOver) return;
+            if (!window.gameActive || window.gamePaused || window.gameOver) return;
             for (let i = 0; i < e.changedTouches.length; i++) {
                 const touch = e.changedTouches[i];
                 const touchInfo = activeTouches[touch.identifier];
@@ -1972,7 +2073,7 @@ document.body.addEventListener('touchstart', (e) => {
 
         document.body.addEventListener('mousedown', (e) => {
             if (gameGuideModal.style.display === 'flex' || achievementsModal.style.display === 'flex' || cheatsModal.style.display === 'flex') return;
-            if (!gameActive || gamePaused || gameOver) return;
+            if (!window.gameActive || window.gamePaused || window.gameOver) return;
             const moveRect = movementStickBase.getBoundingClientRect();
             const fireRect = firestickBase.getBoundingClientRect();
             if (e.clientX > moveRect.left && e.clientX < moveRect.right && e.clientY > moveRect.top && e.clientY < moveRect.bottom) {
@@ -1991,7 +2092,7 @@ document.body.addEventListener('touchstart', (e) => {
 
         window.addEventListener('mousemove', (e) => {
             if (gameGuideModal.style.display === 'flex' || achievementsModal.style.display === 'flex' || cheatsModal.style.display === 'flex') return;
-            if (!gameActive || gamePaused || gameOver) return;
+            if (!window.gameActive || window.gamePaused || window.gameOver) return;
             if (mouseActiveStick) {
                 if (mouseActiveStick === 'movement') {
                     const { dx, dy } = getJoystickInput(e.clientX, e.clientY, movementStickBase, movementStickCap);
@@ -2007,7 +2108,7 @@ document.body.addEventListener('touchstart', (e) => {
 
         window.addEventListener('mouseup', (e) => {
             if (gameGuideModal.style.display === 'flex' || achievementsModal.style.display === 'flex' || cheatsModal.style.display === 'flex') return;
-            if (!gameActive || gamePaused || gameOver) return;
+            if (!window.gameActive || window.gamePaused || window.gameOver) return;
             if (mouseActiveStick === 'movement') { if (movementStickCap) movementStickCap.style.transform = 'translate(0, 0)'; joystickDirX = 0; joystickDirY = 0; } 
             else if (mouseActiveStick === 'fire') { if (firestickCap) firestickCap.style.transform = 'translate(0, 0)'; aimDx = 0; aimDy = 0; }
             mouseActiveStick = null;
@@ -2015,7 +2116,7 @@ document.body.addEventListener('touchstart', (e) => {
         });
 
         restartButton.addEventListener('click', () => {
-            vibrate(10);
+            vibrateUI('select');
             playUISound('uiClick');
             showDifficultyScreen();
         });
@@ -2128,7 +2229,9 @@ document.body.addEventListener('touchstart', (e) => {
             // Box scaling: +20% health per 4 powerups collected
             const levelScaling = 1 + (player.level - 1) * 0.12;
             const boxScaling = 1 + Math.floor(player.boxPickupsCollectedCount / 4) * 0.20;
-            let health = Math.floor(config.baseHealth * levelScaling * boxScaling);
+            // Zombie health multiplier for medium and hard difficulties
+            const zombieDifficultyMultiplier = (enemyEmoji === '🧟' && (currentDifficulty === 'medium' || currentDifficulty === 'hard')) ? 1.5 : 1;
+            let health = Math.round(config.baseHealth * levelScaling * boxScaling * zombieDifficultyMultiplier);
 
             const newEnemy = {
                 x, y, size: config.size, emoji: enemyEmoji, speed: currentBaseEnemySpeed * config.speedMultiplier,
@@ -2198,14 +2301,15 @@ document.body.addEventListener('touchstart', (e) => {
             const saturationPenalty = Math.min(0.9, player.boxPickupsCollectedCount * 0.025);
             
             // TIME-BASED SCALING: Reduce drops after 10 minutes (600s) to prevent snowballing
-            const elapsedMs = Date.now() - gameStartTime - gameTimeOffset;
+            const elapsedMs = Date.now() - window.gameStartTime - gameTimeOffset;
             const elapsedSeconds = elapsedMs / 1000;
             // After 10 min, gradually reduce drop chance up to 60% reduction at 20 min+
             const lateGameReduction = elapsedSeconds > 600 
                 ? Math.min(0.6, (elapsedSeconds - 600) / 1000) 
                 : 0;
             
-            const effectiveDropChance = Math.min(MAX_BOX_DROP_CHANCE, boxDropChance * (1 - saturationPenalty) * (1 - lateGameReduction));
+            const easyModeBonus = currentDifficulty === 'easy' ? 0.65 : 1;
+            const effectiveDropChance = Math.min(MAX_BOX_DROP_CHANCE, boxDropChance * easyModeBonus * (1 - saturationPenalty) * (1 - lateGameReduction));
             if (Math.random() < effectiveDropChance) {
                 createPickup(enemy.x, enemy.y, 'box', BOX_SIZE, 0);
             }
@@ -2250,7 +2354,7 @@ document.body.addEventListener('touchstart', (e) => {
                 createPickup(enemy.x, enemy.y, DIAMOND_EMOJI, DIAMOND_SIZE, DIAMOND_XP_VALUE);
             } else if (enemy.emoji === MOSQUITO_EMOJI) {
                 createPickup(enemy.x, enemy.y, DIAMOND_EMOJI, DIAMOND_SIZE, DIAMOND_XP_VALUE);
-            } else if (Math.random() < appleDropChance * (1 - lateGameReduction)) {
+            } else if (Math.random() < appleDropChance * (currentDifficulty === 'easy' ? 0.65 : 1) * (1 - lateGameReduction)) {
                 createAppleItem(enemy.x, enemy.y);
             } else {
                 if (enemy.emoji === '🧟') createPickup(enemy.x, enemy.y, COIN_EMOJI, COIN_SIZE, COIN_XP_VALUE);
@@ -2494,9 +2598,9 @@ function createBoss() {
         async function winGame() {
             playSound('gameWin');
             vibrate([100, 50, 100, 50, 200]);
-            gameOver = true; 
-            gamePaused = true; 
-            gameActive = false;
+            window.gameOver = true; 
+            window.gamePaused = true; 
+            window.gameActive = false;
             megaBossDefeated = true;
             stopBGM();
             megaBossMusicPlaying = false;
@@ -2538,15 +2642,15 @@ function createBoss() {
             // Clear active powerups that persist visually
             turretActive = false;
             
-            const totalTimeSeconds = Math.floor((Date.now() - gameStartTime) / 1000);
+            const totalTimeSeconds = Math.floor((Date.now() - window.gameStartTime) / 1000);
             
             // Unlock achievement for completing a run
             unlockAchievement('run_completed');
             
             // Show YOU WIN screen
-            if (gameOverlay) {
-                gameOverlay.style.background = 'linear-gradient(to bottom, rgba(0,100,0,0.95), rgba(0,60,0,0.98))';
-                gameOverlay.innerHTML = `
+            if (window.gameOverlay) {
+                window.gameOverlay.style.background = 'linear-gradient(to bottom, rgba(0,100,0,0.95), rgba(0,60,0,0.98))';
+                window.gameOverlay.innerHTML = `
                     <div style="text-align: center; color: #00ff00;">
                         <h1 style="font-size: 48px; margin-bottom: 20px; text-shadow: 0 0 20px #00ff00;">🏆 YOU WIN! 🏆</h1>
                         <p style="font-size: 24px; color: #90EE90;">You defeated the Mega Boss!</p>
@@ -2557,10 +2661,12 @@ function createBoss() {
                         <button id="winRestartButton" style="margin-top: 30px; padding: 15px 40px; font-size: 20px; cursor: pointer; background: #00aa00; color: white; border: 2px solid #00ff00; border-radius: 10px;">Return to Main Menu</button>
                     </div>
                 `;
-                gameOverlay.style.display = 'flex';
+                window.gameOverlay.style.display = 'flex';
                 
                 // Add click handler for restart button
                 document.getElementById('winRestartButton').addEventListener('click', () => {
+                    vibrateUI('select');
+                    playUISound('uiClick');
                     // Save coins earned this run
                     const coins = enemiesDefeatedCount;
                     playerData.currency += coins;
@@ -2574,7 +2680,7 @@ function createBoss() {
                     normalEnemySpawningPaused = false;
                     
                     // Return to main menu
-                    if (gameOverlay) gameOverlay.style.display = 'none';
+                    if (window.gameOverlay) window.gameOverlay.style.display = 'none';
                     if (difficultyContainer) difficultyContainer.style.display = 'block';
                     startMainMenuBGM();
                     displayHighScores();
@@ -2769,8 +2875,10 @@ function createBoss() {
                 }
             }
             
-            angles.forEach(angle => fireWeaponFromPool(angle, boneShotActive && shooter === player));
-            if(dualGunActive && shooter === player) { angles.forEach(angle => fireWeaponFromPool(angle + Math.PI, boneShotActive)); }
+            // Check both local boneShotActive (from powerup) and window.boneShotActive (from skull character)
+            const isBoneShot = (boneShotActive || window.boneShotActive) && shooter === player;
+            angles.forEach(angle => fireWeaponFromPool(angle, isBoneShot));
+            if(dualGunActive && shooter === player) { angles.forEach(angle => fireWeaponFromPool(angle + Math.PI, isBoneShot)); }
             
             // Dual Revolvers: queue a second bullet after half the current fire interval
             // This ensures the second shot scales with fire rate boosts (apple pickup, cheats, etc.)
@@ -2858,9 +2966,9 @@ function createBoss() {
         }
 
         function levelUp() {
-            gamePaused = true;
+            window.gamePaused = true;
             // Record pause start time for apple lifetime pausing
-            applePauseStartTime = Date.now();
+            window.applePauseStartTime = Date.now();
             player.level++;
             if (typeof runStats !== 'undefined') {
                 if (typeof runStats.levelsGainedThisRun !== 'number' || !Number.isFinite(runStats.levelsGainedThisRun)) runStats.levelsGainedThisRun = 0;
@@ -2969,11 +3077,11 @@ if (firstCard) {
                 gameTimePausedAt = 0;
             }
             // Accumulate paused time for apple lifetime tracking
-            if (applePauseStartTime > 0) {
-                appleTotalPausedDuration += Date.now() - applePauseStartTime;
-                applePauseStartTime = 0;
+            if (window.applePauseStartTime > 0) {
+                window.appleTotalPausedDuration += Date.now() - window.applePauseStartTime;
+                window.applePauseStartTime = 0;
             }
-            gamePaused = false;
+            window.gamePaused = false;
             isGamepadUpgradeMode = false;
             joystickDirX = 0; joystickDirY = 0; aimDx = 0; aimDy = 0;
             if (movementStickCap) movementStickCap.style.transform = 'translate(0, 0)';
@@ -3004,10 +3112,10 @@ if (firstCard) {
             const now = Date.now();
 
             // Timer: only update when the displayed second changes (not every frame)
-            if (gameTimerSpan && gameActive && gameStartTime) {
-                let elapsedMs = now - gameStartTime - gameTimeOffset;
-                if (gamePaused && gameTimePausedAt > 0) {
-                    elapsedMs = gameTimePausedAt - gameStartTime - gameTimeOffset;
+            if (gameTimerSpan && window.gameActive && window.gameStartTime) {
+                let elapsedMs = now - window.gameStartTime - gameTimeOffset;
+                if (window.gamePaused && gameTimePausedAt > 0) {
+                    elapsedMs = gameTimePausedAt - window.gameStartTime - gameTimeOffset;
                 }
                 const totalSeconds = Math.floor(elapsedMs / 1000);
                 // Only update DOM when the second changes
@@ -3218,7 +3326,7 @@ if (firstCard) {
             playSound('gameOver');
             vibratePlayerDeath();
             playerStats.totalDeaths++;
-            gameOver = true; gamePaused = true; gameActive = false;
+            window.gameOver = true; window.gamePaused = true; window.gameActive = false;
             stopBGM();
             cameraZoom = 1.0;
             if (canvas) canvas.style.cursor = 'default';
@@ -3277,7 +3385,7 @@ if (firstCard) {
             doppelgangerActive = false;
             hasDashInvincibility = false;
             
-            const totalTimeSeconds = Math.floor((Date.now() - gameStartTime) / 1000);
+            const totalTimeSeconds = Math.floor((Date.now() - window.gameStartTime) / 1000);
             if (finalScoreSpan) finalScoreSpan.textContent = Math.floor(score);
             if (finalTimeSpan) finalTimeSpan.textContent = `${totalTimeSeconds}s`;
             
@@ -3289,11 +3397,11 @@ if (firstCard) {
 
             saveHighScore(Math.floor(score), player.level);
 
-            if (gameOverlay) gameOverlay.style.display = 'flex';
+            if (window.gameOverlay) window.gameOverlay.style.display = 'flex';
         }
 
 async function tryLoadMusic(retries = 3) {
-            console.log('[Music Game] tryLoadMusic called, gameActive:', gameActive);
+            console.log('[Music Game] tryLoadMusic called, window.gameActive:', window.gameActive);
             // Use preloaded music players from asset_loader.js
             if (typeof backgroundMusicPlayers === 'undefined' || backgroundMusicPlayers.length === 0) {
                 console.error("No preloaded background music available.");
@@ -3574,7 +3682,7 @@ async function startGame() {
             // *** OPTIMIZATION: Initialize Quadtree for the game world
             quadtree = new Quadtree({ x: 0, y: 0, width: WORLD_WIDTH, height: WORLD_HEIGHT });
 
-            if (gameOverlay) gameOverlay.style.display = 'none';
+            if (window.gameOverlay) window.gameOverlay.style.display = 'none';
             if (difficultyContainer) difficultyContainer.style.display = 'none';
             if (mapSelectContainer) mapSelectContainer.style.display = 'none';
             if (characterSelectContainer) characterSelectContainer.style.display = 'none';
@@ -3601,7 +3709,7 @@ async function startGame() {
             }
             isMouseInCanvas = false;
             
-            gameActive = true; gameOver = false; gamePaused = false;
+            window.gameActive = true; window.gameOver = false; window.gamePaused = false;
             
             let basePlayerSpeed = 1.4;
             
@@ -3622,6 +3730,7 @@ async function startGame() {
                 dashCooldown: playerData.hasReducedDashCooldown ? 3000 : 6000,
                 isInvincible: false,
                 spinStartTime: null, spinDirection: 0,
+                _lastDashSmokeTime: 0,
                 upgradeLevels: { speed: 0, fireRate: 0, magnetRadius: 0, damage: 0, projectileSpeed: 0, knockback: 0, luck: 0, bulletSize: 0, dashCooldown: 0 }
             });
             
@@ -3639,11 +3748,11 @@ async function startGame() {
                 runStats.recoveredToFullAfterOneHeart = false;
             }
 
-            [enemies, pickupItems, appleItems, eyeProjectiles, playerPuddles, snailPuddles, mosquitoPuddles, spiderWebs, bombs, floatingTexts, visualWarnings, explosions, blackHoles, timeFreezeZones, bloodSplatters, bloodPuddles, antiGravityPulses, vengeanceNovas, dogHomingShots, destructibles, flameAreas, flies, peas, owlProjectiles, lightningStrikes, smokeParticles, flameProjectiles, laserCannonBeams, boomerangProjectiles, chainLightningChains].forEach(arr => arr.length = 0);
+            [enemies, pickupItems, appleItems, eyeProjectiles, playerPuddles, snailPuddles, mosquitoPuddles, spiderWebs, bombs, floatingTexts, visualWarnings, explosions, blackHoles, timeFreezeZones, bloodSplatters, bloodPuddles, antiGravityPulses, vengeanceNovas, dogHomingShots, destructibles, flameAreas, flies, peas, owlProjectiles, lightningStrikes, smokeParticles, dashSmokeParticles, flameProjectiles, laserCannonBeams, boomerangProjectiles, chainLightningChains].forEach(arr => arr.length = 0);
             
             // Reset apple pause duration tracking for new game
-            appleTotalPausedDuration = 0;
-            applePauseStartTime = 0;
+            window.appleTotalPausedDuration = 0;
+            window.applePauseStartTime = 0;
             
             // Reset mega boss state for new game
             megaBossSpawned = false;
@@ -3703,24 +3812,24 @@ async function startGame() {
             setTimeout(() => { gameStartOverlay.style.display = 'none'; }, 2000);
 
             Tone.Transport.bpm.value = 120;
-            gameStartTime = Date.now();
+            window.gameStartTime = Date.now();
             gameTimeOffset = 0; // Reset paused time tracking
             gameTimePausedAt = 0;
             // Initialize virtual time system for game speed scaling
             if (typeof update !== 'undefined') {
-                update._virtualTime = gameStartTime;
-                update._lastRealTime = gameStartTime;
+                update._virtualTime = window.gameStartTime;
+                update._lastRealTime = window.gameStartTime;
             }
             // Reset game speed to 1x at start of each run
             gameTimeScale = GAME_SPEED_LEVELS[1];
             gameSpeedLevel = 1;
-            runStats.startTime = gameStartTime; // ACHIEVEMENT FIX
-            lastFrameTime = gameStartTime;
-            runStats.lastDamageTime = gameStartTime;
-            lastCircleSpawnEventTime = gameStartTime; 
-            lastBarrelSpawnTime = gameStartTime;
-            lastDoppelgangerSpawnTime = gameStartTime;
-            lastMerchantSpawnTime = gameStartTime;
+            runStats.startTime = window.gameStartTime; // ACHIEVEMENT FIX
+            lastFrameTime = window.gameStartTime;
+            runStats.lastDamageTime = window.gameStartTime;
+            lastCircleSpawnEventTime = window.gameStartTime; 
+            lastBarrelSpawnTime = window.gameStartTime;
+            lastDoppelgangerSpawnTime = window.gameStartTime;
+            lastMerchantSpawnTime = window.gameStartTime;
             animationFrameId = requestAnimationFrame(gameLoop);
         }
 
@@ -3748,7 +3857,7 @@ async function startGame() {
             if (movementStickBase) movementStickBase.style.display = 'none';
             if (firestickBase) firestickBase.style.display = 'none';
             if (upgradeMenu) upgradeMenu.style.display = 'none';
-            if (gameOverlay) gameOverlay.style.display = 'none';
+            if (window.gameOverlay) window.gameOverlay.style.display = 'none';
             if (gameGuideModal) gameGuideModal.style.display = 'none';
             if (achievementsModal) achievementsModal.style.display = 'none';
             if (cheatsModal) cheatsModal.style.display = 'none';
@@ -3765,8 +3874,8 @@ async function startGame() {
             if (canvas) canvas.style.cursor = 'default';
             isMouseInCanvas = false; cameraZoom = 1.0;
             // Reset gamepad nav so the difficulty screen re-initialises focus cleanly
-            // Also clear gameOver so the gamepad handler doesn't get stuck on the game over block
-            gameOver = false;
+            // Also clear window.gameOver so the gamepad handler doesn't get stuck on the game over block
+            window.gameOver = false;
             if (typeof _gpNav !== 'undefined') {
                 document.querySelectorAll('.gamepad-focus').forEach(el => el.classList.remove('gamepad-focus'));
                 _gpNav.lastScreen = '';
@@ -3775,16 +3884,16 @@ async function startGame() {
         }
         function togglePause() {
             vibrate(20);
-            if (!gameActive || gameOver) return; // Prevent pause when not in active game
-            gamePaused = !gamePaused;
-            if (gamePaused) {
+            if (!window.gameActive || window.gameOver) return; // Prevent pause when not in active game
+            window.gamePaused = !window.gamePaused;
+            if (window.gamePaused) {
                 document.body.classList.add('game-paused');
                 if (pauseOverlay) pauseOverlay.style.display = 'flex';
                 if (Tone.Transport) Tone.Transport.pause();
                 // Record when we paused for timer and fire rate boost
                 gameTimePausedAt = Date.now();
                 // Record pause start time for apple lifetime pausing
-                applePauseStartTime = Date.now();
+                window.applePauseStartTime = Date.now();
                 // Update game speed button visibility when opening pause menu
                 if (typeof window.updateGameSpeedButtonVisibility === 'function') {
                     window.updateGameSpeedButtonVisibility();
@@ -3807,15 +3916,17 @@ async function startGame() {
                     update._lastRealTime = Date.now();
                 }
                 // Accumulate paused time for apple lifetime tracking
-                if (applePauseStartTime > 0) {
-                    appleTotalPausedDuration += Date.now() - applePauseStartTime;
-                    applePauseStartTime = 0;
+                if (window.applePauseStartTime > 0) {
+                    window.appleTotalPausedDuration += Date.now() - window.applePauseStartTime;
+                    window.applePauseStartTime = 0;
                 }
                 // Reset pause nav state so it re-initialises cleanly next open
                 if (typeof _gpNav !== 'undefined') { _gpNav.lastScreen = ''; _gpNav.menuIndex = 0; }
                 if (pauseOverlay) {
-                    const pauseBtns = Array.from(pauseOverlay.querySelectorAll('button'));
-                    pauseBtns.forEach(el => el.classList.remove('gamepad-focus'));
+                    // Clear gamepad-focus from ALL navigable elements (buttons, sliders, checkboxes)
+                    // not just buttons — stale focus on sliders/checkboxes would prevent
+                    // re-initialization on next pause open
+                    pauseOverlay.querySelectorAll('.gamepad-focus').forEach(el => el.classList.remove('gamepad-focus'));
                 }
             }
         }
@@ -3838,13 +3949,14 @@ async function startGame() {
         
         function triggerDash(entity) {
             if (!entity) return;
-            const now = Date.now();
+            // Use virtual time so dash duration scales with game speed like other timed effects
+            const now = (typeof update !== 'undefined' && update._virtualTime) ? update._virtualTime : Date.now();
             const effectiveCooldown = (cheats.infinite_stamina && entity === player) ? 0 : entity.dashCooldown;
             if (entity.isDashing || now - entity.lastDashTime < effectiveCooldown) {
                 return;
             }
             entity.isDashing = true;
-            entity.dashEndTime = now + 300; // 300ms dash duration
+            entity.dashEndTime = now + 300; // 300ms dash duration (virtual time)
             entity.lastDashTime = now;
             entity.spinStartTime = now; // For spin animation
             playSound('dodge'); // Play dodge sound
