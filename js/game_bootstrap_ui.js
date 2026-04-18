@@ -106,11 +106,17 @@ const PERMANENT_UPGRADES = {
 
   xpGain:       { name: "XP Gain",         desc: "Gain 3% more experience from all sources.",         baseCost: 90,  costIncrease: 1.2,  effect: 0.03,   maxLevel: 10, icon: '📈' },
 
-  enemyHealth:  { name: "Weaken Foes",     desc: "Enemies spawn with 2% less health.",                baseCost: 150, costIncrease: 1.25, effect: -0.02,  maxLevel: 5,  icon: '💔' },
+  fireRate:     { name: "Fire Rate",       desc: "Permanently increase fire rate by 4%.",             baseCost: 120, costIncrease: 1.25, effect: 0.04,   maxLevel: 10, icon: '⚡' },
 
   magnetRadius: { name: "Pickup Radius",   desc: "Increase pickup attraction radius by 4%.",          baseCost: 60,  costIncrease: 1.2,  effect: 0.04,   maxLevel: 10, icon: '🧲' },
 
-  luck:         { name: "Luck",            desc: "Increase the chance for better drops by 0.1%.",     baseCost: 200, costIncrease: 1.3,  effect: 0.001,  maxLevel: 5,  icon: '🍀' }
+  luck:         { name: "Luck",            desc: "Increase the chance for better drops by 0.1%.",     baseCost: 200, costIncrease: 1.3,  effect: 0.001,  maxLevel: 5,  icon: '🍀' },
+
+  bulletSize:   { name: "Projectile Size", desc: "Increase bullet & AOE size by 5%.",                baseCost: 150, costIncrease: 1.25, effect: 0.05,   maxLevel: 10, icon: '🎯' },
+
+  dashCooldown: { name: "Swift Recovery",  desc: "Reduce dash cooldown by 5%.",                    baseCost: 180, costIncrease: 1.3,  effect: 0.05,   maxLevel: 10, icon: '💨' },
+
+  knockback:    { name: "Impact Force",    desc: "Increase enemy knockback by 0.08.",                baseCost: 140, costIncrease: 1.2,  effect: 0.08,   maxLevel: 10, icon: '💪' }
 
 };
 
@@ -460,7 +466,7 @@ window.onload = function() {
 
     console.log('[Start Button] Clicked - attempting vibration...');
 
-    if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 200]);
+    if (navigator.vibrate) navigator.vibrate([150, 75, 150, 75, 150]);
 
     
 
@@ -752,9 +758,9 @@ window.onload = function() {
 
   if (pauseButton) {
 
-    pauseButton.addEventListener('click', togglePause);
+    pauseButton.addEventListener('click', () => { lastInputType = 'keyboard'; togglePause(); });
 
-    pauseButton.addEventListener('touchstart', (e) => { e.preventDefault(); vibrateUI(); togglePause(); });
+    pauseButton.addEventListener('touchstart', (e) => { e.preventDefault(); vibrateUI(); lastInputType = 'keyboard'; togglePause(); });
 
   }
 

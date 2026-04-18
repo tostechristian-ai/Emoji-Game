@@ -219,8 +219,9 @@ function applyPermanentUpgrades() {
     // Speed boost
     player.speed = 1.4 * (1 + (playerData.upgrades.playerSpeed || 0) * PERMANENT_UPGRADES.playerSpeed.effect);
     
-    // Enemy health reduction (makes game easier)
-    baseEnemySpeed = 0.63 * (1 + (playerData.upgrades.enemyHealth || 0) * PERMANENT_UPGRADES.enemyHealth.effect);
+    // Fire rate boost (reduces weapon fire interval)
+    const fireRateMult = 1 + (playerData.upgrades.fireRate || 0) * PERMANENT_UPGRADES.fireRate.effect;
+    weaponFireInterval = Math.max(50, 400 / fireRateMult);
     
     // Magnet radius boost
     player.magnetRadius = (player.size * 2) * (1 + (playerData.upgrades.magnetRadius || 0) * PERMANENT_UPGRADES.magnetRadius.effect);
@@ -229,6 +230,18 @@ function applyPermanentUpgrades() {
     const luckBonus = (playerData.upgrades.luck || 0) * PERMANENT_UPGRADES.luck.effect;
     boxDropChance = 0.015 + luckBonus;
     appleDropChance = 0.05 + luckBonus;
+    
+    // Bullet size boost (caps at 2.0×)
+    const sizeLevels = playerData.upgrades.bulletSize || 0;
+    player.bulletSizeMultiplier = Math.min(2.0, 1.0 + sizeLevels * PERMANENT_UPGRADES.bulletSize.effect);
+    
+    // Dash cooldown reduction (base 6000ms, 3000ms if hasReducedDashCooldown unlocked, reduced by upgrade %, minimum 500ms)
+    const baseDashCooldown = playerData.hasReducedDashCooldown ? 3000 : 6000;
+    const dashReduction = 1 + (playerData.upgrades.dashCooldown || 0) * PERMANENT_UPGRADES.dashCooldown.effect;
+    player.dashCooldown = Math.max(500, baseDashCooldown / dashReduction);
+    
+    // Knockback strength boost (additive)
+    player.knockbackStrength = (playerData.upgrades.knockback || 0) * PERMANENT_UPGRADES.knockback.effect;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

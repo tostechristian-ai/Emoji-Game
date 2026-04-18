@@ -997,6 +997,9 @@ const _gpNav = { menuIndex: 0, lastScreen: '', savedDifficultyIndex: 0 };
 // Button latch state to prevent double-presses when transitioning screens
 const _gpLatch = { A: false, B: false, Start: false };
 
+// Track last input type to show/hide gamepad focus indicator appropriately
+let lastInputType = 'keyboard'; // 'keyboard' or 'gamepad'
+
 function handleGamepadInput() {
     if (gamepadIndex == null) return;
     const gp = navigator.getGamepads?.()[gamepadIndex];
@@ -1370,7 +1373,10 @@ function handleGamepadInput() {
                 _gpNav.lastScreen = 'pause';
                 _gpNav.menuIndex = 0;
                 _gpNav._sliderActive = false;
-                pauseItems.forEach((el, i) => el.classList.toggle('gamepad-focus', i === 0));
+                // Only show gamepad focus indicator if gamepad was used to open the menu
+                if (lastInputType === 'gamepad') {
+                    pauseItems.forEach((el, i) => el.classList.toggle('gamepad-focus', i === 0));
+                }
                 // Reset button latches to prevent the opening button from triggering actions
                 _gpLatch.A = btnA;
                 _gpLatch.B = btnB;
@@ -1479,16 +1485,17 @@ function handleGamepadInput() {
     if (rmag > 0) { aimDx = rx / rmag; aimDy = ry / rmag; }
     else { aimDx = 0; aimDy = 0; }
 
+    // R-trigger firing latch
     if (pressed(7) && !gp._rTriggerLatch) {
-        gp._rTriggerLatch = true;
-        if (player) triggerDash(player);
-    } else if (!pressed(7)) { gp._rTriggerLatch = false; }
+        if (!window.gamePaused) lastGamepadUpdate = now;
+    }
 
-    // Pause toggle with rising-edge detection and frame-level debounce
-    if ((btnStartPressed || btnBPressed)) {
+    // Start button opens pause menu during gameplay
+    if (btnStartPressed) {
         if (window.gameActive && !window.gameOver) {
             // Prevent toggling pause too quickly (minimum 300ms between toggles)
             if (now - lastGamepadUpdate >= 300) {
+                lastInputType = 'gamepad';
                 togglePause();
                 // Reset latches after toggling so user must release and press again
                 _gpLatch.A = true; _gpLatch.B = true; _gpLatch.Start = true;
@@ -1525,7 +1532,7 @@ function handleGamepadInput() {
         const keys = {};
         window.addEventListener('keydown', (e) => {
             if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') {
-                if(window.gameActive && !window.gameOver) { togglePause(); }
+                if(window.gameActive && !window.gameOver) { lastInputType = 'keyboard'; togglePause(); }
                 return;
             }
              if (e.key === 'o') {
@@ -1698,9 +1705,9 @@ function handleGamepadInput() {
             const weak   = typeof pattern === 'object' ? (pattern.weak   || 0.5) : 0.5;
             const strong = typeof pattern === 'object' ? (pattern.strong || 0.5) : 0.5;
 
-            // Mobile — 2× duration
+            // Mobile — 1.5× duration (75% of original 2×)
             if (navigator.vibrate) {
-                navigator.vibrate(typeof dur === 'number' ? dur * 2 : dur);
+                navigator.vibrate(typeof dur === 'number' ? dur * 1.5 : dur);
             }
 
             // Gamepad — 3× magnitude
@@ -1710,7 +1717,7 @@ function handleGamepadInput() {
         function vibrateUI(type = 'click') {
             const pattern = type === 'select' ? VIBRATION_PATTERNS.uiSelect : VIBRATION_PATTERNS.uiClick;
             // For menu nav, bypass the wrapper and hit the gamepad directly so there's no stale-snapshot issue
-            if (navigator.vibrate) navigator.vibrate(pattern.duration * 2);
+            if (navigator.vibrate) navigator.vibrate(pattern.duration * 1.5);
             rumbleGamepad(pattern.duration, pattern.weak * 3, pattern.strong * 3);
         }
         // Expose to global scope for use in other scripts
@@ -1746,7 +1753,7 @@ function handleGamepadInput() {
 
         function vibrateLevelUp() {
             // Mobile
-            if (navigator.vibrate) navigator.vibrate([150, 60, 250]);
+            if (navigator.vibrate) navigator.vibrate([112.5, 45, 187.5]);
             // Gamepad — three hard pulses via setTimeout so each one is a fresh call
             rumbleGamepad(150, 1.0, 1.0);
             setTimeout(() => rumbleGamepad(150, 1.0, 1.0), 210);
@@ -3814,7 +3821,7 @@ async function startGame() {
             player._vampireLastHealTime = 0;
             player._hasRevivedWithSecondLife = false;
             if (window.cloneArmy) window.cloneArmy.length = 0;
-            if (!cheats.infinite_dash) player.dashCooldown = playerData.hasReducedDashCooldown ? 3000 : 6000;
+            // Dash cooldown is now set in applyPermanentUpgrades() which handles both the unlock and permanent upgrade levels
 
             player.x = WORLD_WIDTH / 2; player.y = WORLD_HEIGHT / 2;
             aimDx = 0; aimDy = 0;
@@ -3928,7 +3935,8 @@ async function startGame() {
                     const pauseBtns     = Array.from(pauseOverlay.querySelectorAll('button'));
                     const visiblePauseBtns = pauseBtns.filter(btn => btn.style.display !== 'none');
                     const pauseItems = [musicSlider, effectsSlider, zoomToggleEl, ...visiblePauseBtns].filter(Boolean);
-                    if (pauseItems.length > 0) {
+                    // Only show gamepad focus indicator if gamepad was used to open the menu
+                    if (pauseItems.length > 0 && lastInputType === 'gamepad') {
                         pauseItems[0].classList.add('gamepad-focus');
                     }
                     // Reset latches so the Start/A/B that opened the menu don't trigger actions
