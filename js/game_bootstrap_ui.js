@@ -570,6 +570,13 @@ window.onload = function() {
     if (savedTrack !== null) {
       selectedMusicTrack = savedTrack;
     }
+    
+    // Save current gamepad position before switching to music player
+    // This ensures we can restore it when returning
+    if (typeof _gpNav !== 'undefined') {
+      _gpNav.savedDifficultyIndex = _gpNav.menuIndex;
+    }
+    
     difficultyContainer.style.display = 'none';
     musicPlayerContainer.style.display = 'flex';
     buildMusicPlayerMenu();
@@ -584,6 +591,26 @@ window.onload = function() {
     difficultyContainer.style.display = 'block';
     playUISound('uiClick');
     vibrateUI();
+
+    // Reinitialize gamepad navigation when returning to difficulty screen
+    // This fixes the issue where gamepad position resets after exiting music player
+    if (typeof _gpNav !== 'undefined') {
+      // Clear any existing focus classes
+      document.querySelectorAll('.gamepad-focus').forEach(el => el.classList.remove('gamepad-focus'));
+      
+      // Restore the saved difficulty position
+      _gpNav.menuIndex = _gpNav.savedDifficultyIndex || 0;
+      _gpNav.lastScreen = 'difficulty';
+
+      // Apply focus to the correct button after a short delay to ensure DOM is ready
+      setTimeout(() => {
+        const btns = Array.from(difficultyContainer.querySelectorAll('button:not([disabled])'));
+        if (btns.length > 0 && _gpNav.menuIndex >= 0 && _gpNav.menuIndex < btns.length) {
+          btns.forEach((el, i) => el.classList.toggle('gamepad-focus', i === _gpNav.menuIndex));
+          btns[_gpNav.menuIndex]?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        }
+      }, 50);
+    }
   }
 
   // Event listeners

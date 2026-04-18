@@ -1033,17 +1033,30 @@ function handleGamepadInput() {
         const onAchieve     = achievementsModal    && achievementsModal.style.display    !== 'none';
         const onCheats      = cheatsModal          && cheatsModal.style.display          !== 'none';
         const onMerchant    = merchantShop         && merchantShop.style.display         !== 'none';
-        const onMusic       = musicPlayerScreen     && musicPlayerScreen.style.display   !== 'none';
+        const onMusic       = musicPlayerContainer && musicPlayerContainer.style.display !== 'none';
 
         // Detect screen changes — only initialise focus once on entry
         const currentScreen = onDifficulty ? 'difficulty' : onMap ? 'map' : onCharacter ? 'character' : onUpgradeShop ? 'shop' : onGuide ? 'guide' : onAchieve ? 'achieve' : onCheats ? 'cheats' : onMerchant ? 'merchant' : onMusic ? 'music' : 'none';
         if (currentScreen !== _gpNav.lastScreen) {
+            const prevScreen = _gpNav.lastScreen;
             _gpNav.lastScreen = currentScreen;
-            _gpNav.menuIndex = 0;
+            // Special case: returning from music player to difficulty - restore saved position
+            if (prevScreen === 'music' && currentScreen === 'difficulty') {
+                _gpNav.menuIndex = _gpNav.savedDifficultyIndex || 0;
+            } else {
+                _gpNav.menuIndex = 0;
+            }
             // Apply initial highlight for navigable screens
             if (onDifficulty) {
-                const btns = Array.from(difficultyContainer.querySelectorAll('button:not([disabled])'));
-                applyFocus(btns, 0);
+                // Select main menu buttons from .difficulty-buttons (excluding mobile duplicates),
+                // music player button, and desktop buttons from .bottom-menu-buttons
+                // This gives us: Easy, Medium, Hard, Characters, How to Play, Music Player + Desktop Achievements, Reset, Upgrades
+                const difficultyBtns = Array.from(difficultyContainer.querySelectorAll('.difficulty-buttons button:not([disabled]):not(#mobileAchievementsButton):not(#mobileUpgradesButton):not(#mobileResetGameButton)'));
+                const musicBtn = difficultyContainer.querySelector('#musicPlayerButton:not([disabled])');
+                const bottomBtns = Array.from(difficultyContainer.querySelectorAll('.bottom-menu-buttons button:not([disabled])'));
+                const btns = [...difficultyBtns, ...(musicBtn ? [musicBtn] : []), ...bottomBtns];
+                const idx = Math.max(0, Math.min(_gpNav.menuIndex, btns.length - 1));
+                applyFocus(btns, idx);
             } else if (onMap) {
                 const tiles = Array.from(mapSelectContainer.querySelectorAll('.map-tile'));
                 applyFocus(tiles, 0);
@@ -1106,7 +1119,19 @@ function handleGamepadInput() {
 
         // ── Difficulty screen ──
         if (onDifficulty) {
-            const btns = Array.from(difficultyContainer.querySelectorAll('button:not([disabled])'));
+            // Select main menu buttons from .difficulty-buttons (excluding mobile duplicates),
+            // music player button, and desktop buttons from .bottom-menu-buttons
+            // This gives us: Easy, Medium, Hard, Characters, How to Play, Music Player + Desktop Achievements, Reset, Upgrades
+            const difficultyBtns = Array.from(difficultyContainer.querySelectorAll('.difficulty-buttons button:not([disabled]):not(#mobileAchievementsButton):not(#mobileUpgradesButton):not(#mobileResetGameButton)'));
+            const musicBtn = difficultyContainer.querySelector('#musicPlayerButton:not([disabled])');
+            const bottomBtns = Array.from(difficultyContainer.querySelectorAll('.bottom-menu-buttons button:not([disabled])'));
+            const btns = [...difficultyBtns, ...(musicBtn ? [musicBtn] : []), ...bottomBtns];
+            // Ensure focus is applied if not already (handles returning from other screens)
+            const hasFocus = btns.some(el => el.classList.contains('gamepad-focus'));
+            if (!hasFocus && btns.length > 0) {
+                _gpNav.menuIndex = Math.max(0, Math.min(_gpNav.menuIndex, btns.length - 1));
+                applyFocus(btns, _gpNav.menuIndex);
+            }
             if (btnDown || btnRight) { moveFocus(btns, 1); return; }
             if (btnUp   || btnLeft)  { moveFocus(btns, -1); return; }
             if (btnA) {
@@ -3632,6 +3657,10 @@ async function startGame() {
 
             score = 0; lastEnemySpawnTime = 0; enemySpawnInterval = 1000;
             lastWeaponFireTime = 0; weaponFireInterval = 400; enemiesDefeatedCount = 0;
+            // Safety: ensure weaponFireInterval wasn't corrupted (e.g., NaN, Infinity, or negative)
+            if (!Number.isFinite(weaponFireInterval) || weaponFireInterval <= 0) {
+                weaponFireInterval = 400;
+            }
             fireRateBoostActive = false; fireRateBoostEndTime = 0; bombEmitterActive = false; orbitingPowerUpActive = false;
             levitatingBooksActive = false; levitatingBooksAngle = 0; levitatingBooksFadeStartTime = 0;
             levitatingBooksAlpha = 0; levitatingBooksCurrentlyVisible = false; levitatingBooksPositions = [];

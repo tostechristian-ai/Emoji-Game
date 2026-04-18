@@ -449,8 +449,11 @@ function activatePowerup(id) {
         ricochetActive = true; // Bullets bounce to second target
     }
     else if (id === 'rocket_launcher') {
+        // Only apply fire rate penalty if not already active (prevents stacking)
+        if (!rocketLauncherActive) {
+            weaponFireInterval *= 2; // Slower but more powerful
+        }
         rocketLauncherActive = true;
-        weaponFireInterval *= 2; // Slower but more powerful
     }
     else if (id === 'dual_gun') {
         dualGunActive = true; // Fire forward and backward

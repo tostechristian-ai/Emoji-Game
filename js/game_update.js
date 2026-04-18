@@ -2465,7 +2465,8 @@ for (let i = merchants.length - 1; i >= 0; i--) {
 if(fireRateBoostActive) currentFireInterval /= 2;
 if(cheats.fastShooting) currentFireInterval /= 5;
 if(cheats.double_game_speed) currentFireInterval /= 2;
-currentFireInterval = Math.max(50, currentFireInterval);
+// Clamp: minimum 50ms (fastest), maximum 5000ms (slowest - 1 shot per 5 seconds)
+currentFireInterval = Math.max(50, Math.min(5000, currentFireInterval));
 // Safety: if lastWeaponFireTime is somehow ahead of virtual time, reset it
 if (lastWeaponFireTime > now) lastWeaponFireTime = now;
 if (!player._isLumberjack && !player._isKnight && (aimDx !== 0 || aimDy !== 0) && (now - lastWeaponFireTime > currentFireInterval)) {
