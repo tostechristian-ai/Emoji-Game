@@ -2954,12 +2954,14 @@ function createBoss() {
             }
             const particleCount = 4;
             const speed = 2 + Math.random() * 2;
+            // Use virtual time to prevent scaling issues during pause/level up
+            const now = typeof update !== 'undefined' && update._virtualTime ? update._virtualTime : Date.now();
             for (let i = 0; i < particleCount; i++) {
                 const angle = (i / particleCount) * Math.PI * 2;
                 bloodSplatters.push({
                     x: x, y: y, dx: Math.cos(angle) * speed + (Math.random() - 0.5),
                     dy: Math.sin(angle) * speed + (Math.random() - 0.5),
-                    size: 2 + Math.random() * 3, spawnTime: Date.now(), lifetime: 800 + Math.random() * 400
+                    size: 2 + Math.random() * 3, spawnTime: now, lifetime: 800 + Math.random() * 400
                 });
             }
         }
@@ -2970,9 +2972,11 @@ function createBoss() {
             if (bloodPuddles.length >= MAX_BLOOD_PUDDLES) {
                 bloodPuddles.shift();
             }
+            // Use virtual time to prevent scaling issues during pause/level up
+            const now = typeof update !== 'undefined' && update._virtualTime ? update._virtualTime : Date.now();
             bloodPuddles.push({
                 x: x, y: y, initialSize: size * 1.5,
-                spawnTime: Date.now(), rotation: Math.random() * Math.PI * 2, lifetime: 10000
+                spawnTime: now, rotation: Math.random() * Math.PI * 2, lifetime: 10000
             });
         }
 

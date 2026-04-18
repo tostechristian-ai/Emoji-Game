@@ -446,13 +446,16 @@ function handleBrickDestruction(brick) {
     for (let i = 0; i < particleCount; i++) {
         const angle = (i / particleCount) * Math.PI * 2;
         
+        // Use virtual time to prevent scaling issues during pause/level up
+        const now = typeof update !== 'undefined' && update._virtualTime ? update._virtualTime : Date.now();
+        
         bloodSplatters.push({
             x: brick.x,
             y: brick.y,
             dx: Math.cos(angle) * speed + (Math.random() - 0.5),
             dy: Math.sin(angle) * speed + (Math.random() - 0.5),
             size: 3 + Math.random() * 4,
-            spawnTime: Date.now(),
+            spawnTime: now,
             lifetime: 900 + Math.random() * 400,
             isWhite: true // White particles for bricks
         });
