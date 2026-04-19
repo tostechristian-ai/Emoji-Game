@@ -822,8 +822,8 @@ let doppelganger = null;
         const BLACK_HOLE_INTERVAL = 10000;
         const BLACK_HOLE_PULL_DURATION = 3000;
         const BLACK_HOLE_DELAY = 3000;
-        const BLACK_HOLE_RADIUS = 167;
-        const BLACK_HOLE_PULL_STRENGTH = 2.5;
+        const BLACK_HOLE_RADIUS = 125;
+        const BLACK_HOLE_PULL_STRENGTH = 5.0;
 
         // Time Freeze powerup - creates a zone that freezes enemies
         const TIME_FREEZE_INTERVAL = 12000; // Create freeze zone every 12 seconds
@@ -2394,13 +2394,14 @@ document.body.addEventListener('touchstart', (e) => {
         }
 
 function createBoss() {
-            // Show warning first
-            visualWarnings.push({ 
-                text: '⚠️ BOSS APPROACHING! ⚠️', 
-                x: player.x, 
-                y: player.y - 80, 
-                startTime: Date.now(), 
-                duration: 2000, 
+            // Show warning first - use virtual time for consistency with game loop
+            const now = (typeof update !== 'undefined' && update._virtualTime) ? update._virtualTime : Date.now();
+            visualWarnings.push({
+                text: '⚠️ BOSS APPROACHING! ⚠️',
+                x: player.x,
+                y: player.y - 80,
+                startTime: now,
+                duration: 2000,
                 color: '#ff0000',
                 fontSize: 24
             });
@@ -2462,14 +2463,15 @@ function createBoss() {
             // Prevent multiple spawn attempts during the warning delay
             if (megaBossSpawnInitiated) return;
             megaBossSpawnInitiated = true;
-            
-            // Show warning first
-            visualWarnings.push({ 
-                text: '☠️ MEGA BOSS APPROACHING! ☠️', 
-                x: player.x, 
-                y: player.y - 100, 
-                startTime: Date.now(), 
-                duration: 3000, 
+
+            // Show warning first - use virtual time for consistency with game loop
+            const now = (typeof update !== 'undefined' && update._virtualTime) ? update._virtualTime : Date.now();
+            visualWarnings.push({
+                text: '☠️ MEGA BOSS APPROACHING! ☠️',
+                x: player.x,
+                y: player.y - 100,
+                startTime: now,
+                duration: 3000,
                 color: '#9900ff',
                 fontSize: 28
             });

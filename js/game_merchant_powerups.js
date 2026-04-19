@@ -607,7 +607,9 @@ function activatePowerup(id) {
     }
     else if (id === 'black_hole') {
         blackHoleActive = true;
-        lastBlackHoleTime = (typeof update !== 'undefined' && update._virtualTime) ? update._virtualTime : Date.now();
+        // Subtract interval so first black hole spawns immediately
+        const _virtualNowBH = (typeof update !== 'undefined' && update._virtualTime) ? update._virtualTime : Date.now();
+        lastBlackHoleTime = _virtualNowBH - BLACK_HOLE_INTERVAL;
     }
     else if (id === 'time_freeze') {
         timeFreezeActive = true;
@@ -615,6 +617,9 @@ function activatePowerup(id) {
     }
     else if (id === 'whirlwind_axe') {
         whirlwindAxeActive = true;
+    }
+    else if (id === 'night_owl') {
+        nightOwlActive = true;
     }
     else if (id === 'stone_glare') {
         stoneGlareActive = true;

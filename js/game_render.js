@@ -354,15 +354,15 @@
                     coreRadius = 10 * pulse;
                     ctx.beginPath();
                     ctx.arc(hole.x, hole.y, currentRadius, 0, Math.PI * 2);
-                    ctx.fillStyle = `rgba(150, 0, 200, ${alpha * 0.1 * delayProgress})`;
+                    ctx.fillStyle = `rgba(0, 100, 255, ${alpha * 0.2 * delayProgress})`;
                     ctx.fill();
-                    ctx.strokeStyle = `rgba(200, 100, 255, ${alpha * 0.5 * delayProgress})`;
+                    ctx.strokeStyle = `rgba(100, 200, 255, ${alpha * 0.8 * delayProgress})`;
                     ctx.lineWidth = 2;
                     ctx.stroke();
                 } else {
                     ctx.beginPath();
                     ctx.arc(hole.x, hole.y, currentRadius, 0, Math.PI * 2);
-                    ctx.fillStyle = `rgba(50, 0, 100, ${alpha * 0.2})`;
+                    ctx.fillStyle = `rgba(0, 50, 150, ${alpha * 0.3})`;
                     ctx.fill();
                 }
                 if (coreRadius > 0) {
@@ -669,11 +669,13 @@
                     const manyBurning = draw._ignitedCount > 15;
                     if (!manyBurning || (draw._ignitedCount % 2 === 0)) {
                         // Fire emoji - fully solid (no transparency)
+                        ctx.globalAlpha = 1.0; // Reset alpha to ensure fire is fully opaque
+                        ctx.filter = 'none'; // Reset any filters
                         ctx.font = `${enemy.size * 0.8}px sans-serif`;
                         ctx.fillText('🔥', enemy.x, enemy.y + (enemy.bobOffset || 0));
 
                         // Smoke effect - emit 💨 every 0.5 seconds above burning enemy
-                        const now = Date.now();
+                        const now = (typeof update !== 'undefined' && update._virtualTime) ? update._virtualTime : Date.now();
                         if (!enemy.lastSmokeTime || now - enemy.lastSmokeTime > 500) {
                             enemy.lastSmokeTime = now;
                             // Random slight offset for natural look
@@ -685,8 +687,8 @@
                                     x: smokeX,
                                     y: smokeY,
                                     text: '💨',
-                                    spawnTime: now,
-                                    lifetime: 800,
+                                    startTime: now,
+                                    duration: 800,
                                     isSmoke: true
                                 });
                             }
@@ -1221,6 +1223,7 @@
                 ctx.shadowBlur = 0;
                 ctx.shadowColor = 'transparent';
                 ctx.globalCompositeOperation = 'source-over';
+                ctx.filter = 'none';
                 // Draw shadow under merchant wizard
                 const isMobile = document.body.classList.contains('is-mobile');
                 const mShadowY = m.y + m.size * 0.4;
@@ -1884,14 +1887,16 @@
                 const alpha = 1.0 - (elapsed / ft.duration);
                 const yOffset = (elapsed / ft.duration) * 20;
                 ctx.save();
-                ctx.globalAlpha = Math.max(0, alpha);
-                // Smoke effect - use emoji font, float slower upward
+                // Smoke effect - fades naturally but isolated from other canvas state
                 if (ft.isSmoke) {
+                    ctx.filter = 'none'; // Clear any leftover filters
+                    ctx.globalAlpha = Math.max(0, alpha); // Natural fade out
                     const smokeYOffset = (elapsed / ft.duration) * 15; // Slower rise
                     ctx.font = '16px sans-serif';
                     ctx.textAlign = 'center';
                     ctx.fillText(ft.text, ft.x, ft.y - smokeYOffset);
                 } else {
+                    ctx.globalAlpha = Math.max(0, alpha);
                     // Damage numbers use a smaller plain font; other texts use the game font
                     if (ft.fontSize) {
                         ctx.font = `bold ${ft.fontSize}px sans-serif`;

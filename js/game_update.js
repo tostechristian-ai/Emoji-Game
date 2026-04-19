@@ -1422,7 +1422,7 @@ for (let i = merchants.length - 1; i >= 0; i--) {
                         
                         if (distSq < aoeRadius * aoeRadius && distSq > 0) {
                             const dist = Math.sqrt(distSq);
-                            const pullStrength = 0.4 * (1 - dist / aoeRadius); // Stronger when closer
+                            const pullStrength = 0.6 * (1 - dist / aoeRadius); // Stronger when closer, increased by 50%
                             const pullAngle = Math.atan2(dy, dx);
                             
                             // Apply pull to player (subtle but noticeable - player can escape at base speed)
@@ -4022,8 +4022,23 @@ for (let i = lightningBolts.length - 1; i >= 0; i--) {
             }
             
             if (blackHoleActive && !isTimeStopped && now - lastBlackHoleTime > BLACK_HOLE_INTERVAL) {
+                // Find nearest enemy to spawn black hole at their position
+                let closestEnemy = null;
+                let minDistanceSq = Infinity;
+                enemies.forEach(enemy => {
+                    if (!enemy.isHit) {
+                        const distSq = (player.x - enemy.x) ** 2 + (player.y - enemy.y) ** 2;
+                        if (distSq < minDistanceSq) {
+                            minDistanceSq = distSq;
+                            closestEnemy = enemy;
+                        }
+                    }
+                });
+                // Spawn at nearest enemy or player if no enemies
+                const spawnX = closestEnemy ? closestEnemy.x : player.x;
+                const spawnY = closestEnemy ? closestEnemy.y : player.y;
                 blackHoles.push({
-                    x: player.x, y: player.y, spawnTime: now, lifetime: BLACK_HOLE_DELAY + BLACK_HOLE_PULL_DURATION,
+                    x: spawnX, y: spawnY, spawnTime: now, lifetime: BLACK_HOLE_DELAY + BLACK_HOLE_PULL_DURATION,
                     radius: BLACK_HOLE_RADIUS, pullStrength: BLACK_HOLE_PULL_STRENGTH
                 });
                 lastBlackHoleTime = now;
