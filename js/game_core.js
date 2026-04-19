@@ -939,7 +939,7 @@ let doppelganger = null;
         const TURRET_BULLET_SIZE = 18;
         const TURRET_BULLET_SPEED = 6;
         
-        let dog = { x: 0, y: 0, size: 25, state: 'returning', target: null, lastHomingShotTime: 0 };
+        let dog = { x: 0, y: 0, size: 25, state: 'returning', target: null, lastHomingShotTime: 0, storedXp: 0 };
         const DOG_HOMING_SHOT_INTERVAL = 3000;
         
         let catAlly = { x: 0, y: 0, size: 23, state: 'returning', target: null, carriedItem: null };
@@ -1485,9 +1485,15 @@ function handleGamepadInput() {
     if (rmag > 0) { aimDx = rx / rmag; aimDy = ry / rmag; }
     else { aimDx = 0; aimDy = 0; }
 
-    // R-trigger firing latch
+    // R-trigger dash
     if (pressed(7) && !gp._rTriggerLatch) {
-        if (!window.gamePaused) lastGamepadUpdate = now;
+        gp._rTriggerLatch = true;
+        if (!window.gamePaused && window.gameActive && !window.gameOver) {
+            triggerDash(player);
+            lastGamepadUpdate = now;
+        }
+    } else if (!pressed(7)) {
+        gp._rTriggerLatch = false;
     }
 
     // Start button opens pause menu during gameplay
@@ -2257,7 +2263,7 @@ document.body.addEventListener('touchstart', (e) => {
                 isHit: false, isHitByOrbiter: false, isHitByCircle: false,
                 isFrozen: false, freezeEndTime: 0, originalSpeed: currentBaseEnemySpeed * config.speedMultiplier,
                 isSlowedByPuddle: false, isSlowedByStoneGlare: false, isBoss: false, isHitByAxe: false,
-                isIgnited: false, ignitionEndTime: 0, lastIgnitionDamageTime: 0
+                isIgnited: false, ignitionEndTime: 0, lastIgnitionDamageTime: 0, lastSmokeTime: 0
             };
             
             // Inferno Mode: All enemies spawn ignited
@@ -2285,7 +2291,7 @@ document.body.addEventListener('touchstart', (e) => {
             enemies.push(newEnemy);
         }
 
-        function handleEnemyDeath(enemy, explosionId = null) {
+        function handleEnemyDeath(enemy, explosionId = null, killedByDog = false) {
             if (enemy.isHit) return;
             // Check if mega boss died - trigger win
             if (enemy.isMegaBoss) {
@@ -2364,21 +2370,24 @@ document.body.addEventListener('touchstart', (e) => {
                 }
             }
 
-            if (enemy.isBoss) {
-                createPickup(enemy.x, enemy.y, BOSS_XP_EMOJI, enemy.size / 2, BOSS_XP_DROP);
-            } else if (enemy.emoji === VAMPIRE_EMOJI || enemy.emoji === GENIE_EMOJI) {
-                createPickup(enemy.x, enemy.y, '💎', DIAMOND_SIZE, 5);
-            } else if (enemy.emoji === '🐌') {
-                createPickup(enemy.x, enemy.y, DIAMOND_EMOJI, DIAMOND_SIZE, DIAMOND_XP_VALUE);
-            } else if (enemy.emoji === MOSQUITO_EMOJI) {
-                createPickup(enemy.x, enemy.y, DIAMOND_EMOJI, DIAMOND_SIZE, DIAMOND_XP_VALUE);
-            } else if (Math.random() < appleDropChance * (currentDifficulty === 'easy' ? 0.65 : 1) * (1 - lateGameReduction)) {
-                createAppleItem(enemy.x, enemy.y);
-            } else {
-                if (enemy.emoji === '🧟') createPickup(enemy.x, enemy.y, COIN_EMOJI, COIN_SIZE, COIN_XP_VALUE);
-                else if (enemy.emoji === '💀') createPickup(enemy.x, enemy.y, DIAMOND_EMOJI, DIAMOND_SIZE, DIAMOND_XP_VALUE);
-                else if (enemy.emoji === BAT_EMOJI || enemy.emoji === '😈') createPickup(enemy.x, enemy.y, RING_SYMBOL_EMOJI, RING_SYMBOL_SIZE, RING_SYMBOL_XP_VALUE);
-                else if (enemy.emoji === DEMON_EMOJI || enemy.emoji === EYE_EMOJI || enemy.emoji === '👻') createPickup(enemy.x, enemy.y, DEMON_XP_EMOJI, RING_SYMBOL_SIZE, DEMON_XP_VALUE);
+            // Skip XP drops for regular enemies when killed by dog (dog stores XP and brings it to player)
+            if (!killedByDog) {
+                if (enemy.isBoss) {
+                    createPickup(enemy.x, enemy.y, BOSS_XP_EMOJI, enemy.size / 2, BOSS_XP_DROP);
+                } else if (enemy.emoji === VAMPIRE_EMOJI || enemy.emoji === GENIE_EMOJI) {
+                    createPickup(enemy.x, enemy.y, '💎', DIAMOND_SIZE, 5);
+                } else if (enemy.emoji === '🐌') {
+                    createPickup(enemy.x, enemy.y, DIAMOND_EMOJI, DIAMOND_SIZE, DIAMOND_XP_VALUE);
+                } else if (enemy.emoji === MOSQUITO_EMOJI) {
+                    createPickup(enemy.x, enemy.y, DIAMOND_EMOJI, DIAMOND_SIZE, DIAMOND_XP_VALUE);
+                } else if (Math.random() < appleDropChance * (currentDifficulty === 'easy' ? 0.65 : 1) * (1 - lateGameReduction)) {
+                    createAppleItem(enemy.x, enemy.y);
+                } else {
+                    if (enemy.emoji === '🧟') createPickup(enemy.x, enemy.y, COIN_EMOJI, COIN_SIZE, COIN_XP_VALUE);
+                    else if (enemy.emoji === '💀') createPickup(enemy.x, enemy.y, DIAMOND_EMOJI, DIAMOND_SIZE, DIAMOND_XP_VALUE);
+                    else if (enemy.emoji === BAT_EMOJI || enemy.emoji === '😈') createPickup(enemy.x, enemy.y, RING_SYMBOL_EMOJI, RING_SYMBOL_SIZE, RING_SYMBOL_XP_VALUE);
+                    else if (enemy.emoji === DEMON_EMOJI || enemy.emoji === EYE_EMOJI || enemy.emoji === '👻') createPickup(enemy.x, enemy.y, DEMON_XP_EMOJI, RING_SYMBOL_SIZE, DEMON_XP_VALUE);
+                }
             }
 
             score += 10;
@@ -2431,7 +2440,7 @@ function createBoss() {
                     health: bossHealth,
                     isBoss: true, mimics: mimickedEmoji, isHit: false, isHitByOrbiter: false, isHitByCircle: false,
                     isFrozen: false, freezeEndTime: 0, originalSpeed: bossSpeed, isSlowedByPuddle: false, isSlowedByStoneGlare: false,
-                    isHitByAxe: false, isIgnited: false, ignitionEndTime: 0, lastIgnitionDamageTime: 0
+                    isHitByAxe: false, isIgnited: false, ignitionEndTime: 0, lastIgnitionDamageTime: 0, lastSmokeTime: 0
                 };
                 if (config.initialProps) Object.assign(boss, config.initialProps());
                 enemies.push(boss);
@@ -2542,10 +2551,11 @@ function createBoss() {
                     freezeEndTime: 0, 
                     originalSpeed: megaBossSpeed, 
                     isSlowedByPuddle: false,
-                    isHitByAxe: false, 
-                    isIgnited: false, 
-                    ignitionEndTime: 0, 
-                    lastIgnitionDamageTime: 0
+                    isHitByAxe: false,
+                    isIgnited: false,
+                    ignitionEndTime: 0,
+                    lastIgnitionDamageTime: 0,
+                    lastSmokeTime: 0
                 };
                 if (config.initialProps) Object.assign(megaBoss, config.initialProps());
                 enemies.push(megaBoss);
@@ -2602,10 +2612,11 @@ function createBoss() {
                         freezeEndTime: 0, 
                         originalSpeed: config.speedMultiplier * baseEnemySpeed * 0.8, 
                         isSlowedByPuddle: false,
-                        isHitByAxe: false, 
-                        isIgnited: false, 
-                        ignitionEndTime: 0, 
-                        lastIgnitionDamageTime: 0
+                        isHitByAxe: false,
+                        isIgnited: false,
+                        ignitionEndTime: 0,
+                        lastIgnitionDamageTime: 0,
+                        lastSmokeTime: 0
                     };
                     if (config.initialProps) Object.assign(minion, config.initialProps());
                     enemies.push(minion);
@@ -3808,7 +3819,7 @@ async function startGame() {
             doppelganger = null;
             bugSwarmActive = false; peaShooterActive = false; lastPeaShootTime = 0; peaShooterSpinAngle = 0; nightOwlActive = false; whirlwindAxeActive = false; lightningStrikeActive = false; owl = null; boomerangActive = false; lastBoomerangTime = 0; chainLightningActive = false; lastChainLightningTime = 0; flyingTurretActive = false; flyingTurret = { x: 0, y: 0, size: 35, aimAngle: 0, lastFireTime: 0, dx: 2.5, dy: 2.5 };
             
-            dog = { x: player.x, y: player.y, size: 25, state: 'returning', target: null, lastHomingShotTime: 0 };
+            dog = { x: player.x, y: player.y, size: 25, state: 'returning', target: null, lastHomingShotTime: 0, storedXp: 0 };
             catAlly = { x: player.x, y: player.y, size: 23, state: 'returning', target: null, carriedItem: null };
             player2 = null;
             merchants.length = 0; // Ensure no merchants at start

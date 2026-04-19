@@ -664,13 +664,33 @@
                     // Count burning enemies for throttling
                     if (!draw._ignitedCount) draw._ignitedCount = 0;
                     draw._ignitedCount++;
-                    
+
                     // Only render fire for every 2nd burning enemy when many burning
                     const manyBurning = draw._ignitedCount > 15;
                     if (!manyBurning || (draw._ignitedCount % 2 === 0)) {
-                        ctx.globalAlpha = Math.min(ctx.globalAlpha, 0.8);
+                        // Fire emoji - fully solid (no transparency)
                         ctx.font = `${enemy.size * 0.8}px sans-serif`;
                         ctx.fillText('🔥', enemy.x, enemy.y + (enemy.bobOffset || 0));
+
+                        // Smoke effect - emit 💨 every 0.5 seconds above burning enemy
+                        const now = Date.now();
+                        if (!enemy.lastSmokeTime || now - enemy.lastSmokeTime > 500) {
+                            enemy.lastSmokeTime = now;
+                            // Random slight offset for natural look
+                            const smokeX = enemy.x + (Math.random() - 0.5) * enemy.size * 0.5;
+                            const smokeY = enemy.y - enemy.size * 0.6;
+                            // Use floating text system for smoke with fade
+                            if (typeof floatingTexts !== 'undefined') {
+                                floatingTexts.push({
+                                    x: smokeX,
+                                    y: smokeY,
+                                    text: '💨',
+                                    spawnTime: now,
+                                    lifetime: 800,
+                                    isSmoke: true
+                                });
+                            }
+                        }
                     }
                 }
                 ctx.restore();
@@ -1195,23 +1215,27 @@
             });
             
             merchants.forEach(m => {
-    ctx.save();
-    ctx.globalAlpha = 1.0; // Ensure wizard is fully opaque
-    // Draw shadow under merchant wizard
-    const isMobile = document.body.classList.contains('is-mobile');
-    const mShadowY = m.y + m.size * 0.4;
-    const mShadowRX = m.size * 0.5 * (isMobile ? 1.1 : 1);
-    const mShadowRY = m.size * 0.2 * (isMobile ? 1.1 : 1);
-    ctx.beginPath();
-    ctx.ellipse(m.x, mShadowY, mShadowRX, mShadowRY, 0, 0, Math.PI * 2);
-    ctx.fillStyle = isMobile ? 'rgba(0, 0, 0, 0.55)' : 'rgba(0, 0, 0, 0.3)';
-    ctx.fill();
-    ctx.font = `${m.size}px serif`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('🧙‍♂️', m.x, m.y);
-    ctx.restore();
-});
+                ctx.save();
+                ctx.globalAlpha = 1.0; // Ensure wizard is fully opaque
+                // Reset any leftover effects from other renders
+                ctx.shadowBlur = 0;
+                ctx.shadowColor = 'transparent';
+                ctx.globalCompositeOperation = 'source-over';
+                // Draw shadow under merchant wizard
+                const isMobile = document.body.classList.contains('is-mobile');
+                const mShadowY = m.y + m.size * 0.4;
+                const mShadowRX = m.size * 0.5 * (isMobile ? 1.1 : 1);
+                const mShadowRY = m.size * 0.2 * (isMobile ? 1.1 : 1);
+                ctx.beginPath();
+                ctx.ellipse(m.x, mShadowY, mShadowRX, mShadowRY, 0, 0, Math.PI * 2);
+                ctx.fillStyle = isMobile ? 'rgba(0, 0, 0, 0.55)' : 'rgba(0, 0, 0, 0.3)';
+                ctx.fill();
+                ctx.font = `${m.size}px serif`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('🧙‍♂️', m.x, m.y);
+                ctx.restore();
+            });
             
             const bobOffset = player.isDashing ? 0 : Math.sin(player.stepPhase) * BOB_AMPLITUDE;
             const spinDuration = 500; // 0.5 seconds
@@ -1861,19 +1885,27 @@
                 const yOffset = (elapsed / ft.duration) * 20;
                 ctx.save();
                 ctx.globalAlpha = Math.max(0, alpha);
-                // Damage numbers use a smaller plain font; other texts use the game font
-                if (ft.fontSize) {
-                    ctx.font = `bold ${ft.fontSize}px sans-serif`;
-                    ctx.lineWidth = 2;
+                // Smoke effect - use emoji font, float slower upward
+                if (ft.isSmoke) {
+                    const smokeYOffset = (elapsed / ft.duration) * 15; // Slower rise
+                    ctx.font = '16px sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(ft.text, ft.x, ft.y - smokeYOffset);
                 } else {
-                    ctx.font = 'bold 14px "Press Start 2P"';
-                    ctx.lineWidth = 3;
+                    // Damage numbers use a smaller plain font; other texts use the game font
+                    if (ft.fontSize) {
+                        ctx.font = `bold ${ft.fontSize}px sans-serif`;
+                        ctx.lineWidth = 2;
+                    } else {
+                        ctx.font = 'bold 14px "Press Start 2P"';
+                        ctx.lineWidth = 3;
+                    }
+                    ctx.fillStyle = ft.color || '#FFFFFF';
+                    ctx.strokeStyle = '#000000';
+                    ctx.textAlign = 'center';
+                    ctx.strokeText(ft.text, ft.x, ft.y - yOffset);
+                    ctx.fillText(ft.text, ft.x, ft.y - yOffset);
                 }
-                ctx.fillStyle = ft.color || '#FFFFFF';
-                ctx.strokeStyle = '#000000';
-                ctx.textAlign = 'center';
-                ctx.strokeText(ft.text, ft.x, ft.y - yOffset);
-                ctx.fillText(ft.text, ft.x, ft.y - yOffset);
                 ctx.restore();
             });
 

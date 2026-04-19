@@ -1934,12 +1934,21 @@ for (let i = merchants.length - 1; i >= 0; i--) {
             }
 
             if (dogCompanionActive && !isTimeStopped) {
-                // Dog moves at 2x player speed, scaled by game speed
-                const DOG_SPEED = player.speed * 2 * gameTimeScale;
+                // Dog moves at 1.3x player speed (35% slower than original 2x), scaled by game speed
+                const DOG_SPEED = player.speed * 1.3 * gameTimeScale;
                 if (dog.state === 'returning') {
                     const dx = player.x - dog.x;
                     const dy = player.y - dog.y;
-                    if (dx*dx + dy*dy < (player.size/2)**2) { dog.state = 'seeking'; dog.target = null; } 
+                    // When dog reaches player, drop any stored XP
+                    if (dx*dx + dy*dy < (player.size/2)**2) {
+                        dog.state = 'seeking';
+                        dog.target = null;
+                        // Drop stored XP from dog kills
+                        if (dog.storedXp > 0) {
+                            createPickup(dog.x, dog.y, COIN_EMOJI, COIN_SIZE, dog.storedXp);
+                            dog.storedXp = 0;
+                        }
+                    } 
                     else {
                         const angleToPlayer = Math.atan2(player.y - dog.y, player.x - dog.x);
                         dog.x += Math.cos(angleToPlayer) * DOG_SPEED * gameTimeScale;
@@ -1967,7 +1976,14 @@ for (let i = merchants.length - 1; i >= 0; i--) {
                         const dy = dog.target.y - dog.y;
                         const combinedRadius = (dog.size / 2) + (dog.target.size / 2);
                         if (dx*dx + dy*dy < combinedRadius*combinedRadius) {
-                            handleEnemyDeath(dog.target);
+                            // Calculate XP value based on enemy type and store it on dog
+                            const enemy = dog.target;
+                            if (enemy.emoji === '🧟') dog.storedXp += COIN_XP_VALUE;
+                            else if (enemy.emoji === '💀') dog.storedXp += DIAMOND_XP_VALUE;
+                            else if (enemy.emoji === BAT_EMOJI || enemy.emoji === '😈') dog.storedXp += RING_SYMBOL_XP_VALUE;
+                            else if (enemy.emoji === DEMON_EMOJI || enemy.emoji === EYE_EMOJI || enemy.emoji === '👻') dog.storedXp += DEMON_XP_VALUE;
+                            // Bosses and special enemies still drop XP normally (too valuable to store)
+                            handleEnemyDeath(enemy, null, true); // true = killedByDog, skips XP drop
                             dog.target = null;
                             dog.state = 'returning';
                         } else {
@@ -2017,7 +2033,7 @@ for (let i = merchants.length - 1; i >= 0; i--) {
                             } else if (item.type === 'apple') {
                                 if (player.lives < player.maxLives) {
                                     player.lives++;
-                                    updateLivesDisplay();
+                                    updateUIStats();
                                     if (floatingTexts.length < 30) floatingTexts.push({ text: '+1 ❤️', x: player.x, y: player.y - 20, startTime: now, duration: 1000, color: '#ff0000' });
                                     playSound('coinCollect');
                                 }
