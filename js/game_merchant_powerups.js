@@ -286,11 +286,12 @@ function purchaseFromMerchant(option) {
         player.xp += actualXpToAdd;
         
         // Show floating text
+        const now = (typeof update !== 'undefined' && update._virtualTime) ? update._virtualTime : Date.now();
         floatingTexts.push({
             text: `+${actualXpToAdd} XP!`,
             x: player.x,
             y: player.y - player.size,
-            startTime: Date.now(),
+            startTime: now,
             duration: 1500,
             color: '#00c6ff'
         });
@@ -306,11 +307,12 @@ function purchaseFromMerchant(option) {
         player.lives = player.maxLives; // Full heal
         updateUIStats();
         
+        const now = (typeof update !== 'undefined' && update._virtualTime) ? update._virtualTime : Date.now();
         floatingTexts.push({
             text: 'Full Heal!',
             x: player.x,
             y: player.y - player.size,
-            startTime: Date.now(),
+            startTime: now,
             duration: 1500,
             color: '#ff4444'
         });
@@ -324,11 +326,12 @@ function purchaseFromMerchant(option) {
         const actualXpToAdd = Math.min(option.xpAmount, maxXpToAdd);
         player.xp += actualXpToAdd;
         
+        const now = (typeof update !== 'undefined' && update._virtualTime) ? update._virtualTime : Date.now();
         floatingTexts.push({
             text: `+${actualXpToAdd} XP!`,
             x: player.x,
             y: player.y - player.size,
-            startTime: Date.now(),
+            startTime: now,
             duration: 1500,
             color: '#00c6ff'
         });
@@ -347,11 +350,12 @@ function purchaseFromMerchant(option) {
         
         updateUIStats();
         
+        const now = (typeof update !== 'undefined' && update._virtualTime) ? update._virtualTime : Date.now();
         floatingTexts.push({
             text: '+❤️',
             x: player.x,
             y: player.y - player.size,
-            startTime: Date.now(),
+            startTime: now,
             duration: 1500,
             color: '#ff4444'
         });
@@ -362,11 +366,12 @@ function purchaseFromMerchant(option) {
         const _virtualNowBoost = (typeof update !== 'undefined' && update._virtualTime) ? update._virtualTime : Date.now();
         fireRateBoostEndTime = _virtualNowBoost + 10000; // 10 seconds
         
+        const now = (typeof update !== 'undefined' && update._virtualTime) ? update._virtualTime : Date.now();
         floatingTexts.push({
             text: 'Fire Rate Boost!',
             x: player.x,
             y: player.y - player.size,
-            startTime: Date.now(),
+            startTime: now,
             duration: 1500,
             color: '#ff8800'
         });
@@ -377,11 +382,12 @@ function purchaseFromMerchant(option) {
         player.coins -= option.cost;
         activatePowerup(option.powerupId);
         
+        const now = (typeof update !== 'undefined' && update._virtualTime) ? update._virtualTime : Date.now();
         floatingTexts.push({
             text: `${option.name || 'Powerup'}!`,
             x: player.x,
             y: player.y - player.size,
-            startTime: Date.now(),
+            startTime: now,
             duration: 1500
         });
     }
@@ -422,11 +428,12 @@ function purchaseFromMerchant(option) {
         }
         updateUpgradeStatsUI();
 
+        const now = (typeof update !== 'undefined' && update._virtualTime) ? update._virtualTime : Date.now();
         floatingTexts.push({
             text: `${option.name} +1!`,
             x: player.x,
             y: player.y - player.size,
-            startTime: Date.now(),
+            startTime: now,
             duration: 1500,
             color: '#66bb6a'
         });

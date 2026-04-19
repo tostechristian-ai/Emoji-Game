@@ -79,7 +79,7 @@
             preRenderEnemyEmoji('👹', 28 * 0.7);        // Demon - alternating behavior
             preRenderEnemyEmoji('👻', 22);              // Ghost - phases in/out
             preRenderEnemyEmoji('👁️', 25 * 0.6);       // Eye - ranged attacker
-            preRenderEnemyEmoji('�', 24);            // Genie - warps bullets with gravity field
+            preRenderEnemyEmoji('🧞', 24);              // Genie - warps bullets with gravity field
             preRenderEnemyEmoji('🧛‍♀️', 20);           // Vampire - dodges bullets
             preRenderEnemyEmoji('👾', 22);             // Invader - zigzag movement, teleports
             preRenderEnemyEmoji('🪬', 24);             // Charger - charges at player with arrow

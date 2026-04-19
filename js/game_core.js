@@ -114,11 +114,12 @@ function spawnAllPowerupBoxes() {
     }
 
     // Show feedback
+    const now = (typeof update !== 'undefined' && update._virtualTime) ? update._virtualTime : Date.now();
     floatingTexts.push({
         text: `BOX CHEAT: ${count} boxes spawned!`,
         x: player.x,
         y: player.y - player.size - 30,
-        startTime: Date.now(),
+        startTime: now,
         duration: 2000,
         color: '#FFD700'
     });
@@ -147,11 +148,12 @@ function activateGodMode() {
     // Show feedback (use floating text if in game, alert otherwise)
     const message = "GOD MODE ACTIVATED! All upgrades maxed and all items unlocked!";
     if (window.gameActive && player) {
+        const now = (typeof update !== 'undefined' && update._virtualTime) ? update._virtualTime : Date.now();
         floatingTexts.push({
             text: "GOD MODE ACTIVATED!",
             x: player.x,
             y: player.y - player.size - 50,
-            startTime: Date.now(),
+            startTime: now,
             duration: 3000,
             color: '#FF0000',
             fontSize: 16
@@ -760,8 +762,9 @@ let doppelganger = null;
         window.gameOver = false;
         window.gameActive = false;
         window.gameStartTime = 0;
-        let gameTimeOffset = 0; // Accumulates paused time to keep timer accurate
+        let gameTimeOffset = 0; // Accumulates paused time to keep timer accurate (in virtual ms)
         let gameTimePausedAt = 0; // When the timer was paused
+        let gameTimeScaleAtPause = 1; // Time scale when pause started (for virtual time offset calc)
         
         // Track paused time for apple lifetime pausing during menus
         window.applePauseStartTime = 0;
@@ -1548,7 +1551,8 @@ function handleGamepadInput() {
             if (keys['-'] && keys['=']) { // Secret coin cheat
                 playerData.currency += 5000;
                 savePlayerData();
-                floatingTexts.push({ text: "+5000 Coins!", x: player.x, y: player.y - player.size, startTime: Date.now(), duration: 2000, color: '#FFD700' });
+                const now = (typeof update !== 'undefined' && update._virtualTime) ? update._virtualTime : Date.now();
+                floatingTexts.push({ text: "+5000 Coins!", x: player.x, y: player.y - player.size, startTime: now, duration: 2000, color: '#FFD700' });
             }
 
             // BOX cheat: B+O+X keys spawn all power-up boxes around player (debug/testing)
@@ -1576,9 +1580,10 @@ function handleGamepadInput() {
                         spinDirection: 0, // For spin animation
                         dx: 0, dy: 0 // Add movement direction for gamepad
                     };
+                    const now = (typeof update !== 'undefined' && update._virtualTime) ? update._virtualTime : Date.now();
                     floatingTexts.push({
                         text: "Player 2 has joined!", x: player.x, y: player.y - player.size,
-                        startTime: Date.now(), duration: 2000, color: '#FFFF00'
+                        startTime: now, duration: 2000, color: '#FFFF00'
                     });
                 }
             }
@@ -2178,7 +2183,7 @@ document.body.addEventListener('touchstart', (e) => {
             '😈': { size: 20 * 0.8, baseHealth: 3, speedMultiplier: 1.84, type: 'devil', minLevel: 12, initialProps: () => ({ moveAxis: 'x', lastAxisSwapTime: Date.now() }) }, 
             '👹': { size: 28 * 0.7, baseHealth: 4, speedMultiplier: 1.8975, type: 'demon', minLevel: 15, initialProps: () => ({ moveState: 'following', lastStateChangeTime: Date.now(), randomDx: 0, randomDy: 0 }) },
             '👻': { size: 22, baseHealth: 4, speedMultiplier: 1.2, type: 'ghost', minLevel: 12, initialProps: () => ({ isVisible: true, lastPhaseChange: Date.now(), phaseDuration: 3000, bobOffset: 0 }) },
-            '👁️': { size: 25 * 0.6, baseHealth: 4, speedMultiplier: 1.1 * 1.1, type: 'eye', minLevel: 20, spawnWeight: 0.5, initialProps: () => ({ lastEyeProjectileTime: Date.now() }) },
+            '👁️': { size: 25 * 0.6, baseHealth: 4, speedMultiplier: 1.1 * 1.1, type: 'eye', minLevel: 20, spawnWeight: 0.5, initialProps: () => ({ lastEyeProjectileTime: 0 }) },
             '🧞': { size: 24, baseHealth: 8, speedMultiplier: 0.4, type: 'genie', minLevel: 25, spawnWeight: 0.3, initialProps: () => ({ gravityRadius: 80, gravityStrength: 0.15 }) },
             '🧛‍♀️': { size: 20, baseHealth: 5, speedMultiplier: 1.2, type: 'vampire', minLevel: 30 },
             '👾': { size: 22, baseHealth: 1.5, speedMultiplier: 0.9, type: 'invader', minLevel: 2, spawnWeight: 0.05, initialProps: () => ({ zigzagPhase: 0 }) },
@@ -2303,7 +2308,8 @@ document.body.addEventListener('touchstart', (e) => {
                 enemy._hasRevived = true;
                 enemy.health = Math.ceil((ENEMY_CONFIGS[enemy.emoji]?.baseHealth || 1) / 2);
                 enemy.isHit = false;
-                floatingTexts.push({ text: "Revived!", x: enemy.x, y: enemy.y - enemy.size, startTime: Date.now(), duration: 800, color: '#00FF00' });
+                const now2 = (typeof update !== 'undefined' && update._virtualTime) ? update._virtualTime : Date.now();
+                floatingTexts.push({ text: "Revived!", x: enemy.x, y: enemy.y - enemy.size, startTime: now2, duration: 800, color: '#00FF00' });
                 return;
             }
             enemy.isHit = true;
@@ -2447,11 +2453,12 @@ function createBoss() {
                 enemies.push(boss);
                 
                 // Boss arrival notification
+                const now = (typeof update !== 'undefined' && update._virtualTime) ? update._virtualTime : Date.now();
                 floatingTexts.push({ 
                     text: 'BOSS ARRIVED!', 
                     x: player.x, 
                     y: player.y - 60, 
-                    startTime: Date.now(), 
+                    startTime: now, 
                     duration: 1500, 
                     color: '#ff4444',
                     fontSize: 20
@@ -2565,11 +2572,12 @@ function createBoss() {
                 lastMegaBossMinionSpawnTime = Date.now();
                 
                 // Mega Boss arrival notification
+                const now = (typeof update !== 'undefined' && update._virtualTime) ? update._virtualTime : Date.now();
                 floatingTexts.push({ 
                     text: 'MEGA BOSS ARRIVED!', 
                     x: player.x, 
                     y: player.y - 80, 
-                    startTime: Date.now(), 
+                    startTime: now, 
                     duration: 3000, 
                     color: '#9900ff',
                     fontSize: 26
@@ -3072,6 +3080,7 @@ if (firstCard) {
 }
                 // Pause timer when upgrade menu opens
                 gameTimePausedAt = Date.now();
+                gameTimeScaleAtPause = (typeof timeScale !== 'undefined' ? timeScale : 1) * (typeof gameTimeScale !== 'undefined' ? gameTimeScale : 1);
                 upgradeMenu.style.display = 'flex';
             }
         }
@@ -3105,7 +3114,8 @@ if (firstCard) {
             // Calculate pause duration and extend fire rate boost
             if (gameTimePausedAt > 0) {
                 const pauseDuration = Date.now() - gameTimePausedAt;
-                gameTimeOffset += pauseDuration;
+                // Apply time scale to convert real pause duration to virtual time
+                gameTimeOffset += pauseDuration * gameTimeScaleAtPause;
                 if (fireRateBoostActive && fireRateBoostEndTime > 0) {
                     fireRateBoostEndTime += pauseDuration;
                 }
@@ -3850,6 +3860,7 @@ async function startGame() {
             window.gameStartTime = Date.now();
             gameTimeOffset = 0; // Reset paused time tracking
             gameTimePausedAt = 0;
+            gameTimeScaleAtPause = 1;
             // Initialize virtual time system for game speed scaling
             if (typeof update !== 'undefined') {
                 update._virtualTime = window.gameStartTime;
@@ -3927,6 +3938,7 @@ async function startGame() {
                 if (Tone.Transport) Tone.Transport.pause();
                 // Record when we paused for timer and fire rate boost
                 gameTimePausedAt = Date.now();
+                gameTimeScaleAtPause = (typeof timeScale !== 'undefined' ? timeScale : 1) * (typeof gameTimeScale !== 'undefined' ? gameTimeScale : 1);
                 // Record pause start time for apple lifetime pausing
                 window.applePauseStartTime = Date.now();
                 // Update game speed button visibility when opening pause menu
@@ -3975,7 +3987,8 @@ async function startGame() {
                 // Calculate how long we were paused and add to offset
                 if (gameTimePausedAt > 0) {
                     const pauseDuration = Date.now() - gameTimePausedAt;
-                    gameTimeOffset += pauseDuration;
+                    // Apply time scale to convert real pause duration to virtual time
+                    gameTimeOffset += pauseDuration * gameTimeScaleAtPause;
                     // Note: fireRateBoostEndTime now uses virtual time, so it naturally pauses during game pause
                     // No need to extend it - virtual time stops advancing when game is paused
                     gameTimePausedAt = 0;

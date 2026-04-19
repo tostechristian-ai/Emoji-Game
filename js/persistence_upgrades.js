@@ -431,11 +431,12 @@ function handleBarrelDestruction(barrel, now) {
 
                 // Damage number for barrel explosion
                 if (typeof floatingTexts !== 'undefined' && floatingTexts.length < 30) {
+                    const now = (typeof update !== 'undefined' && update._virtualTime) ? update._virtualTime : Date.now();
                     floatingTexts.push({
                         text: '2',
                         x: enemy.x + (Math.random() - 0.5) * enemy.size,
                         y: enemy.y - enemy.size * 0.5,
-                        startTime: Date.now(), duration: 600,
+                        startTime: now, duration: 600,
                         color: '#ff4400', fontSize: 14
                     });
                 }
