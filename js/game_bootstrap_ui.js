@@ -1181,19 +1181,14 @@ window.onload = function() {
     
 
     // Save current gamepad position before switching to music player
-
     // This ensures we can restore it when returning
-
     if (typeof _gpNav !== 'undefined') {
-
       _gpNav.savedDifficultyIndex = _gpNav.menuIndex;
-
+      // Reset lastScreen to trigger music player focus initialization on next gamepad update
+      _gpNav.lastScreen = 'none';
     }
 
-    
-
     difficultyContainer.style.display = 'none';
-
     musicPlayerContainer.style.display = 'flex';
 
     buildMusicPlayerMenu();
