@@ -88,10 +88,15 @@
             preRenderEnemyEmoji('🦂', 20);             // Scorpion - strafing side to side
             
             // ─── PICKUP & EFFECT EMOJIS ─────────────────────────────────────────
-            preRenderEmoji('🔸', COIN_SIZE);       // Coin - basic XP
-            preRenderEmoji('🔹', DIAMOND_SIZE);    // Diamond - better XP
-            preRenderEmoji('💍', RING_SYMBOL_SIZE); // Ring - even better XP
-            preRenderEmoji('♦️', RING_SYMBOL_SIZE); // Demon XP - best XP
+            // XP items with yellow outline for visibility (similar to enemy red outline)
+            const preRenderXpEmoji = (emoji, size) => preRenderEmoji(emoji, size, {
+                outlineColor: 'rgba(255, 215, 0, 0.6)',  // Gold/yellow outline
+                outlineWidth: Math.max(1.5, size * 0.1)
+            });
+            preRenderXpEmoji('🔸', COIN_SIZE);       // Coin - basic XP
+            preRenderXpEmoji('🔹', DIAMOND_SIZE);    // Diamond - better XP
+            preRenderXpEmoji('💍', RING_SYMBOL_SIZE); // Ring - even better XP
+            preRenderXpEmoji('♦️', RING_SYMBOL_SIZE); // Demon XP - best XP
             preRenderEmoji('🍎', APPLE_ITEM_SIZE); // Apple - health item
             preRenderEmoji('💣', BOMB_SIZE);       // Bomb - explosive weapon
             preRenderEmoji('⚡️', LIGHTNING_SIZE);  // Lightning - electric attack

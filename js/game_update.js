@@ -125,7 +125,7 @@
 
                 // Timer visual effects: pulse trigger
                 if (gameTimerSpan) {
-                    const elapsedMs = now - gameStartTime - gameTimeOffset;
+                    const elapsedMs = now - window.gameStartTime - window.gameTimeOffset;
                     const elapsedSeconds = Math.floor(elapsedMs / 1000);
                     const progress = Math.min(1, elapsedMs / MEGA_BOSS_SPAWN_TIME); // 0 to 1 approaching 15 min
 
@@ -149,7 +149,7 @@
             }
 
             // Check for mega boss spawn at 15 minutes (synced with UI timer)
-            if (!megaBossSpawned && !megaBossSpawnInitiated && gameActive && (now - gameStartTime - gameTimeOffset >= MEGA_BOSS_SPAWN_TIME)) {
+            if (!megaBossSpawned && !megaBossSpawnInitiated && gameActive && (now - window.gameStartTime - window.gameTimeOffset >= MEGA_BOSS_SPAWN_TIME)) {
                 createMegaBoss();
             }
 
@@ -1222,6 +1222,7 @@ for (let i = merchants.length - 1; i >= 0; i--) {
                         if (!enemy.currentMosquitoDirection || (now - enemy.lastDirectionUpdateTime > MOSQUITO_DIRECTION_UPDATE_INTERVAL)) { enemy.lastDirectionUpdateTime = now; enemy.currentMosquitoDirection = { dx: Math.cos(angleToTarget), dy: Math.sin(angleToTarget) }; }
                         moveX += enemy.currentMosquitoDirection.dx * effectiveEnemySpeed;
                         moveY += enemy.currentMosquitoDirection.dy * effectiveEnemySpeed;
+                        if (!enemy.lastPuddleSpawnTime) enemy.lastPuddleSpawnTime = now;
                         if (now - enemy.lastPuddleSpawnTime > MOSQUITO_PUDDLE_SPAWN_INTERVAL) { mosquitoPuddles.push({ x: enemy.x, y: enemy.y, size: MOSQUITO_PUDDLE_SIZE, spawnTime: now, lifetime: MOSQUITO_PUDDLE_LIFETIME }); enemy.lastPuddleSpawnTime = now; }
                         break;
                     case 'spider': {
@@ -1422,7 +1423,7 @@ for (let i = merchants.length - 1; i >= 0; i--) {
                         
                         if (distSq < aoeRadius * aoeRadius && distSq > 0) {
                             const dist = Math.sqrt(distSq);
-                            const pullStrength = 0.6 * (1 - dist / aoeRadius); // Stronger when closer, increased by 50%
+                            const pullStrength = 1.2 * (1 - dist / aoeRadius); // Stronger when closer, increased by 50%
                             const pullAngle = Math.atan2(dy, dx);
                             
                             // Apply pull to player (subtle but noticeable - player can escape at base speed)
@@ -2687,6 +2688,12 @@ if (pendingRevolverShot && now >= pendingRevolverShot.fireAt) {
                 if (weapon._isIceCannon) { damageToDeal = ICE_CANNON_DAMAGE * player.damageMultiplier; }
                 if (rocketLauncherActive) { damageToDeal *= 2; }
                 if (cheats.one_hit_kill) damageToDeal = Infinity;
+                
+                // DEBUG: Log damage calculation once per second max
+                if (!window._lastDmgDebug || Date.now() - window._lastDmgDebug > 1000) {
+                    console.log(`[Damage Debug] damageMultiplier: ${player.damageMultiplier}, damageToDeal: ${damageToDeal}, weapon type: turret=${weapon._isTurretBullet}, bone=${weapon._isBoneShot}, ice=${weapon._isIceCannon}`);
+                    window._lastDmgDebug = Date.now();
+                }
 
                 if (weapon.owner === 'player' && typeof runStats !== 'undefined') {
                     if (typeof runStats.bulletsHit !== 'number' || !Number.isFinite(runStats.bulletsHit)) runStats.bulletsHit = 0;

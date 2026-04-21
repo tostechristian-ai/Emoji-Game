@@ -214,7 +214,10 @@ function buyUnlockable(key) {
 // Called when starting a new game
 function applyPermanentUpgrades() {
     // Damage boost
-    player.damageMultiplier = 1 + (playerData.upgrades.playerDamage || 0) * PERMANENT_UPGRADES.playerDamage.effect;
+    const shopDamageLevel = playerData.upgrades.playerDamage || 0;
+    const damageBonus = shopDamageLevel * PERMANENT_UPGRADES.playerDamage.effect;
+    player.damageMultiplier = 1 + damageBonus;
+    console.log(`[Shop Upgrades] Damage: Level ${shopDamageLevel}, Bonus ${damageBonus}, Total Mult: ${player.damageMultiplier}`);
     
     // Speed boost
     player.speed = 1.4 * (1 + (playerData.upgrades.playerSpeed || 0) * PERMANENT_UPGRADES.playerSpeed.effect);

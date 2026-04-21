@@ -762,7 +762,7 @@ let doppelganger = null;
         window.gameOver = false;
         window.gameActive = false;
         window.gameStartTime = 0;
-        let gameTimeOffset = 0; // Accumulates paused time to keep timer accurate (in virtual ms)
+        window.gameTimeOffset = 0; // Accumulates paused time to keep timer accurate (in virtual ms)
         let gameTimePausedAt = 0; // When the timer was paused
         let gameTimeScaleAtPause = 1; // Time scale when pause started (for virtual time offset calc)
         
@@ -2189,7 +2189,7 @@ document.body.addEventListener('touchstart', (e) => {
             '👾': { size: 22, baseHealth: 1.5, speedMultiplier: 0.9, type: 'invader', minLevel: 2, spawnWeight: 0.05, initialProps: () => ({ zigzagPhase: 0 }) },
             '🪬': { size: 24, baseHealth: 4, speedMultiplier: 1.1, type: 'charger', minLevel: 17, spawnWeight: 0.4, initialProps: () => ({ chargerState: 'approaching', chargeAngle: 0, stateStartTime: Date.now(), arrowVisible: false }) },
             '🌀': { size: 22, baseHealth: 2, speedMultiplier: 0.8, type: 'vortex', minLevel: 8, spawnWeight: 0.5, initialProps: () => ({ vortexAngle: Math.random() * Math.PI * 2, lastDirChange: Date.now(), aoeRadius: 66 }) },
-            '🧿': { size: 26, baseHealth: 4, speedMultiplier: 0.7, type: 'pulsing_eye', minLevel: 13, spawnWeight: 0.35, initialProps: () => ({ pulsePhase: 0, lastPulseTime: Date.now(), pulseRadius: 0, hasDamagedThisPulse: false }) },
+            '🧿': { size: 26, baseHealth: 4, speedMultiplier: 0.7, type: 'pulsing_eye', minLevel: 13, spawnWeight: 0.35, initialProps: () => ({ pulsePhase: 0, lastPulseTime: (typeof update !== 'undefined' && update._virtualTime) ? update._virtualTime : Date.now(), pulseRadius: 0, hasDamagedThisPulse: false }) },
             '🦂': { size: 20, baseHealth: 2, speedMultiplier: 1.0, type: 'scorpion', minLevel: 6, spawnWeight: 0.5, initialProps: () => ({ strafePhase: 0, lastStrafeUpdate: Date.now() }) }
         };
 
@@ -2331,7 +2331,7 @@ document.body.addEventListener('touchstart', (e) => {
             const saturationPenalty = Math.min(0.9, player.boxPickupsCollectedCount * 0.025);
             
             // TIME-BASED SCALING: Reduce drops after 10 minutes (600s) to prevent snowballing
-            const elapsedMs = Date.now() - window.gameStartTime - gameTimeOffset;
+            const elapsedMs = Date.now() - window.gameStartTime - window.gameTimeOffset;
             const elapsedSeconds = elapsedMs / 1000;
             // After 10 min, gradually reduce drop chance up to 60% reduction at 20 min+
             const lateGameReduction = elapsedSeconds > 600 
@@ -3115,7 +3115,7 @@ if (firstCard) {
             if (gameTimePausedAt > 0) {
                 const pauseDuration = Date.now() - gameTimePausedAt;
                 // Apply time scale to convert real pause duration to virtual time
-                gameTimeOffset += pauseDuration * gameTimeScaleAtPause;
+                window.gameTimeOffset += pauseDuration * gameTimeScaleAtPause;
                 if (fireRateBoostActive && fireRateBoostEndTime > 0) {
                     fireRateBoostEndTime += pauseDuration;
                 }
@@ -3158,9 +3158,9 @@ if (firstCard) {
 
             // Timer: only update when the displayed second changes (not every frame)
             if (gameTimerSpan && window.gameActive && window.gameStartTime) {
-                let elapsedMs = now - window.gameStartTime - gameTimeOffset;
+                let elapsedMs = now - window.gameStartTime - window.gameTimeOffset;
                 if (window.gamePaused && gameTimePausedAt > 0) {
-                    elapsedMs = gameTimePausedAt - window.gameStartTime - gameTimeOffset;
+                    elapsedMs = gameTimePausedAt - window.gameStartTime - window.gameTimeOffset;
                 }
                 const totalSeconds = Math.floor(elapsedMs / 1000);
                 // Only update DOM when the second changes
@@ -3858,7 +3858,7 @@ async function startGame() {
 
             Tone.Transport.bpm.value = 120;
             window.gameStartTime = Date.now();
-            gameTimeOffset = 0; // Reset paused time tracking
+            window.gameTimeOffset = 0; // Reset paused time tracking
             gameTimePausedAt = 0;
             gameTimeScaleAtPause = 1;
             // Initialize virtual time system for game speed scaling
@@ -3988,7 +3988,7 @@ async function startGame() {
                 if (gameTimePausedAt > 0) {
                     const pauseDuration = Date.now() - gameTimePausedAt;
                     // Apply time scale to convert real pause duration to virtual time
-                    gameTimeOffset += pauseDuration * gameTimeScaleAtPause;
+                    window.gameTimeOffset += pauseDuration * gameTimeScaleAtPause;
                     // Note: fireRateBoostEndTime now uses virtual time, so it naturally pauses during game pause
                     // No need to extend it - virtual time stops advancing when game is paused
                     gameTimePausedAt = 0;

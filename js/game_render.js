@@ -571,29 +571,51 @@
                 }
 
                 // PULSING EYE: Draw red expanding damage ring
-                if (enemy.emoji === '🧿' && enemy.pulseRadius > 0) {
+                if (enemy.emoji === '🧿') {
                     ctx.save();
                     
-                    // Calculate pulse progress for alpha fade
+                    // Calculate continuous pulse progress for smooth animation
                     const maxRadius = enemy.size * 2;
                     const pulseProgress = enemy.pulseRadius / maxRadius;
-                    const alpha = 0.6 * (1 - pulseProgress); // Fade as it expands
                     
-                    // Draw red ring (outline only)
+                    // Always show the ring with varying alpha - never completely invisible
+                    const alpha = 0.4 + 0.3 * Math.sin(pulseProgress * Math.PI); // Pulsing alpha between 0.4 and 0.7
+                    
+                    // Draw subtle background glow (larger, more transparent ring)
+                    ctx.beginPath();
+                    ctx.arc(enemy.x, enemy.y, enemy.pulseRadius + 8, 0, Math.PI * 2);
+                    ctx.strokeStyle = `rgba(255, 0, 0, ${alpha * 0.2})`;
+                    ctx.lineWidth = 6;
+                    ctx.stroke();
+                    
+                    // Draw main red ring
                     ctx.beginPath();
                     ctx.arc(enemy.x, enemy.y, enemy.pulseRadius, 0, Math.PI * 2);
                     ctx.strokeStyle = `rgba(255, 0, 0, ${alpha})`;
                     ctx.lineWidth = 3;
                     ctx.stroke();
                     
-                    // Inner glow effect (ensure radius never goes negative)
-                    const innerRadius = Math.max(0, enemy.pulseRadius - 2);
-                    if (innerRadius > 0) {
+                    // Inner glow effect for better visibility
+                    if (enemy.pulseRadius > 4) {
+                        const innerRadius = enemy.pulseRadius - 3;
                         ctx.beginPath();
                         ctx.arc(enemy.x, enemy.y, innerRadius, 0, Math.PI * 2);
-                        ctx.strokeStyle = `rgba(255, 100, 100, ${alpha * 0.5})`;
+                        ctx.strokeStyle = `rgba(255, 100, 100, ${alpha * 0.6})`;
                         ctx.lineWidth = 2;
                         ctx.stroke();
+                    }
+                    
+                    // Add danger particles when pulse is expanding
+                    if (pulseProgress < 0.5 && Math.random() < 0.1) {
+                        const particleAngle = Math.random() * Math.PI * 2;
+                        const particleDistance = enemy.pulseRadius + 10;
+                        const particleX = enemy.x + Math.cos(particleAngle) * particleDistance;
+                        const particleY = enemy.y + Math.sin(particleAngle) * particleDistance;
+                        
+                        ctx.fillStyle = `rgba(255, 0, 0, ${alpha * 0.8})`;
+                        ctx.beginPath();
+                        ctx.arc(particleX, particleY, 2, 0, Math.PI * 2);
+                        ctx.fill();
                     }
                     
                     ctx.restore();
@@ -1233,6 +1255,14 @@
                 ctx.ellipse(m.x, mShadowY, mShadowRX, mShadowRY, 0, 0, Math.PI * 2);
                 ctx.fillStyle = isMobile ? 'rgba(0, 0, 0, 0.55)' : 'rgba(0, 0, 0, 0.3)';
                 ctx.fill();
+                // Draw green outline (ally indicator - opposite of enemy red outline)
+                const outlineSize = m.size * 0.6;
+                ctx.beginPath();
+                ctx.arc(m.x, m.y, outlineSize / 2, 0, Math.PI * 2);
+                ctx.strokeStyle = 'rgba(0, 200, 0, 0.6)';
+                ctx.lineWidth = 3;
+                ctx.stroke();
+
                 ctx.font = `${m.size}px serif`;
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
