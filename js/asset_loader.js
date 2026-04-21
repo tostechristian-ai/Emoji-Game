@@ -189,7 +189,10 @@
             'audio/background_music26.mp3', 'audio/background_music27.mp3',
             'audio/background_music28.mp3', 'audio/background_music29.mp3',
             'audio/background_music30.mp3', 'audio/background_music31.mp3',
-            'audio/background_music32.mp3', 'audio/background_music33.mp3'
+            'audio/background_music32.mp3', 'audio/background_music33.mp3',
+            'audio/background_music34.mp3', 'audio/background_music35.mp3',
+            'audio/background_music36.mp3', 'audio/background_music37.mp3',
+            'audio/background_music38.mp3'
         ];
 
         // Make paths accessible globally for fresh player creation

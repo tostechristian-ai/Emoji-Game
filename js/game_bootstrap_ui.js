@@ -1008,7 +1008,7 @@ window.onload = function() {
 
 
 
-  // Music track names (33 tracks total, Track 1 removed since Random uses it)
+  // Music track names (38 tracks total, Track 1 removed since Random uses it)
 
   const MUSIC_TRACKS = [
 
@@ -1022,7 +1022,8 @@ window.onload = function() {
 
     'Track 21', 'Track 22', 'Track 23', 'Track 24', 'Track 25', 'Track 26',
 
-    'Track 27', 'Track 28', 'Track 29', 'Track 30', 'Track 31', 'Track 32', 'Track 33', 'Track 34'
+    'Track 27', 'Track 28', 'Track 29', 'Track 30', 'Track 31', 'Track 32', 'Track 33', 'Track 34',
+    'Track 35', 'Track 36', 'Track 37', 'Track 38', 'Track 39'
 
   ];
 
