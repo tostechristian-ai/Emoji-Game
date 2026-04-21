@@ -790,7 +790,7 @@ let doppelganger = null;
             { name: "Fast Runner",       desc: "Increase movement speed by 8%",        type: "speed",          value: 0.08,  icon: '🏃' },
             { name: "Rapid Fire",        desc: "Increase fire rate by 8%",              type: "fireRate",       value: 0.08,  icon: '🔫' },
             { name: "Magnet Field",      desc: "Increase pickup radius by 8%",          type: "magnetRadius",   value: 0.08,  icon: '🧲' },
-            { name: "Increased Damage",  desc: "Increase projectile damage by 15%",     type: "damage",         value: 0.15,  icon: '💥' },
+            { name: "More Damage",  desc: "Increase projectile damage by 15%",     type: "damage",         value: 0.15,  icon: '💥' },
             { name: "Swift Shots",       desc: "Increase projectile speed by 8%",       type: "projectileSpeed",value: 0.08,  icon: '💨' },
             { name: "Power Shot",        desc: "Projectiles knock enemies back by 4%",  type: "knockback",      value: 0.04,  icon: '💪' },
             { name: "Lucky Charm",       desc: "Increase pickup drop rate by 0.5%",     type: "luck",           value: 0.005, icon: '🍀' },
@@ -3039,6 +3039,137 @@ function createBoss() {
             showUpgradeMenu();
         }
 
+        // ==========================================
+        // LEVEL UP CONFETTI SYSTEM
+        // ==========================================
+        let levelUpConfettiActive = false;
+        let levelUpConfettiCtx = null;
+        let levelUpConfettiCanvas = null;
+        let levelUpConfettiParticles = [];
+        let levelUpConfettiAnimationId = null;
+
+        // Confetti colors - bright and celebratory
+        const CONFETTI_COLORS = [
+            '#FFD700', // Gold
+            '#FF6B6B', // Red
+            '#4ECDC4', // Teal
+            '#95E1D3', // Light teal
+            '#FFA07A', // Light salmon
+            '#98D8C8', // Mint
+            '#F7DC6F', // Yellow
+            '#BB8FCE', // Lavender
+            '#85C1E9', // Sky blue
+            '#F8B500', // Orange gold
+            '#FF69B4', // Hot pink
+            '#00FF7F', // Spring green
+        ];
+
+        class ConfettiParticle {
+            constructor(canvas) {
+                this.canvas = canvas;
+                this.reset();
+                // Start at random y position for initial burst
+                this.y = Math.random() * canvas.height * 0.5 - canvas.height * 0.5;
+            }
+
+            reset() {
+                this.x = Math.random() * this.canvas.width;
+                this.y = -20;
+                this.size = Math.random() * 8 + 4;
+                this.color = CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)];
+                this.speedY = Math.random() * 3 + 2;
+                this.speedX = (Math.random() - 0.5) * 4;
+                this.rotation = Math.random() * 360;
+                this.rotationSpeed = (Math.random() - 0.5) * 10;
+                this.wobble = Math.random() * Math.PI * 2;
+                this.wobbleSpeed = Math.random() * 0.1 + 0.05;
+                this.opacity = 1;
+                this.fadeOut = false;
+            }
+
+            update() {
+                this.y += this.speedY;
+                this.x += Math.sin(this.wobble) * 2 + this.speedX;
+                this.wobble += this.wobbleSpeed;
+                this.rotation += this.rotationSpeed;
+
+                // Reset if off screen
+                if (this.y > this.canvas.height + 20) {
+                    if (levelUpConfettiActive) {
+                        this.reset();
+                    }
+                }
+            }
+
+            draw(ctx) {
+                ctx.save();
+                ctx.globalAlpha = this.opacity;
+                ctx.translate(this.x, this.y);
+                ctx.rotate((this.rotation * Math.PI) / 180);
+
+                // Draw confetti rectangle
+                ctx.fillStyle = this.color;
+                ctx.fillRect(-this.size / 2, -this.size / 4, this.size, this.size / 2);
+
+                ctx.restore();
+            }
+        }
+
+        function startLevelUpConfetti() {
+            levelUpConfettiCanvas = document.getElementById('levelUpConfettiCanvas');
+            if (!levelUpConfettiCanvas) return;
+
+            levelUpConfettiCtx = levelUpConfettiCanvas.getContext('2d');
+            levelUpConfettiCanvas.width = window.innerWidth;
+            levelUpConfettiCanvas.height = window.innerHeight;
+
+            // Create particles
+            const particleCount = window.innerWidth < 768 ? 80 : 150;
+            levelUpConfettiParticles = [];
+            for (let i = 0; i < particleCount; i++) {
+                levelUpConfettiParticles.push(new ConfettiParticle(levelUpConfettiCanvas));
+            }
+
+            levelUpConfettiActive = true;
+            animateLevelUpConfetti();
+
+            // Handle resize
+            window.addEventListener('resize', resizeLevelUpConfettiCanvas);
+        }
+
+        function resizeLevelUpConfettiCanvas() {
+            if (levelUpConfettiCanvas) {
+                levelUpConfettiCanvas.width = window.innerWidth;
+                levelUpConfettiCanvas.height = window.innerHeight;
+            }
+        }
+
+        function animateLevelUpConfetti() {
+            if (!levelUpConfettiActive || !levelUpConfettiCtx) return;
+
+            levelUpConfettiCtx.clearRect(0, 0, levelUpConfettiCanvas.width, levelUpConfettiCanvas.height);
+
+            levelUpConfettiParticles.forEach(particle => {
+                particle.update();
+                particle.draw(levelUpConfettiCtx);
+            });
+
+            levelUpConfettiAnimationId = requestAnimationFrame(animateLevelUpConfetti);
+        }
+
+        function stopLevelUpConfetti() {
+            levelUpConfettiActive = false;
+            if (levelUpConfettiAnimationId) {
+                cancelAnimationFrame(levelUpConfettiAnimationId);
+                levelUpConfettiAnimationId = null;
+            }
+            if (levelUpConfettiCtx && levelUpConfettiCanvas) {
+                levelUpConfettiCtx.clearRect(0, 0, levelUpConfettiCanvas.width, levelUpConfettiCanvas.height);
+            }
+            levelUpConfettiParticles = [];
+            window.removeEventListener('resize', resizeLevelUpConfettiCanvas);
+        }
+
         function showUpgradeMenu() {
             if (upgradeOptionsContainer) upgradeOptionsContainer.innerHTML = '';
             let availableUpgrades = [...UPGRADE_OPTIONS];
@@ -3050,11 +3181,19 @@ function createBoss() {
                 const randomIndex = Math.floor(Math.random() * availableUpgrades.length);
                 selectedChoices.push(availableUpgrades.splice(randomIndex, 1)[0]);
             }
+
+            // Update subtitle with current level
+            const levelUpSubtitle = document.getElementById('levelUpSubtitle');
+            if (levelUpSubtitle) {
+                levelUpSubtitle.textContent = `Level ${player.level} Reached! Choose your upgrade`;
+            }
+
             selectedChoices.forEach((upgrade, index) => {
                 const upgradeCard = document.createElement('div');
                 upgradeCard.classList.add('upgrade-card');
                 const borderColor = UPGRADE_BORDER_COLORS[upgrade.type] || "#66bb6a";
                 upgradeCard.style.border = `2.5px solid ${borderColor}`;
+                upgradeCard.style.setProperty('--card-glow-color', borderColor + '99'); // Add transparency for glow
                 upgradeCard.dataset.borderColor = borderColor;
                 upgradeCard.innerHTML = `
                     <div class="upgrade-icon">${upgrade.icon}</div>
@@ -3074,15 +3213,18 @@ function createBoss() {
                 if (upgradeOptionsContainer) upgradeOptionsContainer.appendChild(upgradeCard);
             });
             if (upgradeMenu) {
+                // Start confetti effect
+                startLevelUpConfetti();
+
                 levelUpBoxImage.classList.add('animate');
                 levelUpBoxImage.style.display = 'block';
                 isGamepadUpgradeMode = true;
-selectedUpgradeIndex = 0; // Start with the first card selected
-// Apply the 'selected' class to the first card
-const firstCard = upgradeOptionsContainer.querySelector('.upgrade-card');
-if (firstCard) {
-    firstCard.classList.add('selected');
-}
+                selectedUpgradeIndex = 0; // Start with the first card selected
+                // Apply the 'selected' class to the first card
+                const firstCard = upgradeOptionsContainer.querySelector('.upgrade-card');
+                if (firstCard) {
+                    firstCard.classList.add('selected');
+                }
                 // Pause timer when upgrade menu opens
                 gameTimePausedAt = Date.now();
                 gameTimeScaleAtPause = (typeof timeScale !== 'undefined' ? timeScale : 1) * (typeof gameTimeScale !== 'undefined' ? gameTimeScale : 1);
@@ -3115,6 +3257,8 @@ if (firstCard) {
                 levelUpBoxImage.classList.remove('animate');
                 levelUpBoxImage.style.display = 'none';
                 upgradeMenu.style.display = 'none';
+                // Stop confetti when menu closes
+                stopLevelUpConfetti();
             }
             // Calculate pause duration and extend fire rate boost
             if (gameTimePausedAt > 0) {
@@ -3865,6 +4009,8 @@ async function startGame() {
             const megaBossMinutes = currentDifficulty === 'easy' ? 10 : currentDifficulty === 'medium' ? 12 : 14;
             gameStartText.textContent = `Mega Boss in ${megaBossMinutes} min!`;
             gameStartDifficulty.textContent = currentDifficulty.charAt(0).toUpperCase() + currentDifficulty.slice(1);
+            const gameStartObjective = document.getElementById('gameStartObjective');
+            if (gameStartObjective) gameStartObjective.textContent = `Survive ${megaBossMinutes} minutes and beat the Mega Boss!`;
             gameStartOverlay.style.display = 'flex';
             setTimeout(() => { gameStartOverlay.style.display = 'none'; }, 2000);
 

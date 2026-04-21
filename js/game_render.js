@@ -873,10 +873,20 @@
                 // Draw bullet with solid color tint overlay
                 ctx.drawImage(sprites.bullet, -bW / 2, -bH / 2, bW, bH);
                 // Overlay red/blue color on top of bullet pixels only - smaller than bullet (1/3 size)
-                if (iceProjectileActive || fireRateBoostActive) {
+                // Fire rate boost (red) and ice bullets (blue) can both be active simultaneously
+                if (fireRateBoostActive) {
                     ctx.save();
                     ctx.globalCompositeOperation = 'source-atop';
-                    ctx.fillStyle = iceProjectileActive ? 'rgba(0, 180, 255, 0.14)' : 'rgba(255, 0, 0, 0.9)';
+                    ctx.fillStyle = 'rgba(255, 0, 0, 0.9)';
+                    const tintW = bW * 0.33;
+                    const tintH = bH * 0.33;
+                    ctx.fillRect(-tintW / 2, -tintH / 2, tintW, tintH);
+                    ctx.restore();
+                }
+                if (iceProjectileActive) {
+                    ctx.save();
+                    ctx.globalCompositeOperation = 'source-atop';
+                    ctx.fillStyle = 'rgba(0, 180, 255, 0.14)';
                     const tintW = bW * 0.33;
                     const tintH = bH * 0.33;
                     ctx.fillRect(-tintW / 2, -tintH / 2, tintW, tintH);

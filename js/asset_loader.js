@@ -126,6 +126,8 @@
         // ─── IMAGE SPRITE PATHS ─────────────────────────────────────────────────
         // Maps sprite names to their file paths
         const spritePaths = {
+            levelUpTile: 'sprites/leveluptile.png',    // Level up card tile background (loaded first for loading screen)
+            levelUpTile2: 'sprites/leveluptile2.png',  // Level up button tile background (loaded first for loading screen)
             gun: 'sprites/gun.png',                 // Player's gun weapon
             bullet: 'sprites/bullet.png',           // Bullet projectile
             circle: 'sprites/circle.png',           // Damaging circle powerup

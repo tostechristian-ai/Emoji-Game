@@ -554,7 +554,7 @@
     <div id="gameStartOverlay">
       <h2 id="gameStartText"></h2>
       <p id="gameStartDifficulty"></p>
-      <p id="gameStartObjective" style="font-size: 16px; color: #FFD700; margin-top: 10px; font-style: italic;">Survive 15 minutes and beat the Mega Boss!</p>
+      <p id="gameStartObjective" style="font-size: 16px; color: #FFD700; margin-top: 10px; font-style: italic;">Survive and beat the Mega Boss!</p>
     </div>
   </div>
 
@@ -589,9 +589,13 @@
 
   <!-- Upgrade Menu -->
   <div id="upgradeMenu">
-    <img id="levelUpBox" src="" style="display: none; margin-bottom: 10px;" alt="Level Up!">
-    <h2>Level Up!</h2>
-    <div class="upgrade-options-container" id="upgradeOptionsContainer"></div>
+    <canvas id="levelUpConfettiCanvas"></canvas>
+    <div id="levelUpContent">
+      <img id="levelUpBox" src="" style="display: none; margin-bottom: 10px;" alt="Level Up!">
+      <h2 id="levelUpTitle">Level Up!</h2>
+      <p id="levelUpSubtitle">Choose your upgrade</p>
+      <div class="upgrade-options-container" id="upgradeOptionsContainer"></div>
+    </div>
   </div>
 
   <!-- Merchant -->
