@@ -2201,8 +2201,8 @@ document.body.addEventListener('touchstart', (e) => {
         const BOSSED_ENEMY_TYPES = Object.keys(ENEMY_CONFIGS);
         let lastBossLevelSpawned = 0;
 
-        // Mega Boss constants
-        const MEGA_BOSS_SPAWN_TIME = 15 * 60 * 1000; // 15 minutes
+        // Mega Boss constants - difficulty based (Easy: 10min, Medium: 12min, Hard: 14min)
+        let MEGA_BOSS_SPAWN_TIME = 15 * 60 * 1000; // Will be set based on difficulty
         const MEGA_BOSS_HEALTH_MULTIPLIER = 10;
         const MEGA_BOSS_SIZE_MULTIPLIER = 4; // 4x larger than normal enemy
         const MEGA_BOSS_SPEED_MULTIPLIER = 0.5;
@@ -2720,6 +2720,7 @@ function createBoss() {
                     
                     // Return to main menu
                     if (window.gameOverlay) window.gameOverlay.style.display = 'none';
+                    if (gameStatsWrapper) gameStatsWrapper.style.display = 'none';
                     if (difficultyContainer) difficultyContainer.style.display = 'block';
                     startMainMenuBGM();
                     displayHighScores();
@@ -3758,6 +3759,11 @@ async function startGame() {
             
             let basePlayerSpeed = 1.4;
             
+            // Set mega boss spawn time based on difficulty (Easy: 10min, Medium: 12min, Hard: 14min)
+            if (currentDifficulty === 'easy') MEGA_BOSS_SPAWN_TIME = 10 * 60 * 1000;
+            else if (currentDifficulty === 'medium') MEGA_BOSS_SPAWN_TIME = 12 * 60 * 1000;
+            else if (currentDifficulty === 'hard') MEGA_BOSS_SPAWN_TIME = 14 * 60 * 1000;
+
             let difficultyMultiplier = 1.0;
             if (currentDifficulty === 'medium') difficultyMultiplier = 1.1;
             else if (currentDifficulty === 'hard') difficultyMultiplier = 1.2;
@@ -3851,7 +3857,9 @@ async function startGame() {
             
             updatePowerupIconsUI(); updateUpgradeStatsUI(); updateUIStats();
             
-            gameStartText.textContent = "Game Start!";
+            // Show mega boss timer info based on difficulty
+            const megaBossMinutes = currentDifficulty === 'easy' ? 10 : currentDifficulty === 'medium' ? 12 : 14;
+            gameStartText.textContent = `Mega Boss in ${megaBossMinutes} min!`;
             gameStartDifficulty.textContent = currentDifficulty.charAt(0).toUpperCase() + currentDifficulty.slice(1);
             gameStartOverlay.style.display = 'flex';
             setTimeout(() => { gameStartOverlay.style.display = 'none'; }, 2000);

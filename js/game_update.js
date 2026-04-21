@@ -123,11 +123,11 @@
                 // Timer: Add 157 score every second
                 score += 157;
 
-                // Timer visual effects: pulse trigger
+                // Timer visual effects: pulse trigger (uses REAL time to stay synced with display)
                 if (gameTimerSpan) {
-                    const elapsedMs = now - window.gameStartTime - window.gameTimeOffset;
+                    const elapsedMs = realNowRef - window.gameStartTime - window.gameTimeOffset;
                     const elapsedSeconds = Math.floor(elapsedMs / 1000);
-                    const progress = Math.min(1, elapsedMs / MEGA_BOSS_SPAWN_TIME); // 0 to 1 approaching 15 min
+                    const progress = Math.min(1, elapsedMs / MEGA_BOSS_SPAWN_TIME); // 0 to 1 approaching mega boss
 
                     // Color transition: green (120° hue) to red (0° hue)
                     const hue = Math.floor(120 * (1 - progress)); // 120 -> 0
@@ -148,8 +148,9 @@
                 }
             }
 
-            // Check for mega boss spawn at 15 minutes (synced with UI timer)
-            if (!megaBossSpawned && !megaBossSpawnInitiated && gameActive && (now - window.gameStartTime - window.gameTimeOffset >= MEGA_BOSS_SPAWN_TIME)) {
+            // Check for mega boss spawn (uses REAL time to stay synced with UI timer, not virtual time)
+            const realElapsedMs = realNowRef - window.gameStartTime - window.gameTimeOffset;
+            if (!megaBossSpawned && !megaBossSpawnInitiated && gameActive && (realElapsedMs >= MEGA_BOSS_SPAWN_TIME)) {
                 createMegaBoss();
             }
 
