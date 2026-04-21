@@ -2339,7 +2339,11 @@ document.body.addEventListener('touchstart', (e) => {
                 : 0;
             
             const easyModeBonus = currentDifficulty === 'easy' ? 0.65 : 1;
-            const effectiveDropChance = Math.min(MAX_BOX_DROP_CHANCE, boxDropChance * easyModeBonus * (1 - saturationPenalty) * (1 - lateGameReduction));
+            
+            // Apply 50% reduction for boxes when player has 5+ pickups (prevents snowballing)
+            const pickupCountPenalty = player.boxPickupsCollectedCount >= 5 ? 0.5 : 1;
+            
+            const effectiveDropChance = Math.min(MAX_BOX_DROP_CHANCE, boxDropChance * easyModeBonus * (1 - saturationPenalty) * (1 - lateGameReduction) * pickupCountPenalty);
             if (Math.random() < effectiveDropChance) {
                 createPickup(enemy.x, enemy.y, 'box', BOX_SIZE, 0);
             }
