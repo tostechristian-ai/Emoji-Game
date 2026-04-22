@@ -1296,7 +1296,8 @@ function handleGamepadInput() {
     if (window.gamePaused && !isGamepadUpgradeMode) {
         // Check for merchant shop first (it pauses the game but isn't the pause overlay)
         const merchantShopEl = document.getElementById('merchantShop');
-        if (merchantShopEl && merchantShopEl.style.display !== 'none') {
+        const merchantVisible = merchantShopEl && window.getComputedStyle(merchantShopEl).display !== 'none';
+        if (merchantVisible) {
             const merchantOptionsContainer = document.getElementById('merchantOptionsContainer');
             const merchantCards = Array.from(merchantOptionsContainer.querySelectorAll('.merchant-card'));
             const leaveBtn = document.getElementById('leaveMerchantButton');
@@ -1356,7 +1357,9 @@ function handleGamepadInput() {
         }
 
         const pauseOverlayEl = document.getElementById('pauseOverlay');
-        if (pauseOverlayEl && pauseOverlayEl.style.display !== 'none') {
+        // Check if pause overlay is actually visible (not just that element exists)
+        const pauseVisible = pauseOverlayEl && window.getComputedStyle(pauseOverlayEl).display !== 'none';
+        if (pauseVisible) {
 
             // All navigable items: music slider, effects slider, zoom toggle, resume, restart, speed
             const musicSlider   = document.getElementById('musicVolume');
@@ -1505,13 +1508,16 @@ function handleGamepadInput() {
             // Prevent toggling pause too quickly (minimum 300ms between toggles)
             if (now - lastGamepadUpdate >= 300) {
                 lastInputType = 'gamepad';
+                const wasPaused = window.gamePaused;
                 togglePause();
-                // Reset latches after toggling so user must release and press again
-                _gpLatch.A = true; _gpLatch.B = true; _gpLatch.Start = true;
-                // Only set debounce when UNPAUSING (to prevent immediate re-pause).
-                // When PAUSING, togglePause() already reset lastGamepadUpdate to 0
-                // so navigation in the pause menu works immediately on first open.
-                if (!window.gamePaused) lastGamepadUpdate = now;
+                // Only set latches to true when UNPAUSING (was paused, now unpaused).
+                // When PAUSING, togglePause() already handles latch reset based on
+                // actual button state - don't override it here or navigation won't work.
+                if (wasPaused) {
+                    _gpLatch.A = true; _gpLatch.B = true; _gpLatch.Start = true;
+                    // Only set debounce when UNPAUSING (to prevent immediate re-pause).
+                    lastGamepadUpdate = now;
+                }
             }
         }
     }
@@ -2201,8 +2207,8 @@ document.body.addEventListener('touchstart', (e) => {
         const BOSSED_ENEMY_TYPES = Object.keys(ENEMY_CONFIGS);
         let lastBossLevelSpawned = 0;
 
-        // Mega Boss constants - difficulty based (Easy: 10min, Medium: 12min, Hard: 14min)
-        let MEGA_BOSS_SPAWN_TIME = 15 * 60 * 1000; // Will be set based on difficulty
+        // Mega Boss constants - 10 minutes for all difficulties
+        let MEGA_BOSS_SPAWN_TIME = 10 * 60 * 1000; // 10 minutes
         const MEGA_BOSS_HEALTH_MULTIPLIER = 10;
         const MEGA_BOSS_SIZE_MULTIPLIER = 4; // 4x larger than normal enemy
         const MEGA_BOSS_SPEED_MULTIPLIER = 0.5;
@@ -3836,6 +3842,12 @@ async function tryLoadMusic(retries = 3) {
         }
 
 async function startGame() {
+            // Reset gamepad navigation state for fresh game session
+            if (typeof _gpNav !== 'undefined') {
+                _gpNav.lastScreen = '';
+                _gpNav.menuIndex = 0;
+            }
+            
             // Play pre-game cinematic, then proceed
             await playGameStartVideo();
 
@@ -3907,10 +3919,8 @@ async function startGame() {
             
             let basePlayerSpeed = 1.4;
             
-            // Set mega boss spawn time based on difficulty (Easy: 10min, Medium: 12min, Hard: 14min)
-            if (currentDifficulty === 'easy') MEGA_BOSS_SPAWN_TIME = 10 * 60 * 1000;
-            else if (currentDifficulty === 'medium') MEGA_BOSS_SPAWN_TIME = 12 * 60 * 1000;
-            else if (currentDifficulty === 'hard') MEGA_BOSS_SPAWN_TIME = 14 * 60 * 1000;
+            // Set mega boss spawn time to 10 minutes for all difficulties
+            MEGA_BOSS_SPAWN_TIME = 10 * 60 * 1000;
 
             let difficultyMultiplier = 1.0;
             if (currentDifficulty === 'medium') difficultyMultiplier = 1.1;
@@ -4005,12 +4015,11 @@ async function startGame() {
             
             updatePowerupIconsUI(); updateUpgradeStatsUI(); updateUIStats();
             
-            // Show mega boss timer info based on difficulty
-            const megaBossMinutes = currentDifficulty === 'easy' ? 10 : currentDifficulty === 'medium' ? 12 : 14;
-            gameStartText.textContent = `Mega Boss in ${megaBossMinutes} min!`;
+            // Show mega boss timer info - 10 minutes for all difficulties
+            gameStartText.textContent = `Mega Boss in 10 min!`;
             gameStartDifficulty.textContent = currentDifficulty.charAt(0).toUpperCase() + currentDifficulty.slice(1);
             const gameStartObjective = document.getElementById('gameStartObjective');
-            if (gameStartObjective) gameStartObjective.textContent = `Survive ${megaBossMinutes} minutes and beat the Mega Boss!`;
+            if (gameStartObjective) gameStartObjective.textContent = `Survive 10 minutes and beat the Mega Boss!`;
             gameStartOverlay.style.display = 'flex';
             setTimeout(() => { gameStartOverlay.style.display = 'none'; }, 2000);
 
@@ -4101,7 +4110,7 @@ async function startGame() {
                 window.applePauseStartTime = Date.now();
                 // Update game speed button visibility when opening pause menu
                 if (typeof window.updateGameSpeedButtonVisibility === 'function') {
-                    window.updateGameSpeedButtonVisibility();
+                    if (window.updateGameSpeedButtonVisibility) window.updateGameSpeedButtonVisibility();
                 }
                 // ── Initialize gamepad focus immediately on pause open ──
                 // This ensures the first item is highlighted right away,
@@ -4109,7 +4118,8 @@ async function startGame() {
                 if (typeof _gpNav !== 'undefined' && pauseOverlay) {
                     _gpNav.menuIndex = 0;
                     _gpNav._sliderActive = false;
-                    _gpNav.lastScreen = 'pause';
+                    // NOTE: Don't set lastScreen here - let handleGamepadInput() detect
+                    // the screen change on its next call and run initialization.
                     // Clear any stale focus, then apply to first item
                     pauseOverlay.querySelectorAll('.gamepad-focus').forEach(el => el.classList.remove('gamepad-focus'));
                     const musicSlider   = document.getElementById('musicVolume');
