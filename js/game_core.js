@@ -1051,11 +1051,21 @@ function handleGamepadInput() {
     // ── MAIN MENU navigation ──────────────────────────────────────────────
     if (!window.gameActive) {
         // ── Game Over screen ──
-        if (window.gameOver) {
+        if (window.gameOver && !window.gameWon) {
             if (now - lastGamepadUpdate < GAMEPAD_INPUT_DELAY) return;
             if (btnAPressed || btnStartPressed) {
                 lastGamepadUpdate = now;
                 document.getElementById('restartButton')?.click();
+            }
+            return;
+        }
+
+        // ── You Win screen ──
+        if (window.gameWon) {
+            if (now - lastGamepadUpdate < GAMEPAD_INPUT_DELAY) return;
+            if (btnAPressed || btnStartPressed) {
+                lastGamepadUpdate = now;
+                document.getElementById('winRestartButton')?.click();
             }
             return;
         }
@@ -2670,6 +2680,7 @@ function createBoss() {
             window.gameOver = true; 
             window.gamePaused = true; 
             window.gameActive = false;
+            window.gameWon = true;
             megaBossDefeated = true;
             stopBGM();
             megaBossMusicPlaying = false;
@@ -2748,13 +2759,11 @@ function createBoss() {
                     megaBossMusicPlaying = false;
                     normalEnemySpawningPaused = false;
                     
-                    // Return to main menu
-                    if (window.gameOverlay) window.gameOverlay.style.display = 'none';
-                    if (gameStatsWrapper) gameStatsWrapper.style.display = 'none';
-                    if (difficultyContainer) difficultyContainer.style.display = 'block';
-                    startMainMenuBGM();
-                    displayHighScores();
-                    if (typeof updateMusicPlayerButton === 'function') updateMusicPlayerButton();
+                    // Reset game won flag
+                    window.gameWon = false;
+                    
+                    // Return to main menu using showDifficultyScreen for proper initialization
+                    showDifficultyScreen();
                 });
             }
             

@@ -2567,8 +2567,62 @@
             body.is-mobile .right-emoji {
                 right: 5%;
             }
+
+            /* Merchant Shop - Mobile Landscape Optimizations */
+            body.is-mobile #merchantShop {
+                padding-top: 5vh;
+                justify-content: center;
+            }
+
+            body.is-mobile #merchantShop h2 {
+                font-size: 18px;
+                margin-bottom: 15px;
+            }
+
+            body.is-mobile .merchant-options-container {
+                flex-wrap: nowrap;
+                gap: 8px;
+                max-width: 98%;
+                overflow-x: auto;
+                padding: 5px;
+                justify-content: center;
+            }
+
+            body.is-mobile .merchant-card {
+                width: clamp(90px, 30vw, 120px);
+                min-width: 90px;
+                padding: 8px;
+                flex-shrink: 0;
+            }
+
+            body.is-mobile .merchant-card .merchant-icon {
+                font-size: 24px;
+                margin-bottom: 5px;
+            }
+
+            body.is-mobile .merchant-card h3 {
+                font-size: 12px;
+                margin-bottom: 5px;
+            }
+
+            body.is-mobile .merchant-card p {
+                font-size: 9px;
+                margin-bottom: 8px;
+                line-height: 1.2;
+            }
+
+            body.is-mobile .merchant-card .cost {
+                font-size: 12px;
+                margin-bottom: 8px;
+            }
+
+            body.is-mobile #leaveMerchantButton {
+                padding: 8px 16px;
+                font-size: 14px;
+                margin-top: 15px;
+            }
         }
-        
+
         @media (max-width: 600px) {
             #difficultyScreen h1 {
                 font-size: 20px;
@@ -3121,6 +3175,61 @@
         height: 100%;
         border-radius: 0;
         border: 2px solid #66bb6a;
+    }
+
+    /* Merchant Shop - Mobile Portrait Optimizations */
+    body.is-mobile #merchantShop {
+        padding-top: 8vh;
+        justify-content: flex-start;
+    }
+
+    body.is-mobile #merchantShop h2 {
+        font-size: 22px;
+        margin-bottom: 20px;
+    }
+
+    body.is-mobile .merchant-options-container {
+        flex-direction: column;
+        flex-wrap: nowrap;
+        gap: 12px;
+        max-width: 95%;
+        overflow-y: auto;
+        max-height: 60vh;
+        padding: 10px;
+    }
+
+    body.is-mobile .merchant-card {
+        width: 100%;
+        max-width: 280px;
+        padding: 15px;
+        flex-shrink: 0;
+    }
+
+    body.is-mobile .merchant-card .merchant-icon {
+        font-size: 36px;
+        margin-bottom: 8px;
+    }
+
+    body.is-mobile .merchant-card h3 {
+        font-size: 16px;
+        margin-bottom: 8px;
+    }
+
+    body.is-mobile .merchant-card p {
+        font-size: 12px;
+        margin-bottom: 10px;
+        line-height: 1.3;
+    }
+
+    body.is-mobile .merchant-card .cost {
+        font-size: 16px;
+        margin-bottom: 10px;
+    }
+
+    body.is-mobile #leaveMerchantButton {
+        padding: 12px 24px;
+        font-size: 16px;
+        margin-top: 20px;
     }
 }
 
