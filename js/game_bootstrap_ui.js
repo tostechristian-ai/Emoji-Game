@@ -518,6 +518,11 @@ window.onload = function() {
 
         if (modal.id === 'merchantShop') closeMerchantShop();
 
+        else if (modal.id === 'achievementsModal' || modal.id === 'cheatsModal') {
+          modal.style.display = 'none';
+          difficultyContainer.style.display = 'block'; // Restore main menu
+        }
+
         else modal.style.display = 'none';
 
       }

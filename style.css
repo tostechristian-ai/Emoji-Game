@@ -624,6 +624,32 @@
                 gap: 35px;
                 flex-wrap: nowrap;
             }
+
+            /* Desktop: 6 columns for achievements and upgrade shop */
+            #gameGuideModal .content-wrapper,
+            #achievementsModal .content-wrapper,
+            #cheatsModal .content-wrapper {
+                max-width: 1600px !important;
+                width: 95% !important;
+            }
+
+            #achievementsContainer, #cheatsContainer {
+                grid-template-columns: repeat(6, minmax(180px, 1fr)) !important;
+                max-width: 1600px !important;
+                gap: 12px !important;
+            }
+
+            #permanentUpgradesContainer, #unlockablePickupsContainer {
+                grid-template-columns: repeat(6, minmax(180px, 1fr)) !important;
+                max-width: 1600px !important;
+                gap: 12px !important;
+            }
+
+            #mapTilesContainer, #characterTilesContainer {
+                grid-template-columns: repeat(6, minmax(140px, 1fr)) !important;
+                max-width: 1600px !important;
+                gap: 12px !important;
+            }
         }
 
         /* Large Desktop */
