@@ -1097,12 +1097,22 @@ function handleGamepadInput() {
             }
             // Apply initial highlight for navigable screens
             if (onDifficulty) {
-                // Select main menu buttons from .difficulty-buttons (excluding mobile duplicates),
-                // music player button, and desktop buttons from .bottom-menu-buttons
-                // This gives us: Easy, Medium, Hard, Characters, How to Play, Music Player + Desktop Achievements, Reset, Upgrades
-                const difficultyBtns = Array.from(difficultyContainer.querySelectorAll('.difficulty-buttons button:not([disabled]):not(#mobileAchievementsButton):not(#mobileUpgradesButton):not(#mobileResetGameButton)'));
+                // Check if we're on mobile
+                const isMobile = document.body.classList.contains('is-mobile');
+                // Select main menu buttons from .difficulty-buttons
+                // On mobile: include mobile buttons (they're visible), exclude desktop bottom buttons (hidden)
+                // On desktop: include desktop bottom buttons, exclude mobile buttons (they're duplicates)
+                let difficultyBtns;
+                if (isMobile) {
+                    // On mobile, include all buttons in difficulty-buttons (mobile buttons are visible)
+                    difficultyBtns = Array.from(difficultyContainer.querySelectorAll('.difficulty-buttons button:not([disabled])'));
+                } else {
+                    // On desktop, exclude mobile-only buttons
+                    difficultyBtns = Array.from(difficultyContainer.querySelectorAll('.difficulty-buttons button:not([disabled]):not(#mobileAchievementsButton):not(#mobileUpgradesButton):not(#mobileResetGameButton)'));
+                }
                 const musicBtn = difficultyContainer.querySelector('#musicPlayerButton:not([disabled])');
-                const bottomBtns = Array.from(difficultyContainer.querySelectorAll('.bottom-menu-buttons button:not([disabled])'));
+                // Only include bottom buttons on desktop (they're hidden on mobile)
+                const bottomBtns = isMobile ? [] : Array.from(difficultyContainer.querySelectorAll('.bottom-menu-buttons button:not([disabled])'));
                 const btns = [...difficultyBtns, ...(musicBtn ? [musicBtn] : []), ...bottomBtns];
                 const idx = Math.max(0, Math.min(_gpNav.menuIndex, btns.length - 1));
                 applyFocus(btns, idx);
@@ -1137,12 +1147,22 @@ function handleGamepadInput() {
 
         // ── Difficulty screen ──
         if (onDifficulty) {
-            // Select main menu buttons from .difficulty-buttons (excluding mobile duplicates),
-            // music player button, and desktop buttons from .bottom-menu-buttons
-            // This gives us: Easy, Medium, Hard, Characters, How to Play, Music Player + Desktop Achievements, Reset, Upgrades
-            const difficultyBtns = Array.from(difficultyContainer.querySelectorAll('.difficulty-buttons button:not([disabled]):not(#mobileAchievementsButton):not(#mobileUpgradesButton):not(#mobileResetGameButton)'));
+            // Check if we're on mobile
+            const isMobile = document.body.classList.contains('is-mobile');
+            // Select main menu buttons from .difficulty-buttons
+            // On mobile: include mobile buttons (they're visible), exclude desktop bottom buttons (hidden)
+            // On desktop: include desktop bottom buttons, exclude mobile buttons (they're duplicates)
+            let difficultyBtns;
+            if (isMobile) {
+                // On mobile, include all buttons in difficulty-buttons (mobile buttons are visible)
+                difficultyBtns = Array.from(difficultyContainer.querySelectorAll('.difficulty-buttons button:not([disabled])'));
+            } else {
+                // On desktop, exclude mobile-only buttons
+                difficultyBtns = Array.from(difficultyContainer.querySelectorAll('.difficulty-buttons button:not([disabled]):not(#mobileAchievementsButton):not(#mobileUpgradesButton):not(#mobileResetGameButton)'));
+            }
             const musicBtn = difficultyContainer.querySelector('#musicPlayerButton:not([disabled])');
-            const bottomBtns = Array.from(difficultyContainer.querySelectorAll('.bottom-menu-buttons button:not([disabled])'));
+            // Only include bottom buttons on desktop (they're hidden on mobile)
+            const bottomBtns = isMobile ? [] : Array.from(difficultyContainer.querySelectorAll('.bottom-menu-buttons button:not([disabled])'));
             const btns = [...difficultyBtns, ...(musicBtn ? [musicBtn] : []), ...bottomBtns];
             // Ensure focus is applied if not already (handles returning from other screens)
             const hasFocus = btns.some(el => el.classList.contains('gamepad-focus'));
