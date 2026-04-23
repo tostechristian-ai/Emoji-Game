@@ -2335,8 +2335,9 @@
     /* CHANGE THIS RULE */
     body.is-mobile .upgrade-card {
         width: clamp(100px, 28vw, 130px); /* Make cards much narrower */
-        padding: 10px; /* Reduce padding */
-        aspect-ratio: 1 / 1.2; /* Allow card to be slightly taller than wide */
+        padding: 8px; /* Reduce padding */
+        aspect-ratio: 1 / 1.4; /* Make cards taller to accommodate buttons */
+        min-height: 160px; /* Ensure minimum height for button visibility */
     }
 
     /* CHANGE THIS RULE */
@@ -2348,11 +2349,14 @@
     /* CHANGE THIS RULE */
     body.is-mobile .upgrade-card p {
         font-size: 10px; /* Smaller font for description */
-        margin-bottom: 8px;
+        margin-bottom: 6px;
+        line-height: 1.2;
     }
             body.is-mobile .upgrade-card button {
-                font-size: 12px;
-                padding: 6px 10px;
+                font-size: 11px;
+                padding: 8px 12px;
+                margin-top: auto; /* Push button to bottom */
+                min-height: 32px; /* Ensure button is tappable */
             }
 
             body.is-mobile #difficultyScreen h1 {
@@ -2894,8 +2898,11 @@
     }
 
     body.is-mobile #upgradeMenu {
-        padding-top: 8vh;
+        padding-top: 5vh;
+        padding-bottom: 5vh;
         justify-content: center;
+        overflow-y: auto;
+        max-height: 100vh;
     }
 
     body.is-mobile #upgradeMenu h2 {
@@ -2917,8 +2924,9 @@
 
     body.is-mobile .upgrade-card {
         width: clamp(100px, 28vw, 130px);
-        padding: 10px;
-        aspect-ratio: 1 / 1.2;
+        padding: 8px;
+        aspect-ratio: 1 / 1.4;
+        min-height: 160px;
     }
 
     body.is-mobile .upgrade-card h3 {
@@ -2928,7 +2936,15 @@
 
     body.is-mobile .upgrade-card p {
         font-size: 10px;
-        margin-bottom: 8px;
+        margin-bottom: 6px;
+        line-height: 1.2;
+    }
+
+    body.is-mobile .upgrade-card button {
+        font-size: 11px;
+        padding: 8px 12px;
+        margin-top: auto;
+        min-height: 32px;
     }
 
     /* Character Select Screen fixes for mobile portrait */
