@@ -1963,10 +1963,22 @@ function handleGamepadInput() {
         
         function resizeCanvas() {
             const container = canvas?.parentElement;
+            const isMobile = document.body.classList.contains('is-mobile');
+            
+            // Mobile-specific fix: use window dimensions if container not available
             if (!container || container.clientWidth === 0 || container.clientHeight === 0) {
-                // Fallback to original fixed dimensions if container not ready
-                canvas.width = 1125;
-                canvas.height = 676;
+                const displayWidth = isMobile ? window.innerWidth : 1125;
+                const displayHeight = isMobile ? window.innerHeight : 676;
+                
+                // For mobile, ensure we have valid viewport dimensions
+                if (isMobile && (displayWidth < 300 || displayHeight < 300)) {
+                    canvas.width = 1125;
+                    canvas.height = 676;
+                } else {
+                    canvas.width = displayWidth;
+                    canvas.height = displayHeight;
+                }
+                
                 if (player && player.x !== undefined) {
                     player.x = Math.max(player.size / 2, Math.min(WORLD_WIDTH - player.size / 2, player.x));
                     player.y = Math.max(player.size / 2, Math.min(WORLD_HEIGHT - player.size / 2, player.y));
@@ -1975,8 +1987,14 @@ function handleGamepadInput() {
             }
 
             // Get container dimensions
-            const displayWidth = container.clientWidth;
-            const displayHeight = container.clientHeight;
+            let displayWidth = container.clientWidth;
+            let displayHeight = container.clientHeight;
+            
+            // Mobile fix: ensure minimum usable dimensions
+            if (isMobile) {
+                displayWidth = Math.max(displayWidth, window.innerWidth * 0.8);
+                displayHeight = Math.max(displayHeight, window.innerHeight * 0.8);
+            }
 
             // Calculate render size maintaining world aspect ratio
             const worldAspect = WORLD_WIDTH / WORLD_HEIGHT;
@@ -2015,8 +2033,27 @@ function handleGamepadInput() {
             }
         }
 
-        resizeCanvas();
+        // Mobile-specific: ensure canvas is properly sized after page load
+        const isMobile = document.body.classList.contains('is-mobile');
+        if (isMobile) {
+            // Delay resize on mobile to ensure viewport is properly calculated
+            setTimeout(() => {
+                resizeCanvas();
+                // Force a second resize for better mobile compatibility
+                setTimeout(resizeCanvas, 100);
+            }, 300);
+        } else {
+            resizeCanvas();
+        }
+        
         window.addEventListener('resize', resizeCanvas);
+        
+        // Mobile-specific: handle orientation changes
+        if (isMobile) {
+            window.addEventListener('orientationchange', () => {
+                setTimeout(resizeCanvas, 500); // Delay to allow orientation change to complete
+            });
+        }
 
         let activeTouches = {};
 

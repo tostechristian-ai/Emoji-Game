@@ -16,6 +16,22 @@
 
 //   - Fullscreen toggle (desktop only)
 
+// Utility function to add both click and touch event listeners for mobile compatibility
+function addMobileCompatibleEventListener(element, eventType, handler, options = {}) {
+  if (!element) return;
+  
+  // Add both click and touch events to ensure mobile compatibility
+  element.addEventListener('click', (e) => {
+    e.preventDefault();
+    handler(e);
+  }, options);
+  
+  element.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    handler(e);
+  }, { passive: false, ...options });
+}
+
 
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -460,7 +476,7 @@ window.onload = function() {
 
   // Must be triggered by user interaction to unlock the Web Audio API
 
-  startButton.addEventListener('click', () => {
+  addMobileCompatibleEventListener(startButton, 'click', () => {
 
     // Strong vibration for game start - multiple pulses to ensure it's felt
 
@@ -547,7 +563,7 @@ window.onload = function() {
 
   difficultyButtons.forEach(button => {
 
-    button.addEventListener('click', (e) => {
+    addMobileCompatibleEventListener(button, 'click', (e) => {
 
       vibrateUI('select');
 
@@ -573,7 +589,7 @@ window.onload = function() {
 
   if (howToPlayButton) {
 
-    howToPlayButton.addEventListener('click', async () => {
+    addMobileCompatibleEventListener(howToPlayButton, 'click', async () => {
 
       vibrateUI();
 
@@ -633,7 +649,7 @@ window.onload = function() {
 
   // ─── CHARACTER SELECT NAVIGATION ─────────────────────────────────────────
 
-  characterSelectButton.addEventListener('click', () => {
+  addMobileCompatibleEventListener(characterSelectButton, 'click', () => {
 
     vibrateUI(); playUISound('uiClick');
 
