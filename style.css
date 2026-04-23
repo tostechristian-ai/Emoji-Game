@@ -2982,9 +2982,9 @@
        ═══════════════════════════════════════════════════════════════════════ */
 
     body.is-mobile #upgradeMenu {
-        padding-top: 3vh;
-        padding-bottom: 3vh;
-        justify-content: flex-start;
+        padding-top: 2vh;
+        padding-bottom: 2vh;
+        justify-content: center;
         overflow-y: auto;
         -webkit-overflow-scrolling: touch;
         max-height: 100vh;

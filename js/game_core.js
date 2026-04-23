@@ -3160,7 +3160,7 @@ function createBoss() {
 
             // Create particles - half amount for mobile to improve performance
             const isMobile = document.body.classList.contains('is-mobile');
-            const particleCount = isMobile ? 40 : (window.innerWidth < 768 ? 80 : 150);
+            const particleCount = isMobile ? 15 : (window.innerWidth < 768 ? 80 : 150);
             levelUpConfettiParticles = [];
             for (let i = 0; i < particleCount; i++) {
                 levelUpConfettiParticles.push(new ConfettiParticle(levelUpConfettiCanvas));
