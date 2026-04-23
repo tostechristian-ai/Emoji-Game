@@ -393,13 +393,24 @@
         // @param path - The file path to the audio
         function loadAudio(name, path) {
             updateLoadingUI(path); // Show current file being loaded
-            const player = new Tone.Player({
-                url: path,
-                autostart: false,
-                loop: name === 'mainMenu', // Only loop the main menu music
-                onload: () => assetLoaded('audio', path) // Increment loaded count when ready
-            }).toDestination();
-            audioPlayers[name] = player;
+            try {
+                const player = new Tone.Player({
+                    url: path,
+                    autostart: false,
+                    loop: name === 'mainMenu', // Only loop the main menu music
+                    onload: () => assetLoaded('audio', path), // Increment loaded count when ready
+                    onerror: () => {
+                        console.warn(`Audio load failed: ${path}`);
+                        assetLoaded('audio', path); // Still increment to avoid hanging
+                    }
+                }).toDestination();
+                audioPlayers[name] = player;
+            } catch (e) {
+                console.warn(`Error creating audio player for ${path}:`, e);
+                // Create dummy player to avoid errors
+                audioPlayers[name] = { loaded: true };
+                assetLoaded('audio', path);
+            }
         }
 
         // Load a single background image
@@ -424,19 +435,24 @@
         // @param index - The array index to store it at
         function loadBackgroundMusic(path, index) {
             updateLoadingUI(path); // Show current file being loaded
-            const player = new Tone.Player({
-                url: path,
-                autostart: false,
-                loop: true,
-                onload: () => {
-                    backgroundMusicPlayers[index] = player;
-                    assetLoaded('music', path);
-                },
-                onerror: () => {
-                    console.error(`Failed to load music: ${path}`);
-                    assetLoaded('music', path); // Still increment to avoid hanging
-                }
-            }).toDestination();
+            try {
+                const player = new Tone.Player({
+                    url: path,
+                    autostart: false,
+                    loop: true,
+                    onload: () => {
+                        backgroundMusicPlayers[index] = player;
+                        assetLoaded('music', path);
+                    },
+                    onerror: () => {
+                        console.warn(`Music load failed: ${path}`);
+                        assetLoaded('music', path); // Still increment to avoid hanging
+                    }
+                }).toDestination();
+            } catch (e) {
+                console.warn(`Error creating music player for ${path}:`, e);
+                assetLoaded('music', path); // Still increment to avoid hanging
+            }
         }
 
         // ─── START LOADING ALL ASSETS ───────────────────────────────────────────

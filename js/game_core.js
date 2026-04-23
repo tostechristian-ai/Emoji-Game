@@ -3814,6 +3814,13 @@ async function tryLoadMusic(retries = 3) {
                 const video   = document.getElementById('introVideo');
                 const skipBtn = document.getElementById('skipIntroButton');
 
+                // Check if video element exists (iOS Safari compatibility)
+                if (!video) {
+                    console.warn('Video element not found, skipping intro video');
+                    resolve();
+                    return;
+                }
+
                 // Stop menu BGM before the video plays
                 if (currentBGMPlayer) {
                     currentBGMPlayer.onstop = () => {}; // Prevent auto-restart
@@ -3838,24 +3845,62 @@ async function tryLoadMusic(retries = 3) {
                 video.load();
 
                 function finish() {
-                    video.pause();
+                    try {
+                        video.pause();
+                    } catch (e) {}
                     overlay.style.display = 'none';
                     overlay.removeEventListener('click', finish);
                     overlay.removeEventListener('touchstart', finish);
                     skipBtn.removeEventListener('click', onSkip);
                     video.removeEventListener('ended', finish);
+                    // iOS Safari: also remove error listeners
+                    video.removeEventListener('error', onVideoError);
                     resolve();
                 }
 
-                function onSkip(e) { e.stopPropagation(); finish(); }
+                function onSkip(e) { if (e) e.stopPropagation(); finish(); }
+
+                // iOS Safari video error handler
+                function onVideoError(e) {
+                    console.warn('Video playback error (iOS Safari compatibility):', e);
+                    finish();
+                }
+
+                // Set up iOS Safari compatible attributes
+                video.setAttribute('playsinline', 'true');
+                video.setAttribute('webkit-playsinline', 'true');
+                video.setAttribute('muted', 'false');
 
                 overlay.style.display = 'flex';
                 video.currentTime = 0;
                 video.volume = 1;
                 video.muted = false;
-                video.play().catch(() => { video.muted = true; video.play().catch(() => finish()); });
 
-                video.addEventListener('ended', finish);
+                // Add error listener for iOS Safari
+                video.addEventListener('error', onVideoError, { once: true });
+
+                // Attempt to play with iOS Safari fallbacks
+                const attemptPlay = () => {
+                    video.play().then(() => {
+                        // Video playing successfully
+                    }).catch((err) => {
+                        console.warn('Video play failed, attempting muted playback:', err);
+                        // iOS Safari often requires muted autoplay
+                        video.muted = true;
+                        video.play().then(() => {
+                            // Muted playback successful
+                        }).catch((err2) => {
+                            console.warn('Muted video play also failed, skipping:', err2);
+                            // Skip video if playback fails completely
+                            finish();
+                        });
+                    });
+                };
+
+                // Small delay for iOS Safari to process video load
+                setTimeout(attemptPlay, 100);
+
+                video.addEventListener('ended', finish, { once: true });
                 overlay.addEventListener('click', finish);
                 overlay.addEventListener('touchstart', finish, { passive: true });
                 skipBtn.addEventListener('click', onSkip);
@@ -3867,6 +3912,14 @@ async function tryLoadMusic(retries = 3) {
                     if (gp && Array.from(gp.buttons).some(b => b.pressed)) { finish(); return; }
                     requestAnimationFrame(pollGamepadSkip);
                 })();
+
+                // iOS Safari: timeout fallback in case video hangs
+                setTimeout(() => {
+                    if (overlay.style.display !== 'none' && video.paused) {
+                        console.warn('Video playback timeout, proceeding to game');
+                        finish();
+                    }
+                }, 8000);
             });
         }
 

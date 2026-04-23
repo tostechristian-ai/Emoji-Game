@@ -61,12 +61,25 @@
             color: #F44336; /* Red text for LOCKED */
             font-weight: bold;
         }
+        /* ═══════════════════════════════════════════════════════════════════════
+           CSS VARIABLES & BASE STYLES
+           ═══════════════════════════════════════════════════════════════════════ */
+
+        :root {
+            --vh: 1vh; /* Will be set by JS for iOS Safari */
+            --safe-area-top: env(safe-area-inset-top, 0px);
+            --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+            --safe-area-left: env(safe-area-inset-left, 0px);
+            --safe-area-right: env(safe-area-inset-right, 0px);
+        }
+
         body {
     display: flex;
     flex-direction: column;
     justify-content: center;
     align-items: center;
     min-height: 100vh;
+    min-height: calc(var(--vh, 1vh) * 100); /* iOS Safari fix */
     margin: 0;
     background-color: #1a1a1a;
     color: #e0e0e0;
@@ -81,6 +94,11 @@
     position: relative;
     width: 100vw;
     max-width: 100%;
+    /* iOS safe area support */
+    padding-top: var(--safe-area-top);
+    padding-bottom: var(--safe-area-bottom);
+    padding-left: var(--safe-area-left);
+    padding-right: var(--safe-area-right);
 }
 
         #gameContainer {
@@ -2308,55 +2326,115 @@
                 font-size: 12px;
              }
 
+            /* ═══════════════════════════════════════════════════════════════════════
+               LEVEL UP SCREEN - MOBILE LANDSCAPE OPTIMIZATIONS
+               ═══════════════════════════════════════════════════════════════════════ */
+
             body.is-mobile #upgradeMenu {
-                padding-top: 2vh;
-                justify-content: center;
-                overflow-y: hidden;
+                padding-top: 1vh;
+                padding-bottom: 1vh;
+                justify-content: flex-start;
+                overflow-y: auto;
+                -webkit-overflow-scrolling: touch;
+                max-height: 100vh;
+                box-sizing: border-box;
             }
 
             body.is-mobile #upgradeMenu h2 {
-                font-size: 20px;
-                margin-bottom: 10px;
+                font-size: 16px;
+                margin-bottom: 4px;
+                flex-shrink: 0;
             }
 
             body.is-mobile #levelUpBox {
-                width: 80px;
-                margin-bottom: 5px !important;
+                width: 50px;
+                margin-bottom: 3px !important;
+                flex-shrink: 0;
             }
 
             body.is-mobile .upgrade-options-container {
-        gap: 10px; /* Reduced gap slightly */
-        flex-direction: row; /* Keep this as row */
-        align-items: center;
-        width: 100%;
-        justify-content: center; /* Add this to center the cards */
-    }
+                gap: 6px;
+                flex-direction: row;
+                flex-wrap: wrap;
+                align-items: stretch;
+                width: 100%;
+                justify-content: center;
+                max-height: calc(100vh - 80px);
+                overflow-y: auto;
+                -webkit-overflow-scrolling: touch;
+                padding: 5px;
+                padding-bottom: 15px;
+            }
 
-    /* CHANGE THIS RULE */
-    body.is-mobile .upgrade-card {
-        width: clamp(100px, 28vw, 130px); /* Make cards much narrower */
-        padding: 8px; /* Reduce padding */
-        aspect-ratio: 1 / 1.4; /* Make cards taller to accommodate buttons */
-        min-height: 160px; /* Ensure minimum height for button visibility */
-    }
+            body.is-mobile .upgrade-card {
+                width: clamp(75px, 20vw, 95px);
+                padding: 4px;
+                aspect-ratio: 1 / 1.1;
+                min-height: 110px;
+                max-height: 130px;
+            }
 
-    /* CHANGE THIS RULE */
-    body.is-mobile .upgrade-card h3 {
-        font-size: 13px; /* Smaller font for title */
-        margin-bottom: 5px;
-    }
+            body.is-mobile .upgrade-card h3 {
+                font-size: 10px;
+                margin-bottom: 2px;
+            }
 
-    /* CHANGE THIS RULE */
-    body.is-mobile .upgrade-card p {
-        font-size: 10px; /* Smaller font for description */
-        margin-bottom: 6px;
-        line-height: 1.2;
-    }
+            body.is-mobile .upgrade-card p {
+                font-size: 8px;
+                margin-bottom: 3px;
+                line-height: 1.1;
+            }
+
             body.is-mobile .upgrade-card button {
-                font-size: 11px;
-                padding: 8px 12px;
-                margin-top: auto; /* Push button to bottom */
-                min-height: 32px; /* Ensure button is tappable */
+                font-size: 9px;
+                padding: 4px 8px;
+                margin-top: auto;
+                min-height: 24px;
+            }
+
+            /* Extra small landscape screens optimization */
+            @media (max-height: 500px) and (orientation: landscape) {
+                body.is-mobile #upgradeMenu h2 {
+                    font-size: 14px;
+                    margin-bottom: 2px;
+                }
+
+                body.is-mobile #levelUpBox {
+                    width: 40px;
+                    margin-bottom: 2px !important;
+                }
+
+                body.is-mobile .upgrade-options-container {
+                    gap: 4px;
+                    max-height: calc(100vh - 60px);
+                    padding: 3px;
+                    padding-bottom: 10px;
+                }
+
+                body.is-mobile .upgrade-card {
+                    width: clamp(65px, 18vw, 85px);
+                    padding: 3px;
+                    aspect-ratio: 1 / 1.0;
+                    min-height: 90px;
+                    max-height: 110px;
+                }
+
+                body.is-mobile .upgrade-card h3 {
+                    font-size: 9px;
+                    margin-bottom: 1px;
+                }
+
+                body.is-mobile .upgrade-card p {
+                    font-size: 7px;
+                    margin-bottom: 2px;
+                    line-height: 1.0;
+                }
+
+                body.is-mobile .upgrade-card button {
+                    font-size: 8px;
+                    padding: 3px 6px;
+                    min-height: 20px;
+                }
             }
 
             body.is-mobile #difficultyScreen h1 {
@@ -2897,46 +2975,67 @@
         left: 5px;
     }
 
+    /* ═══════════════════════════════════════════════════════════════════════
+       LEVEL UP SCREEN - MOBILE PORTRAIT OPTIMIZATIONS
+       ═══════════════════════════════════════════════════════════════════════ */
+
     body.is-mobile #upgradeMenu {
-        padding-top: 5vh;
-        padding-bottom: 5vh;
-        justify-content: center;
+        padding-top: 3vh;
+        padding-bottom: 3vh;
+        justify-content: flex-start;
         overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
         max-height: 100vh;
+        box-sizing: border-box;
     }
 
     body.is-mobile #upgradeMenu h2 {
-        font-size: 24px;
+        font-size: 20px;
+        margin-bottom: 10px;
+        flex-shrink: 0;
+    }
+
+    body.is-mobile #levelUpSubtitle {
+        font-size: 12px;
         margin-bottom: 15px;
     }
 
     body.is-mobile #levelUpBox {
-        width: 120px;
+        width: 90px;
+        margin-bottom: 10px;
+        flex-shrink: 0;
     }
 
     body.is-mobile .upgrade-options-container {
-        gap: 10px;
+        gap: 8px;
         flex-direction: row;
+        flex-wrap: wrap;
         justify-content: center;
-        align-items: center;
+        align-items: stretch;
         width: 100%;
+        max-height: calc(100vh - 200px);
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        padding: 5px;
+        padding-bottom: 20px;
     }
 
     body.is-mobile .upgrade-card {
-        width: clamp(100px, 28vw, 130px);
+        width: clamp(90px, 42vw, 140px);
         padding: 8px;
-        aspect-ratio: 1 / 1.4;
-        min-height: 160px;
+        aspect-ratio: 1 / 1.35;
+        min-height: 150px;
+        max-height: 200px;
     }
 
     body.is-mobile .upgrade-card h3 {
-        font-size: 13px;
-        margin-bottom: 5px;
+        font-size: 12px;
+        margin-bottom: 4px;
     }
 
     body.is-mobile .upgrade-card p {
         font-size: 10px;
-        margin-bottom: 6px;
+        margin-bottom: 5px;
         line-height: 1.2;
     }
 
@@ -2945,6 +3044,44 @@
         padding: 8px 12px;
         margin-top: auto;
         min-height: 32px;
+    }
+
+    /* Small screen portrait optimization */
+    @media (max-width: 380px) and (orientation: portrait) {
+        body.is-mobile #upgradeMenu h2 {
+            font-size: 16px;
+            margin-bottom: 8px;
+        }
+
+        body.is-mobile #levelUpSubtitle {
+            font-size: 10px;
+            margin-bottom: 10px;
+        }
+
+        body.is-mobile #levelUpBox {
+            width: 70px;
+        }
+
+        body.is-mobile .upgrade-card {
+            width: clamp(80px, 45vw, 120px);
+            padding: 6px;
+            min-height: 130px;
+            max-height: 170px;
+        }
+
+        body.is-mobile .upgrade-card h3 {
+            font-size: 10px;
+        }
+
+        body.is-mobile .upgrade-card p {
+            font-size: 9px;
+        }
+
+        body.is-mobile .upgrade-card button {
+            font-size: 10px;
+            padding: 6px 10px;
+            min-height: 28px;
+        }
     }
 
     /* Character Select Screen fixes for mobile portrait */
@@ -3063,23 +3200,152 @@
         font-size: 10px;
     }
 
-    /* Map Select Screen fixes */
+    /* ═══════════════════════════════════════════════════════════════════════
+       MOBILE MAP SELECTOR - COMPREHENSIVE FIXES
+       ═══════════════════════════════════════════════════════════════════════ */
+
+    /* Base mobile map selector container */
     body.is-mobile #mapSelectContainer {
         width: 100vw;
         height: 100vh;
         border-radius: 0;
         aspect-ratio: auto;
+        position: fixed;
+        top: 0;
+        left: 0;
+        overflow: hidden;
     }
 
     body.is-mobile #mapSelectScreen {
         padding: 15px;
+        padding-top: 60px;
+        padding-bottom: 100px;
         justify-content: flex-start;
         overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        height: 100%;
+        box-sizing: border-box;
+        gap: 15px;
     }
 
     body.is-mobile #mapSelectScreen h1 {
-        font-size: 28px;
+        font-size: 24px;
         margin-bottom: 15px;
+        margin-top: 0;
+        flex-shrink: 0;
+    }
+
+    /* Mobile map tiles container - scrollable grid */
+    body.is-mobile #mapTilesContainer {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+        width: 100%;
+        max-width: 100%;
+        max-height: calc(100vh - 200px);
+        overflow-y: auto;
+        overflow-x: hidden;
+        -webkit-overflow-scrolling: touch;
+        padding: 10px;
+        padding-bottom: 80px;
+        box-sizing: border-box;
+    }
+
+    /* Mobile map tile styling */
+    body.is-mobile .map-tile {
+        aspect-ratio: 16 / 10;
+        min-height: 80px;
+        border-width: 2px;
+        border-radius: 8px;
+    }
+
+    body.is-mobile .map-tile p {
+        font-size: 11px;
+        padding: 4px 8px;
+        text-align: center;
+        line-height: 1.2;
+    }
+
+    /* Sticky back button for map selector */
+    body.is-mobile #backToDifficultySelectButton {
+        position: fixed;
+        bottom: 15px;
+        left: 50%;
+        transform: translateX(-50%);
+        margin-top: 0;
+        padding: 12px 24px;
+        font-size: 14px;
+        z-index: 1000;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+    }
+
+    /* Portrait mode specific - 2 columns */
+    @media (orientation: portrait) {
+        body.is-mobile #mapTilesContainer {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            padding: 8px;
+            padding-bottom: 80px;
+        }
+
+        body.is-mobile .map-tile {
+            min-height: 70px;
+        }
+
+        body.is-mobile .map-tile p {
+            font-size: 10px;
+        }
+
+        body.is-mobile #mapSelectScreen h1 {
+            font-size: 20px;
+        }
+    }
+
+    /* Landscape mode specific - 3-4 columns */
+    @media (orientation: landscape) {
+        body.is-mobile #mapTilesContainer {
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            padding: 5px;
+            padding-bottom: 70px;
+            max-height: calc(100vh - 150px);
+        }
+
+        body.is-mobile .map-tile {
+            min-height: 60px;
+            aspect-ratio: 16 / 9;
+        }
+
+        body.is-mobile .map-tile p {
+            font-size: 9px;
+            padding: 2px 4px;
+        }
+
+        body.is-mobile #mapSelectScreen {
+            padding-top: 50px;
+            padding-bottom: 80px;
+        }
+
+        body.is-mobile #mapSelectScreen h1 {
+            font-size: 18px;
+            margin-bottom: 10px;
+        }
+    }
+
+    /* Small screens optimization */
+    @media (max-width: 380px) {
+        body.is-mobile #mapTilesContainer {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+        }
+
+        body.is-mobile .map-tile {
+            min-height: 65px;
+        }
+
+        body.is-mobile .map-tile p {
+            font-size: 9px;
+        }
     }
 
     /* Music Player Screen mobile fixes */
@@ -3395,4 +3661,77 @@
             z-index: 3003;
             font-size: 36px;
             line-height: 1;
+        }
+
+        /* ═══════════════════════════════════════════════════════════════════════
+           iOS SAFARI SPECIFIC FIXES
+           ═══════════════════════════════════════════════════════════════════════ */
+
+        /* iOS safe area insets support for notched devices */
+        @supports (-webkit-touch-callout: none) {
+            /* CSS specific to iOS devices */
+            body.is-ios {
+                /* Prevent callout menu on long press */
+                -webkit-touch-callout: none;
+            }
+
+            /* Ensure proper height calculation on iOS Safari */
+            body.is-ios #difficultyContainer,
+            body.is-ios #mapSelectContainer,
+            body.is-ios #characterSelectContainer,
+            body.is-ios #musicPlayerContainer,
+            body.is-ios #upgradeShop,
+            body.is-ios #achievementsModal,
+            body.is-ios #cheatsModal,
+            body.is-ios #gameGuideModal,
+            body.is-ios #loadingScreen,
+            body.is-ios #startScreen,
+            body.is-ios #introVideoOverlay,
+            body.is-ios #splashScreen,
+            body.is-ios #gameContainer {
+                height: 100%;
+                height: calc(var(--vh, 1vh) * 100);
+            }
+
+            /* Prevent scroll bounce on iOS */
+            body.is-ios {
+                overscroll-behavior: none;
+                -webkit-overflow-scrolling: auto;
+            }
+
+            /* iOS landscape: handle notch area */
+            @media (orientation: landscape) {
+                body.is-ios {
+                    padding-left: env(safe-area-inset-left, 0px);
+                    padding-right: env(safe-area-inset-right, 0px);
+                }
+
+                body.is-ios #gameStatsWrapper {
+                    right: max(10px, env(safe-area-inset-right, 10px));
+                }
+
+                body.is-ios #pauseButton {
+                    right: max(180px, calc(env(safe-area-inset-right, 0px) + 180px));
+                }
+            }
+
+            /* iOS portrait: handle home indicator area */
+            @media (orientation: portrait) {
+                body.is-ios #movement-stick-base {
+                    bottom: max(140px, calc(env(safe-area-inset-bottom, 0px) + 120px));
+                }
+
+                body.is-ios #fire-stick-base {
+                    bottom: max(140px, calc(env(safe-area-inset-bottom, 0px) + 120px));
+                }
+
+                /* Adjust map selector for home indicator */
+                body.is-ios #mapTilesContainer {
+                    padding-bottom: max(80px, calc(env(safe-area-inset-bottom, 0px) + 60px));
+                }
+
+                body.is-ios #backToDifficultySelectButton {
+                    bottom: max(15px, env(safe-area-inset-bottom, 15px));
+                }
+            }
         }
