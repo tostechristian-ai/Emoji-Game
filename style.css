@@ -67,17 +67,12 @@
     justify-content: center;
     align-items: center;
     min-height: 100vh;
-    min-height: -webkit-fill-available; /* iOS fix for viewport height */
     margin: 0;
     background-color: #1a1a1a;
     color: #e0e0e0;
     font-family: 'Inter', sans-serif;
     text-align: center;
     padding: 0;
-    padding-top: env(safe-area-inset-top, 0);
-    padding-bottom: env(safe-area-inset-bottom, 0);
-    padding-left: env(safe-area-inset-left, 0);
-    padding-right: env(safe-area-inset-right, 0);
     box-sizing: border-box;
     -webkit-user-select: none;
     user-select: none;
@@ -2222,11 +2217,11 @@
         }
         
         @media (max-width: 900px) and (orientation: landscape) {
-             body.is-mobile #gameTimer {
-                font-size: 12px;
-             }
+            body.is-mobile {
+                min-height: 100vh;
+            }
 
-    /* Scale down main menu in landscape to fit all buttons */
+            /* Scale down main menu in landscape to fit all buttons */
             body.is-mobile #difficultyContainer {
                 width: 100vw;
                 height: 100vh;
@@ -2325,176 +2320,61 @@
                 line-height: 1.4;
              }
 
-    }
+             body.is-mobile #gameTimer {
+                font-size: 12px;
+             }
 
-    /* Scale down main menu in landscape to fit all buttons */
-    body.is-mobile #difficultyContainer {
-        width: 100vw;
-        height: 100vh;
-        display: flex;
+            body.is-mobile #upgradeMenu {
+                padding-top: 2vh;
+                justify-content: center;
+                overflow-y: hidden;
+            }
+
+            body.is-mobile #upgradeMenu h2 {
+                font-size: 20px;
+                margin-bottom: 10px;
+            }
+
+            body.is-mobile #levelUpBox {
+                width: 80px;
+                margin-bottom: 5px !important;
+            }
+
+            body.is-mobile .upgrade-options-container {
+        gap: 10px; /* Reduced gap slightly */
+        flex-direction: row; /* Keep this as row */
         align-items: center;
-        justify-content: center;
-        position: fixed;
-        top: 0;
-        left: 0;
-        aspect-ratio: auto;
-    }
-
-    body.is-mobile #difficultyScreen {
         width: 100%;
-        height: 100%;
-        transform: none;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-        position: relative;
-        background-size: cover;
-        gap: 3px;
-        padding: 5px;
+        justify-content: center; /* Add this to center the cards */
     }
 
-    /* Hide desktop and old mobile bottom buttons */
-    body.is-mobile .bottom-menu-buttons,
-    body.is-mobile #mobile-bottom-buttons {
-        display: none !important;
+    /* CHANGE THIS RULE */
+    body.is-mobile .upgrade-card {
+        width: clamp(100px, 28vw, 130px); /* Make cards much narrower */
+        padding: 10px; /* Reduce padding */
+        aspect-ratio: 1 / 1.2; /* Allow card to be slightly taller than wide */
     }
 
-    /* Mobile menu buttons integrated into main grid */
-    body.is-mobile .difficulty-buttons {
-        gap: 3px;
-        width: 95%;
-        max-width: 280px;
+    /* CHANGE THIS RULE */
+    body.is-mobile .upgrade-card h3 {
+        font-size: 13px; /* Smaller font for title */
+        margin-bottom: 5px;
     }
 
-    body.is-mobile .difficulty-buttons button {
-        width: 85px;
-        height: 28px;
-    }
-
-    body.is-mobile #gameContainer {
-        width: 100vw;
-    }
-
-    body.is-mobile canvas {
-        width: 100vw;
-        height: 100vh;
-        object-fit: contain;
-        border: none;
-        box-shadow: none;
-        touch-action: none;
-        max-width: 100vw;
-        max-height: 100vh;
-    }
-     
-    body.is-mobile #gameStatsWrapper {
-        position: absolute;
-        top: 30px;
-        right: 8px;
-        transform: scale(0.75);
-        transform-origin: top right;
-        contain: layout style paint;
-        min-width: max-content;
-    }
-    body.is-mobile #gameStats {
-        width: auto;
-        background: transparent;
-        color: #fff;
-        opacity: 1;
-        text-align: right;
-        padding: 10px 14px;
-        border: none;
-        text-shadow: 1px 1px 3px rgba(0,0,0,1), 0 0 6px rgba(0,0,0,0.8);
-    }
-    body.is-mobile #gameStatsWrapper::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: url(sprites/uibackground.png) no-repeat center center;
-        background-size: 100% 100%;
-        opacity: 0.5;
-        z-index: -1;
-        pointer-events: none;
-    }
-     body.is-mobile #gameStats p {
-        color: #fff;
-        font-size: 11px;
-        margin: 2px 0;
-        line-height: 1.4;
-     }
-
-     body.is-mobile #gameTimer {
-        font-size: 12px;
-     }
-
-    body.is-mobile #upgradeMenu {
-        padding-top: env(safe-area-inset-top, 1vh);
-        padding-bottom: env(safe-area-inset-bottom, 10px);
-        justify-content: flex-start;
-        overflow-y: auto;
-    }
-
-    body.is-mobile #upgradeMenu h2 {
-        font-size: clamp(16px, 4vh, 20px);
+    /* CHANGE THIS RULE */
+    body.is-mobile .upgrade-card p {
+        font-size: 10px; /* Smaller font for description */
         margin-bottom: 8px;
     }
+            body.is-mobile .upgrade-card button {
+                font-size: 12px;
+                padding: 6px 10px;
+            }
 
-    body.is-mobile #levelUpBox {
-        width: clamp(60px, 12vh, 80px);
-        margin-bottom: 5px !important;
-    }
-
-    body.is-mobile .upgrade-options-container {
-        gap: 6px;
-        flex-direction: row;
-        align-items: flex-start;
-        justify-content: center;
-        flex-wrap: nowrap;
-        overflow-x: auto;
-        overflow-y: hidden;
-        padding: 5px;
-        max-width: 100%;
-    }
-
-    body.is-mobile .upgrade-card {
-        width: clamp(100px, 28vw, 140px);
-        min-width: 100px;
-        padding: 10px;
-        min-height: 160px;
-        flex-shrink: 0;
-        display: flex;
-        flex-direction: column;
-        justify-content: space-between;
-    }
-
-    body.is-mobile .upgrade-card .upgrade-icon {
-        font-size: clamp(24px, 6vh, 32px);
-        margin-bottom: 4px;
-    }
-
-    body.is-mobile .upgrade-card h3 {
-        font-size: clamp(10px, 2.8vh, 13px);
-        margin-bottom: 3px;
-        line-height: 1.2;
-    }
-
-    body.is-mobile .upgrade-card p {
-        font-size: clamp(8px, 2.2vh, 10px);
-        margin-bottom: 5px;
-        line-height: 1.2;
-        flex-grow: 1;
-    }
-
-    body.is-mobile .upgrade-card button {
-        font-size: clamp(9px, 2.5vh, 11px);
-        padding: 5px 8px;
-        min-height: 32px;
-        width: 100%;
-        margin-top: auto;
-    }
+            body.is-mobile #difficultyScreen h1 {
+                font-size: 20px;
+                margin-bottom: 5px;
+            }
 
             body.is-mobile #highScoresContainer {
                 font-size: 7px;
@@ -2563,82 +2443,6 @@
             }
 
             body.is-mobile #backFromMusicPlayerButton {
-                padding: 10px 18px;
-                font-size: 14px;
-                margin-top: 8px;
-            }
-
-            /* Map Select Screen - Mobile Landscape Optimizations */
-            body.is-mobile #mapSelectScreen {
-                gap: 5px;
-                padding: 8px;
-                padding-bottom: 70px;
-            }
-
-            body.is-mobile #mapSelectScreen h1 {
-                font-size: 18px;
-                margin-bottom: 8px;
-                margin-top: env(safe-area-inset-top, 0);
-            }
-
-            body.is-mobile #mapTilesContainer {
-                grid-template-columns: repeat(3, 1fr);
-                gap: 8px;
-                max-height: calc(100vh - 100px);
-                padding: 5px;
-            }
-
-            body.is-mobile .map-tile {
-                min-height: 50px;
-                border-width: 2px;
-            }
-
-            body.is-mobile .map-tile p {
-                font-size: 11px;
-            }
-
-            body.is-mobile #backToDifficultySelectButton {
-                padding: 10px 20px;
-                font-size: 14px;
-                bottom: 10px;
-            }
-
-            /* Character Select Screen - Mobile Landscape Optimizations */
-            body.is-mobile #characterSelectScreen {
-                gap: 5px;
-                padding: 5px;
-            }
-
-            body.is-mobile #characterSelectScreen h1 {
-                font-size: 18px;
-                margin-bottom: 5px;
-            }
-
-            body.is-mobile #characterTilesContainer {
-                grid-template-columns: repeat(5, 1fr);
-                gap: 6px;
-                max-height: 50vh;
-            }
-
-            body.is-mobile .character-tile {
-                min-height: 40px;
-                padding: 4px;
-            }
-
-            body.is-mobile .character-tile .char-emoji {
-                font-size: 20px;
-            }
-
-            body.is-mobile .character-tile .char-name {
-                font-size: 8px;
-                margin: 2px 0;
-            }
-
-            body.is-mobile .character-tile .char-perk {
-                font-size: 6px;
-            }
-
-            body.is-mobile #backFromCharacterSelectButton {
                 padding: 10px 18px;
                 font-size: 14px;
                 margin-top: 8px;
@@ -2866,61 +2670,61 @@
             }
         }
 
-@media (max-width: 600px) {
-    #difficultyScreen h1 {
-        font-size: 20px;
-        margin-bottom: 8px;
-    }
+        @media (max-width: 600px) {
+            #difficultyScreen h1 {
+                font-size: 20px;
+                margin-bottom: 8px;
+            }
 
-    .difficulty-buttons {
-        flex-direction: row;
-        flex-wrap: wrap;
-        justify-content: center;
-        gap: 6px;
-        width: 95%;
-        max-width: 320px;
-    }
+            .difficulty-buttons {
+                flex-direction: row;
+                flex-wrap: wrap;
+                justify-content: center;
+                gap: 6px;
+                width: 95%;
+                max-width: 320px;
+            }
 
-    .difficulty-buttons button {
-        width: 110px;
-        height: 36px;
-    }
+            .difficulty-buttons button {
+                width: 110px;
+                height: 36px;
+            }
 
-    .spinning-emoji {
-        font-size: 50px;
-    }
+            .spinning-emoji {
+                font-size: 50px;
+            }
 
-    .emoji-container {
-        width: 70px;
-        height: 70px;
-    }
+            .emoji-container {
+                width: 70px;
+                height: 70px;
+            }
 
-    .left-emoji {
-        left: 2%;
-    }
+            .left-emoji {
+                left: 2%;
+            }
 
-    .right-emoji {
-        right: 2%;
-    }
+            .right-emoji {
+                right: 2%;
+            }
 
-    #highScoresContainer {
-        transform: scale(0.75);
-        transform-origin: top left;
-    }
+            #highScoresContainer {
+                transform: scale(0.75);
+                transform-origin: top left;
+            }
 
-    #gameOverlay h2 {
-        font-size: 22px;
-    }
+            #gameOverlay h2 {
+                font-size: 22px;
+            }
 
-    #gameOverlay p {
-        font-size: 14px;
-    }
+            #gameOverlay p {
+                font-size: 14px;
+            }
 
-    #gameOverlay button {
-        font-size: 14px;
-        padding: 8px 16px;
-    }
-}
+            #gameOverlay button {
+                font-size: 14px;
+                padding: 8px 16px;
+            }
+        }
 
 @media (max-width: 600px) and (orientation: portrait) {
     body.is-mobile {
@@ -3106,70 +2910,41 @@
     }
 
     body.is-mobile #upgradeMenu {
-        padding-top: env(safe-area-inset-top, 2vh);
-        padding-bottom: env(safe-area-inset-bottom, 20px);
-        justify-content: flex-start;
-        overflow-y: auto;
-        -webkit-overflow-scrolling: touch;
+        padding-top: 8vh;
+        justify-content: center;
     }
 
     body.is-mobile #upgradeMenu h2 {
-        font-size: clamp(18px, 5vw, 24px);
-        margin-bottom: 10px;
-        margin-top: 10px;
+        font-size: 24px;
+        margin-bottom: 15px;
     }
 
     body.is-mobile #levelUpBox {
-        width: clamp(80px, 25vw, 120px);
-        max-width: 120px;
+        width: 120px;
     }
 
     body.is-mobile .upgrade-options-container {
-        gap: 8px;
+        gap: 10px;
         flex-direction: row;
-        flex-wrap: wrap;
         justify-content: center;
-        align-items: flex-start;
+        align-items: center;
         width: 100%;
-        max-height: calc(100vh - 150px);
-        overflow-y: auto;
-        padding: 10px;
     }
 
     body.is-mobile .upgrade-card {
-        width: clamp(100px, 30vw, 160px);
-        min-width: 100px;
-        padding: 12px;
-        min-height: 180px;
-        display: flex;
-        flex-direction: column;
-        justify-content: space-between;
-    }
-
-    body.is-mobile .upgrade-card .upgrade-icon {
-        font-size: clamp(28px, 8vw, 40px);
-        margin-bottom: 5px;
+        width: clamp(100px, 28vw, 130px);
+        padding: 10px;
+        aspect-ratio: 1 / 1.2;
     }
 
     body.is-mobile .upgrade-card h3 {
-        font-size: clamp(11px, 3.5vw, 14px);
-        margin-bottom: 4px;
-        line-height: 1.2;
+        font-size: 13px;
+        margin-bottom: 5px;
     }
 
     body.is-mobile .upgrade-card p {
-        font-size: clamp(9px, 2.8vw, 11px);
-        margin-bottom: 6px;
-        line-height: 1.3;
-        flex-grow: 1;
-    }
-
-    body.is-mobile .upgrade-card button {
-        font-size: clamp(10px, 3vw, 12px);
-        padding: 8px 12px;
-        min-height: 36px;
-        width: 100%;
-        margin-top: auto;
+        font-size: 10px;
+        margin-bottom: 8px;
     }
 
     /* Character Select Screen fixes for mobile portrait */
@@ -3288,7 +3063,7 @@
         font-size: 10px;
     }
 
-    /* Map Select Screen fixes - Mobile Portrait */
+    /* Map Select Screen fixes */
     body.is-mobile #mapSelectContainer {
         width: 100vw;
         height: 100vh;
@@ -3300,106 +3075,11 @@
         padding: 15px;
         justify-content: flex-start;
         overflow-y: auto;
-        padding-bottom: 100px; /* Space for sticky button */
     }
 
     body.is-mobile #mapSelectScreen h1 {
-        font-size: 24px;
+        font-size: 28px;
         margin-bottom: 15px;
-        margin-top: env(safe-area-inset-top, 0);
-    }
-
-    /* Map Tiles Container - Mobile Portrait (similar to music player) */
-    body.is-mobile #mapTilesContainer {
-        display: grid;
-        grid-template-columns: repeat(2, 1fr);
-        gap: 12px;
-        width: 100%;
-        max-width: 100%;
-        max-height: calc(100vh - 200px);
-        overflow-y: auto;
-        padding: 10px;
-        padding-bottom: 80px;
-        box-sizing: border-box;
-    }
-
-    /* Individual Map Tiles - Mobile */
-    body.is-mobile .map-tile {
-        aspect-ratio: 16 / 9;
-        min-height: 80px;
-        border-width: 2px;
-        border-radius: 8px;
-    }
-
-    body.is-mobile .map-tile p {
-        font-size: 14px;
-        text-shadow: 1px 1px 3px black, 0 0 6px rgba(0,0,0,0.8);
-        padding: 0 5px;
-        text-align: center;
-        line-height: 1.2;
-    }
-
-    /* Sticky Back Button for Map Select */
-    body.is-mobile #backToDifficultySelectButton {
-        position: fixed;
-        bottom: 20px;
-        left: 50%;
-        transform: translateX(-50%);
-        margin-top: 0;
-        padding: 15px 30px;
-        font-size: 16px;
-        z-index: 1000;
-        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
-        min-height: 44px;
-        min-width: 100px;
-    }
-
-    /* Character Select Screen - Mobile Portrait */
-    body.is-mobile #characterSelectContainer {
-        width: 100vw;
-        height: 100vh;
-        border-radius: 0;
-        aspect-ratio: auto;
-    }
-
-    body.is-mobile #characterSelectScreen {
-        padding: 15px;
-        justify-content: flex-start;
-        overflow-y: auto;
-        padding-bottom: 100px;
-    }
-
-    body.is-mobile #characterSelectScreen h1 {
-        font-size: 24px;
-        margin-bottom: 15px;
-        margin-top: env(safe-area-inset-top, 0);
-    }
-
-    body.is-mobile #characterTilesContainer {
-        display: grid;
-        grid-template-columns: repeat(2, 1fr);
-        gap: 12px;
-        width: 100%;
-        max-width: 100%;
-        max-height: calc(100vh - 200px);
-        overflow-y: auto;
-        padding: 10px;
-        padding-bottom: 80px;
-        box-sizing: border-box;
-    }
-
-    body.is-mobile #backFromCharacterSelectButton {
-        position: fixed;
-        bottom: 20px;
-        left: 50%;
-        transform: translateX(-50%);
-        margin-top: 0;
-        padding: 15px 30px;
-        font-size: 16px;
-        z-index: 1000;
-        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
-        min-height: 44px;
-        min-width: 100px;
     }
 
     /* Music Player Screen mobile fixes */
