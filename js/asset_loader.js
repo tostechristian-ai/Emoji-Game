@@ -244,12 +244,26 @@
         let backgroundsLoadedCount = 0;
         let musicLoadedCount = 0;
         
-        // Detect if the player is on a mobile device
-        const isMobileDevice = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+        // Use comprehensive mobile compatibility system
+        const isMobileDevice = window.IS_MOBILE || false;
+        const isIOS = window.IS_IOS || false;
+        const isAndroid = window.IS_ANDROID || false;
+        const isLowEndDevice = window.IS_LOW_END_DEVICE || false;
+        const deviceTier = window.DEVICE_TIER || 'high';
+        const mobileSettings = window.MOBILE_SETTINGS || {};
         
-        // Mobile-specific asset loading optimizations
-        const MOBILE_MUSIC_LIMIT = 5; // Load only first 5 tracks on mobile
-        const MOBILE_BACKGROUND_LIMIT = 10; // Load only first 10 backgrounds on mobile
+        // Progressive loading based on device capabilities from compatibility system
+        const MOBILE_MUSIC_LIMIT = mobileSettings.musicTracks || 5;
+        const MOBILE_BACKGROUND_LIMIT = mobileSettings.backgrounds || 10;
+        const ENABLE_EMOJI_PRE_RENDERING = mobileSettings.emojiPreRendering !== false;
+        const ENABLE_PARTICLE_EFFECTS = mobileSettings.particleEffects || false;
+        
+        console.log(`Loading assets for ${deviceTier}-tier device:`, {
+            musicTracks: MOBILE_MUSIC_LIMIT,
+            backgrounds: MOBILE_BACKGROUND_LIMIT,
+            emojiPreRendering: ENABLE_EMOJI_PRE_RENDERING,
+            particleEffects: ENABLE_PARTICLE_EFFECTS
+        });
         
         // Filter asset lists for mobile devices
         const mobileBackgroundPaths = isMobileDevice ? backgroundPaths.slice(0, MOBILE_BACKGROUND_LIMIT) : backgroundPaths;
@@ -381,11 +395,15 @@
                     document.getElementById('levelUpBox').src = sprites.levelUpBox.src;
                 }
                 
-                // Mobile-specific: skip emoji pre-rendering to save memory
-                if (!isMobileDevice) {
-                    initializePreRenders();
+                // Progressive emoji pre-rendering based on device capabilities
+                if (ENABLE_EMOJI_PRE_RENDERING) {
+                    try {
+                        initializePreRenders();
+                    } catch (error) {
+                        console.warn('Emoji pre-rendering failed, continuing without it:', error);
+                    }
                 } else {
-                    console.log('Skipping emoji pre-rendering on mobile to save memory');
+                    console.log('Emoji pre-rendering disabled for this device');
                 }
                 
                 // Delay slightly to show 100% completion, then transition
