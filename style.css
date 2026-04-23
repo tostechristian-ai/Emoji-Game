@@ -3025,9 +3025,9 @@
     body.is-mobile .upgrade-card {
         width: clamp(75px, 22vw, 110px); /* Smaller width to fit 4 tiles */
         padding: 6px;
-        aspect-ratio: 1 / 1.4; /* Taller ratio for button space */
-        min-height: 150px;
-        max-height: 190px;
+        aspect-ratio: 1 / 1.7; /* Much taller ratio for button space */
+        min-height: 170px;
+        max-height: 210px;
         flex-shrink: 1; /* Allow cards to shrink if needed */
     }
 
@@ -3040,6 +3040,15 @@
         font-size: 9px;
         margin-bottom: 4px;
         line-height: 1.1;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        display: -webkit-box;
+        display: box;
+        -webkit-line-clamp: 3; /* Limit to 3 lines */
+        line-clamp: 3; /* Standard property for compatibility */
+        -webkit-box-orient: vertical;
+        box-orient: vertical;
+        flex-grow: 1;
     }
 
     body.is-mobile .upgrade-card button {
@@ -3048,6 +3057,7 @@
         margin-top: auto;
         min-height: 32px;
         flex-shrink: 0; /* Prevent button from shrinking */
+        margin-top: 8px; /* Extra space above button */
     }
 
     /* Small screen portrait optimization */
@@ -3074,9 +3084,9 @@
         body.is-mobile .upgrade-card {
             width: clamp(65px, 20vw, 95px); /* Even smaller for 4 tiles */
             padding: 5px;
-            aspect-ratio: 1 / 1.4; /* Taller ratio for button space */
-            min-height: 130px;
-            max-height: 160px;
+            aspect-ratio: 1 / 1.6; /* Much taller ratio for button space */
+            min-height: 150px;
+            max-height: 180px;
             flex-shrink: 1;
         }
 
@@ -3089,6 +3099,15 @@
             font-size: 8px;
             margin-bottom: 3px;
             line-height: 1.0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: -webkit-box;
+            display: box;
+            -webkit-line-clamp: 3;
+            line-clamp: 3; /* Standard property for compatibility */
+            -webkit-box-orient: vertical;
+            box-orient: vertical;
+            flex-grow: 1;
         }
 
         body.is-mobile .upgrade-card button {
@@ -3096,6 +3115,7 @@
             padding: 5px 8px;
             min-height: 28px;
             flex-shrink: 0; /* Prevent button from shrinking */
+            margin-top: 6px; /* Extra space above button */
         }
     }
 
