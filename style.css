@@ -3009,17 +3009,18 @@
     }
 
     body.is-mobile .upgrade-options-container {
-        gap: 6px;
+        gap: 8px;
         flex-direction: row;
         flex-wrap: nowrap; /* Prevent wrapping - keep tiles side-by-side */
         justify-content: center;
-        align-items: stretch;
+        align-items: center;
         width: 100%;
         max-height: calc(100vh - 200px);
         overflow-y: auto;
         -webkit-overflow-scrolling: touch;
-        padding: 5px;
+        padding: 10px 20px;
         padding-bottom: 20px;
+        margin: 0 auto;
     }
 
     body.is-mobile .upgrade-card {
@@ -3077,8 +3078,10 @@
         }
 
         body.is-mobile .upgrade-options-container {
-            gap: 4px; /* Smaller gap for tight fit */
+            gap: 6px; /* Slightly larger gap for better centering */
             flex-wrap: nowrap; /* Keep side-by-side */
+            padding: 8px 15px;
+            justify-content: center;
         }
 
         body.is-mobile .upgrade-card {
