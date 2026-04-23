@@ -459,8 +459,22 @@
         // Initialize category counters display
         updateLoadingUI('Starting...');
 
-        // These loops kick off the loading process for all game assets
-        for (const [name, path] of Object.entries(spritePaths)) loadSprite(name, path);
+        // Load critical loading screen background images FIRST for immediate display
+        const criticalImages = ['mainMenuBg', 'levelUpTile', 'levelUpTile2'];
+        criticalImages.forEach(name => {
+            if (spritePaths[name]) {
+                loadSprite(name, spritePaths[name]);
+            }
+        });
+
+        // Then load remaining sprites (filter out the ones already loaded)
+        for (const [name, path] of Object.entries(spritePaths)) {
+            if (!criticalImages.includes(name)) {
+                loadSprite(name, path);
+            }
+        }
+
+        // Load audio, backgrounds, and music
         for (const [name, path] of Object.entries(audioPaths)) loadAudio(name, path);
         backgroundPaths.forEach((path, index) => loadBackground(path, index));
         backgroundMusicPaths.forEach((path, index) => loadBackgroundMusic(path, index));
