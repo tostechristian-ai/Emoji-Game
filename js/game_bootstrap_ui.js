@@ -16,75 +16,6 @@
 
 //   - Fullscreen toggle (desktop only)
 
-// Utility function to add both click and touch event listeners for mobile compatibility
-function addMobileCompatibleEventListener(element, eventType, handler, options = {}) {
-  if (!element) {
-    console.warn('addMobileCompatibleEventListener: Element not found');
-    return;
-  }
-  
-  // Add both click and touch events to ensure mobile compatibility
-  element.addEventListener('click', (e) => {
-    e.preventDefault();
-    try {
-      handler(e);
-    } catch (error) {
-      console.error('Error in click handler:', error);
-    }
-  }, options);
-  
-  element.addEventListener('touchstart', (e) => {
-    e.preventDefault();
-    try {
-      handler(e);
-    } catch (error) {
-      console.error('Error in touch handler:', error);
-    }
-  }, { passive: false, ...options });
-  
-  // Fallback for older devices
-  element.addEventListener('touchend', (e) => {
-    e.preventDefault();
-    try {
-      handler(e);
-    } catch (error) {
-      console.error('Error in touchend handler:', error);
-    }
-  }, { passive: false, ...options });
-}
-
-// Comprehensive UI fallback system
-function initializeUIFallbacks() {
-  // Ensure critical UI elements exist
-  const criticalElements = [
-    'startScreen', 'loadingScreen', 'difficultyContainer', 'gameContainer'
-  ];
-  
-  criticalElements.forEach(id => {
-    const element = document.getElementById(id);
-    if (!element) {
-      console.warn(`Critical UI element missing: ${id}`);
-      // Create fallback element if needed
-      if (id === 'startScreen') {
-        const fallback = document.createElement('div');
-        fallback.id = 'startScreen';
-        fallback.style.display = 'flex';
-        fallback.innerHTML = '<button onclick="window.location.reload()">Reload Game</button>';
-        document.body.appendChild(fallback);
-      }
-    }
-  });
-  
-  // Add mobile-specific CSS classes
-  if (window.IS_MOBILE) {
-    document.body.classList.add('is-mobile');
-    document.body.classList.add(`device-tier-${window.DEVICE_TIER || 'unknown'}`);
-  }
-}
-
-// Initialize fallbacks immediately
-initializeUIFallbacks();
-
 
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -529,7 +460,7 @@ window.onload = function() {
 
   // Must be triggered by user interaction to unlock the Web Audio API
 
-  addMobileCompatibleEventListener(startButton, 'click', () => {
+  startButton.addEventListener('click', () => {
 
     // Strong vibration for game start - multiple pulses to ensure it's felt
 
@@ -616,7 +547,7 @@ window.onload = function() {
 
   difficultyButtons.forEach(button => {
 
-    addMobileCompatibleEventListener(button, 'click', (e) => {
+    button.addEventListener('click', (e) => {
 
       vibrateUI('select');
 
@@ -642,7 +573,7 @@ window.onload = function() {
 
   if (howToPlayButton) {
 
-    addMobileCompatibleEventListener(howToPlayButton, 'click', async () => {
+    howToPlayButton.addEventListener('click', async () => {
 
       vibrateUI();
 
@@ -702,7 +633,7 @@ window.onload = function() {
 
   // ─── CHARACTER SELECT NAVIGATION ─────────────────────────────────────────
 
-  addMobileCompatibleEventListener(characterSelectButton, 'click', () => {
+  characterSelectButton.addEventListener('click', () => {
 
     vibrateUI(); playUISound('uiClick');
 

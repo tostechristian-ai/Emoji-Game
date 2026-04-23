@@ -196,9 +196,12 @@
             'audio/background_music38.mp3'
         ];
 
-        
+        // Make paths accessible globally for fresh player creation
+        window.backgroundMusicPaths = backgroundMusicPaths;
+
         // Storage for preloaded background music players
         const backgroundMusicPlayers = [];
+        const totalMusic = backgroundMusicPaths.length;
 
         // ─── BACKGROUND MAP IMAGES ──────────────────────────────────────────────
         // Array of background images for different maps
@@ -237,6 +240,10 @@
         
         // Storage for loaded background images
         const backgroundImages = new Array(backgroundPaths.length);
+        const totalBackgrounds = backgroundPaths.length;
+        
+        // Total count of all assets to load (for progress tracking)
+        const totalAssets = totalSprites + totalAudio + totalBackgrounds + totalMusic;
 
         // Category-specific counters for detailed progress
         let spritesLoadedCount = 0;
@@ -244,39 +251,8 @@
         let backgroundsLoadedCount = 0;
         let musicLoadedCount = 0;
         
-        // Use comprehensive mobile compatibility system
-        const isMobileDevice = window.IS_MOBILE || false;
-        const isIOS = window.IS_IOS || false;
-        const isAndroid = window.IS_ANDROID || false;
-        const isLowEndDevice = window.IS_LOW_END_DEVICE || false;
-        const deviceTier = window.DEVICE_TIER || 'high';
-        const mobileSettings = window.MOBILE_SETTINGS || {};
-        
-        // Progressive loading based on device capabilities from compatibility system
-        const MOBILE_MUSIC_LIMIT = mobileSettings.musicTracks || 5;
-        const MOBILE_BACKGROUND_LIMIT = mobileSettings.backgrounds || 10;
-        const ENABLE_EMOJI_PRE_RENDERING = mobileSettings.emojiPreRendering !== false;
-        const ENABLE_PARTICLE_EFFECTS = mobileSettings.particleEffects || false;
-        
-        console.log(`Loading assets for ${deviceTier}-tier device:`, {
-            musicTracks: MOBILE_MUSIC_LIMIT,
-            backgrounds: MOBILE_BACKGROUND_LIMIT,
-            emojiPreRendering: ENABLE_EMOJI_PRE_RENDERING,
-            particleEffects: ENABLE_PARTICLE_EFFECTS
-        });
-        
-        // Filter asset lists for mobile devices
-        const mobileBackgroundPaths = isMobileDevice ? backgroundPaths.slice(0, MOBILE_BACKGROUND_LIMIT) : backgroundPaths;
-        const mobileMusicPaths = isMobileDevice ? backgroundMusicPaths.slice(0, MOBILE_MUSIC_LIMIT) : backgroundMusicPaths;
-        
-        // Update total counts for mobile
-        const totalBackgrounds = mobileBackgroundPaths.length;
-        const totalMusic = mobileMusicPaths.length;
-        const totalAssets = totalSprites + totalAudio + totalBackgrounds + totalMusic;
-        
-        // Make paths accessible globally for fresh player creation (mobile-optimized)
-        window.backgroundMusicPaths = mobileMusicPaths;
-        window.backgroundPaths = mobileBackgroundPaths;
+        // Detect if the player is on a mobile device
+        const isMobileDevice = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
        
 
@@ -373,16 +349,6 @@
             // Update the loading UI
             updateLoadingUI(fileName);
             
-            // Mobile-specific: force garbage collection periodically
-            if (isMobileDevice && assetsLoadedCount % 10 === 0) {
-                if (window.gc) window.gc(); // Force garbage collection if available
-                // Clear any pending timeouts to prevent memory leaks
-                if (window.mobileTimeouts) {
-                    window.mobileTimeouts.forEach(timeout => clearTimeout(timeout));
-                    window.mobileTimeouts = [];
-                }
-            }
-            
             // Check if all assets have finished loading
             if (assetsLoadedCount === totalAssets) {
                 console.log('All game assets loaded successfully.');
@@ -391,33 +357,16 @@
                 showLoadingComplete();
                 
                 // Set the level up box image source
-                if (sprites.levelUpBox && sprites.levelUpBox.src) {
-                    document.getElementById('levelUpBox').src = sprites.levelUpBox.src;
-                }
+                document.getElementById('levelUpBox').src = sprites.levelUpBox.src;
                 
-                // Progressive emoji pre-rendering based on device capabilities
-                if (ENABLE_EMOJI_PRE_RENDERING) {
-                    try {
-                        initializePreRenders();
-                    } catch (error) {
-                        console.warn('Emoji pre-rendering failed, continuing without it:', error);
-                    }
-                } else {
-                    console.log('Emoji pre-rendering disabled for this device');
-                }
+                // Pre-render all emojis for better performance
+                initializePreRenders();
                 
                 // Delay slightly to show 100% completion, then transition
                 setTimeout(() => {
                     // Hide loading screen and show start button
                     document.getElementById('loadingScreen').style.display = 'none';
                     document.getElementById('startScreen').style.display = 'flex';
-                    
-                    // Mobile-specific: clear any remaining memory
-                    if (isMobileDevice) {
-                        setTimeout(() => {
-                            if (window.gc) window.gc();
-                        }, 1000);
-                    }
                 }, 800);
             }
         }
@@ -427,23 +376,13 @@
         // @param path - The file path to the image
         function loadSprite(name, path) {
             const img = new Image();
-            img.crossOrigin = "anonymous"; // Handle potential CORS issues
             img.src = path;
             updateLoadingUI(path); // Show current file being loaded
-            
-            // Mobile-specific timeout to prevent hanging
-            const loadTimeout = setTimeout(() => {
-                console.warn(`Sprite load timeout: ${path} - skipping on mobile`);
-                assetLoaded('sprite', path); // Still increment to avoid hanging
-            }, isMobileDevice ? 5000 : 10000);
-            
             img.onload = () => {
-                clearTimeout(loadTimeout);
                 sprites[name] = img;
                 assetLoaded('sprite', path); // Increment loaded count
             };
             img.onerror = () => {
-                clearTimeout(loadTimeout);
                 console.error(`Failed to load sprite: ${path}`);
                 assetLoaded('sprite', path); // Still increment to avoid hanging
             };
@@ -454,23 +393,11 @@
         // @param path - The file path to the audio
         function loadAudio(name, path) {
             updateLoadingUI(path); // Show current file being loaded
-            
-            // Mobile-specific: skip some audio files to reduce memory usage
-            if (isMobileDevice && name !== 'uiClick' && name !== 'mainMenu' && name !== 'levelUp') {
-                console.log(`Skipping audio load on mobile: ${name}`);
-                assetLoaded('audio', path);
-                return;
-            }
-            
             const player = new Tone.Player({
                 url: path,
                 autostart: false,
                 loop: name === 'mainMenu', // Only loop the main menu music
-                onload: () => assetLoaded('audio', path), // Increment loaded count when ready
-                onerror: () => {
-                    console.error(`Failed to load audio: ${path}`);
-                    assetLoaded('audio', path); // Still increment to avoid hanging
-                }
+                onload: () => assetLoaded('audio', path) // Increment loaded count when ready
             }).toDestination();
             audioPlayers[name] = player;
         }
@@ -480,23 +407,13 @@
         // @param index - The array index to store it at
         function loadBackground(path, index) {
             const img = new Image();
-            img.crossOrigin = "anonymous";
             img.src = path;
             updateLoadingUI(path); // Show current file being loaded
-            
-            // Mobile-specific timeout
-            const loadTimeout = setTimeout(() => {
-                console.warn(`Background load timeout: ${path} - skipping on mobile`);
-                assetLoaded('background', path);
-            }, isMobileDevice ? 3000 : 8000);
-            
             img.onload = () => {
-                clearTimeout(loadTimeout);
                 backgroundImages[index] = img; // Store at specific index
                 assetLoaded('background', path); // Increment loaded count
             };
             img.onerror = () => {
-                clearTimeout(loadTimeout);
                 console.error(`Failed to load background: ${path}`);
                 assetLoaded('background', path); // Still increment to avoid hanging
             };
@@ -507,14 +424,6 @@
         // @param index - The array index to store it at
         function loadBackgroundMusic(path, index) {
             updateLoadingUI(path); // Show current file being loaded
-            
-            // Mobile-specific: further reduce music loading to prevent crashes
-            if (isMobileDevice && index > 2) {
-                console.log(`Skipping music track on mobile: ${path}`);
-                assetLoaded('music', path);
-                return;
-            }
-            
             const player = new Tone.Player({
                 url: path,
                 autostart: false,
@@ -533,17 +442,10 @@
         // ─── START LOADING ALL ASSETS ───────────────────────────────────────────
         // Initialize category counters display
         updateLoadingUI('Starting...');
-        
-        // Log mobile optimization info
-        if (isMobileDevice) {
-            console.log(`Mobile device detected - loading optimized assets:`);
-            console.log(`- Music: ${mobileMusicPaths.length}/${backgroundMusicPaths.length} tracks`);
-            console.log(`- Backgrounds: ${mobileBackgroundPaths.length}/${backgroundPaths.length} images`);
-        }
 
         // These loops kick off the loading process for all game assets
         for (const [name, path] of Object.entries(spritePaths)) loadSprite(name, path);
         for (const [name, path] of Object.entries(audioPaths)) loadAudio(name, path);
-        mobileBackgroundPaths.forEach((path, index) => loadBackground(path, index));
-        mobileMusicPaths.forEach((path, index) => loadBackgroundMusic(path, index));
+        backgroundPaths.forEach((path, index) => loadBackground(path, index));
+        backgroundMusicPaths.forEach((path, index) => loadBackgroundMusic(path, index));
 
